@@ -1,0 +1,12 @@
+@use "sass:math";
+
+// Optional: Custom Bootstrap / Tabler Variablen
+$font-size-base: 1rem !default;
+$line-height-base: 1.5 !default;
+
+// Fix für Tabler/Core SCSS Fehler
+$form-check-min-height: $font-size-base * math.div($line-height-base, 1) !default;
+
+
+
+

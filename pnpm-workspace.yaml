@@ -1,0 +1,6 @@
+# pnpm-workspace.yaml
+packages:
+  - frontend
+  - backend
+  - shared
+  - uploads

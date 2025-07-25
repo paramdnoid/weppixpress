@@ -1,0 +1,17 @@
+{
+  "name": "weppixpress",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter backend start"
+  },
+  "devDependencies": {
+    "vite": "^7.0.4"
+  }
+}
