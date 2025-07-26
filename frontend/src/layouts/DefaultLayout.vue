@@ -16,7 +16,7 @@
                     </router-link>
                 </div>
                 <div class="navbar-nav flex-row order-md-last">
-                    <UserDropdown v-if="user" :user="user" @logout="confirmLogout" />
+                    <UserDropdown v-if="auth.user" :user="auth.user" @logout="confirmLogout" />
                 </div>
                 <div class="collapse navbar-collapse justify-content-end" id="navbar-menu">
                     <Navbar />
@@ -55,30 +55,45 @@ import Navbar from '@/components/Navbar.vue'
 import UserDropdown from '@/components/UserDropdown.vue'
 import TreeView from '@/components/tree/TreeView.vue';
 
-// Vue core imports
-import { ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-
-// Auth store import
-import { useAuthStore } from '@/store'
+import { computed } from 'vue';
+const logoTargetPath = computed(() => auth.user ? '/files' : '/');
 
 // Assets and components
 import logo from '@/assets/images/logo-light.svg'
 
-const route = useRoute()
+import { ref, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router'
+
+const { treeData } = defineProps({ auth: Boolean, treeData: Array })
 const router = useRouter()
-const authStore = useAuthStore()
-const user = computed(() => authStore.user)
-const { auth, treeData } = defineProps({ auth: Boolean, treeData: Array })
-const logoTargetPath = computed(() => route.path === '/' ? '/files' : '/')
+const auth = useAuthStore();
+const data = ref(null);
+
 
 const showConfirm = ref(false)
 
 function confirmLogout() {
-    authStore.logout()
+    auth.logout()
     showConfirm.value = false
-    router.replace({ name: 'Login' })
+    router.replace({ path: '/login' })
 }
+
+onMounted(async () => {
+  try {
+    const res = await auth.fetchProtected();
+    data.value = res.data;
+  } catch (e) {
+    // Optional: Token refresh fallback
+    try {
+      await auth.refresh();
+      const res = await auth.fetchProtected();
+      data.value = res.data;
+    } catch (err) {
+      data.value = { message: 'Nicht autorisiert' };
+    }
+  }
+});
 </script>
 
 <style type="scss" scoped>

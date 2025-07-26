@@ -1,5 +1,5 @@
 <template>
-  <div v-if="user && user.email_verified" class="nav-item dropdown">
+  <div v-if="user && user.email" class="nav-item dropdown">
     <a href="#" @click.prevent class="nav-link d-flex lh-1 p-0 ps-2" data-bs-toggle="dropdown"
       aria-label="Open user menu">
       <span class="avatar avatar-sm text-primary">
@@ -100,6 +100,6 @@ function confirmLogout() {
 }
 
 .lh-xs {
-  line-height: .7;
+  line-height: .8;
 }
 </style>

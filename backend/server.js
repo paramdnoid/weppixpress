@@ -1,44 +1,44 @@
-// ============================================================================
-// Backend Server Entrypoint for weppixpress
-// ----------------------------------------------------------------------------
-// - Loads configuration from .env
-// - Sets up Express with middleware: CORS, cookies, JSON body parsing
-// - Mounts all authentication routes under /api/auth
-// - Listens on configurable port (default: 3000)
-// ============================================================================
-
-import dotenv from 'dotenv';
-dotenv.config({ quiet: true });
-
-import express, { json } from 'express';
+import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import authRoutes from './routes/auth.js';
+import dotenv from 'dotenv';
+import {
+  register, login, verifyEmail, forgotPassword, resetPassword,
+  setup2FA, enable2FAController, disable2FAController, verify2FA,
+  refreshToken, logout
+} from './controllers/authController.js';
+import authenticate from './middleware/authenticate.js';
+
+dotenv.config();
 
 const app = express();
 
-// --- Middleware ---
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(express.json());
 app.use(cookieParser());
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',  // Uses env for frontend URL
-  credentials: true
-}));
+app.post('/api/auth/register', register);
+app.get('/api/auth/verify-email', verifyEmail);
+app.post('/api/auth/login', login);
+app.post('/api/auth/verify-2fa', verify2FA);
 
-app.use(json());
+app.post('/api/auth/forgot-password', forgotPassword);
+app.post('/api/auth/reset-password', resetPassword);
 
-// --- Routes ---
-app.use('/api/auth', authRoutes);
+app.post('/api/auth/refresh', refreshToken);
+app.post('/api/auth/logout', logout);
 
-// --- Server Startup ---
-const PORT = process.env.PORT || 3000;
+// 2FA Management
+app.post('/api/auth/setup-2fa', authenticate, setup2FA);
+app.post('/api/auth/enable-2fa', authenticate, enable2FAController);
+app.post('/api/auth/disable-2fa', authenticate, disable2FAController);
 
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () =>
-    console.log(`Backend running on port ${PORT}`)
-  );
-}
+// Geschützte Beispielroute
+app.get('/api/files', authenticate, (req, res) => {
+  res.json({ message: `Hallo User ${req.user.userId}` });
+});
 
-export default app;
-
-// End of server entrypoint file.
+app.listen(process.env.PORT, () => console.log('Backend ready on port ' + process.env.PORT));

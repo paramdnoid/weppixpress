@@ -2,7 +2,7 @@
   <AuthLayout>
     <template #auth-text>
       <div class="logo-lg">
-        <span class="logo-txt">Willkommen bei {{ $appName }}</span>
+        <span class="logo-txt">Willkommen bei weppixpress</span>
       </div>
       <p class="text-muted font-size-15 w-75 mx-auto mt-1 mb-0">
         Vergib ein neues Passwort für dein Konto.
@@ -15,7 +15,7 @@
             <h2 class="mb-0">Neues Passwort setzen</h2>
             <p class="text-muted mt-2">Gib dein neues Passwort ein und bestätige es.</p>
           </div>
-          <form @submit.prevent="submitResetPassword" class="mt-3">
+          <form @submit.prevent="onReset" :class="{ 'form-disabled': loading }" class="mt-3">
             <div class="form-group mb-3">
               <PasswordInput v-model="password" id="password" label="Neues Passwort"
                 placeholder="Neues Passwort eingeben" required />
@@ -25,10 +25,13 @@
                 placeholder="Passwort erneut eingeben" required />
             </div>
             <div class="text-center">
-              <button type="submit" class="btn btn-primary w-100">Passwort zurücksetzen</button>
+              <button type="submit" class="btn btn-primary w-100" :disabled="loading">
+                <span v-if="loading">Wird gespeichert...</span>
+                <span v-else>Passwort zurücksetzen</span>
+              </button>
+              <div v-if="info">{{ info }} Du wirst weitergeleitet...</div>
+              <div v-if="error">{{ error }}</div>
             </div>
-            <div v-if="message" class="alert alert-success mt-3 text-center">{{ message }}</div>
-            <div v-if="error" class="alert alert-danger mt-3 text-center">{{ error }}</div>
           </form>
         </div>
       </div>
@@ -38,40 +41,52 @@
 
 <script setup>
 import AuthLayout from '@/layouts/AuthLayout.vue';
-import { ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 import PasswordInput from '@/components/form/PasswordInput.vue';
-import { useAuthStore } from '@/store'
+import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth.js';
+import { useRouter } from 'vue-router';
 
-const password = ref('');
+const loading = ref(false);
+const password = ref(''); 
 const confirmPassword = ref('');
+const info = ref(''); 
+const error = ref('');
+const store = useAuthStore();
+const router = useRouter();
 
-const route = useRoute()
-const router = useRouter()
-const token = ref(route.query.token || '')
-const error = ref('')
-const message = ref('')
-
-const auth = useAuthStore()
-
-async function submitResetPassword() {
-  error.value = ''
-  message.value = ''
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token');
+async function onReset() {
+  loading.value = true;
   if (password.value !== confirmPassword.value) {
-    error.value = 'Passwörter stimmen nicht überein.'
-    return
+    error.value = "Passwörter stimmen nicht überein!";
+    info.value = "";
+    loading.value = false;
+    return;
   }
-  if (!token.value) {
-    error.value = 'Kein Token übergeben.'
-    return
-  }
-
   try {
-    const result = await auth.resetPassword(token.value, password.value)
-    message.value = result
-    setTimeout(() => router.push('/login'), 3000)
-  } catch (err) {
-    error.value = err.message
+    await store.resetPassword(token, password.value);
+    info.value = 'Passwort geändert. Du kannst dich einloggen.';
+    window.$toast('Passwort erfolgreich geändert!', { type: 'success' });
+    password.value = '';
+    confirmPassword.value = '';
+    error.value = '';
+    setTimeout(() => {
+      router.push('/login');
+    }, 2000);
+  } catch (e) {
+    error.value = e.response?.data?.message || 'Fehler';
+    window.$toast('Fehler: ' + error.value, { type: 'danger' });
+    info.value = '';
+  } finally {
+    loading.value = false;
   }
 }
 </script>
+
+<style>
+.form-disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+</style>

@@ -2,7 +2,7 @@
   <AuthLayout>
     <template #auth-text>
       <div class="logo-lg">
-        <span class="logo-txt">Willkommen bei {{ $appName }}</span>
+        <span class="logo-txt">Willkommen bei weppixpress</span>
       </div>
       <p class="text-muted font-size-15 w-75 mx-auto mt-1 mb-0">
         Melde dich an und verwalte deine Dateien sicher und schnell.
@@ -15,7 +15,7 @@
             <h2 class="mb-0">Login</h2>
             <p class="text-muted mt-2">Gib deine Zugangsdaten ein, um fortzufahren.</p>
           </div>
-          <form @submit.prevent="login">
+          <form @submit.prevent="onLogin">
             <div class="form-floating mb-3">
               <input v-model="email" type="email" class="form-control" id="floatingEmail" placeholder="name@example.com"
                 required>
@@ -43,6 +43,10 @@
                 <span v-if="loading">Wird geladen...</span>
                 <span v-else>Login</span>
               </button>
+              <div v-if="auth.pending2FA">
+                <input v-model="code" maxlength="6" placeholder="2FA Code" @keyup.enter="on2FA">
+                <button @click.prevent="on2FA">2FA bestätigen</button>
+              </div>
             </div>
             <div class="mt-4 pt-3 text-center">
               <p class="text-muted mb-0">Noch kein Konto?
@@ -61,33 +65,39 @@
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import PasswordInput from '@/components/form/PasswordInput.vue';
 
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/store'
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
+const auth = useAuthStore();
+const router = useRouter();
+const email = ref('');
+const password = ref('');
+const error = ref('');
+const code = ref('');
+const loading = ref(false);
 
-const email = ref('')
-const password = ref('')
-const error = ref(null)
-const loading = ref(false)
-
-const router = useRouter()
-const auth = useAuthStore()
-
-async function login() {
-  loading.value = true
-  error.value = null
+async function onLogin() {
+  loading.value = true;
   try {
-    const data = await auth.login(email.value, password.value)
-
-    if (data?.user?.email_verified) {
-      router.replace({ name: 'Files' })
-    } else {
-      router.replace({ name: 'VerifyEmail' })
+    await auth.login(email.value, password.value);
+    if (!auth.pending2FA) {
+      router.push('/files'); // Hier redirect
+      window.$toast('Login erfolgreich!', { type: 'success' });
     }
-  } catch (err) {
-    error.value = err.message
+    error.value = '';
+  } catch (e) {
+    error.value = e.response?.data?.message || 'Fehler';
   } finally {
-    loading.value = false
+    loading.value = false;
   }
+}
+
+async function on2FA() {
+  try {
+    await auth.verify2FA(code.value);
+    error.value = '';
+    router.push('/files');
+    window.$toast('Login mit 2FA erfolgreich!', { type: 'success' });
+  } catch (e) { error.value = e.response?.data?.message || 'Fehler'; }
 }
 </script>

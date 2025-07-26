@@ -2,7 +2,7 @@
   <AuthLayout>
     <template #auth-text>
       <div class="logo-lg">
-        <span class="logo-txt">Willkommen bei {{ $appName }}</span>
+        <span class="logo-txt">Willkommen bei weppixpress</span>
       </div>
       <p class="text-muted font-size-15 w-75 mx-auto mt-1 mb-0">
         Registriere dich kostenlos und starte direkt durch.
@@ -15,7 +15,7 @@
             <h2 class="mb-0">Erstelle dein Konto</h2>
             <p class="text-muted mt-2">Schnell, sicher und kostenlos registrieren.</p>
           </div>
-          <form @submit.prevent="register">
+          <form @submit.prevent="onRegister" :class="{ 'form-disabled': loading }">
             <div class="row gx-2">
               <div class="col-md-5">
                 <div class="form-floating mb-3">
@@ -67,35 +67,40 @@
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import PasswordInput from '@/components/form/PasswordInput.vue';
 
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/store'
+import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth.js';
+const loading = ref(false);
+const store = useAuthStore();
+const email = ref(''); 
+const password = ref('');
+const firstName = ref(''); 
+const lastName = ref('');
+const error = ref(''); 
+const info = ref('');
 
-const firstName = ref('')
-const lastName = ref('')
-const email = ref('')
-const password = ref('')
-const error = ref(null)
-const loading = ref(false)
-
-const router = useRouter()
-const auth = useAuthStore()
-
-async function register() {
-  loading.value = true
-  error.value = null
+async function onRegister() {
+  loading.value = true;
   try {
-    const result = await auth.register(firstName.value, lastName.value, email.value, password.value)
-
-    if (result.user?.email_verified) {
-      router.push('/files')
-    } else {
-      router.push('/verify-email?email=' + result.email)
-    }
-  } catch (err) {
-    error.value = err.message
+    await store.register(firstName.value, lastName.value, email.value, password.value);
+    info.value = 'Bitte E-Mail bestätigen (Link gesendet)!';
+    window.$toast('Bitte bestätige deine E-Mail-Adresse.', { type: 'info' });
+    email.value = '';
+    password.value = '';
+    firstName.value = '';
+    lastName.value = '';
+    error.value = '';
+  } catch (e) {
+    error.value = e.response?.data?.message || 'Fehler';
+    info.value = '';
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>
+
+<style>
+.form-disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+</style>
