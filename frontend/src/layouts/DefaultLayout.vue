@@ -114,7 +114,7 @@ function confirmLogout() {
 }
 
 .navbar {
-    min-height: 2rem;
+    min-height: 3.5rem;
 
     .navbar-nav .nav-link:hover,
     .navbar-nav .nav-link:focus {

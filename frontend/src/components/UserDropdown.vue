@@ -83,7 +83,7 @@ function confirmLogout() {
 }
 
 .navbar .user-info-truncate {
-  max-width: 120px !important;
+  max-width: 140px !important;
 }
 
 .avatar {
@@ -100,6 +100,6 @@ function confirmLogout() {
 }
 
 .lh-xs {
-    line-height: .7;
+  line-height: .7;
 }
 </style>
