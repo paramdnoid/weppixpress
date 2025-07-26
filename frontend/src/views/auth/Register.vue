@@ -85,8 +85,13 @@ async function register() {
   loading.value = true
   error.value = null
   try {
-    await auth.register(firstName.value, lastName.value, email.value, password.value)
-    router.push('/files')
+    const result = await auth.register(firstName.value, lastName.value, email.value, password.value)
+    
+    if (result.user?.email_verified) {
+      router.push('/files')
+    } else {
+      router.push('/verify-email?email='+result.email)
+    }
   } catch (err) {
     error.value = err.message
   } finally {

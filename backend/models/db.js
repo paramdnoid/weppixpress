@@ -1,4 +1,22 @@
 /**
+ * Clears the verification token and its expiry for a user.
+ * @param {number} userId - The user's ID.
+ * @returns {Promise<void>}
+ */
+async function clearVerificationToken(userId) {
+  try {
+    const sql = `
+      UPDATE users
+      SET verify_token = NULL, verify_token_expires = NULL
+      WHERE id = ?
+    `;
+    await query(sql, [userId]);
+  } catch (err) {
+    console.error('clearVerificationToken error:', err);
+    throw err;
+  }
+}
+/**
  * Speichert einen Passwort-Zurücksetzen-Token in der Datenbank.
  * @param {number} userId - Die ID des Benutzers.
  * @param {string} token - Der Token.
@@ -38,31 +56,9 @@ async function query(sql, params) {
 }
 
 /**
- * Creates a new user in the database.
- * @param {string} email - The email of the user.
- * @param {string} password - The hashed password of the user.
- * @param {number} plan_id - The ID of the user's plan.
- * @returns {Promise<Object>} The created user object containing id, email, and plan_id.
- */
-async function createUser(email, password, plan_id) {
-  try {
-    const sql = `
-      INSERT INTO users (email, password, plan_id)
-      VALUES (?, ?, ?)
-    `;
-    const result = await query(sql, [email, password, plan_id]);
-
-
-
-    return { id: result.insertId, email, plan: plan_id };
-  } catch (err) {
-    console.error('createUser error:', err);
-    throw err;
-  }
-}
-
-/**
  * Creates a new user with email verification token and expiry.
+ * @param {string} first_name - The user's first_name.
+ * @param {string} last_name - The user's last_name.
  * @param {string} email - The user's email.
  * @param {string} password - The hashed password.
  * @param {number} plan_id - The ID of the user's plan.
@@ -70,13 +66,13 @@ async function createUser(email, password, plan_id) {
  * @param {Date} expires - Token expiry datetime.
  * @returns {Promise<Object>} The created user object.
  */
-async function createUserWithVerification(email, password, plan_id, token, expires) {
+async function createUserWithVerification(first_name, last_name, email, password, plan_id, token, expires) {
   try {
     const sql = `
-      INSERT INTO users (email, password, plan_id, verify_token, verify_token_expires)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO users (first_name, last_name, email, password, plan_id, verify_token, verify_token_expires)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
-    const result = await query(sql, [email, password, plan_id, token, expires]);
+    const result = await query(sql, [first_name, last_name, email, password, plan_id, token, expires]);
     return { id: result.insertId, email };
   } catch (err) {
     console.error('createUserWithVerification error:', err);
@@ -165,7 +161,7 @@ async function findRefreshToken(token) {
 async function getUserByEmail(email) {
   try {
     const sql = `
-      SELECT id, email, password, email_verified, verify_token_expires FROM users WHERE email = ?
+      SELECT id, email, password, CONCAT(first_name, ' ', last_name) AS full_name, email_verified, verify_token_expires FROM users WHERE email = ?
     `;
     const rows = await query(sql, [email]);
     return rows[0];
@@ -308,7 +304,6 @@ async function deletePasswordResetToken(token) {
 export default {
   query,
   countRefreshTokens,
-  createUser,
   createUserWithVerification,
   deleteOldestRefreshToken,
   deleteRefreshToken,
@@ -319,6 +314,7 @@ export default {
   getUserByVerificationToken,
   markEmailAsVerified,
   updateVerificationToken,
+  clearVerificationToken,
   savePasswordResetToken,
   getPasswordResetByToken,
   updateUserPassword,

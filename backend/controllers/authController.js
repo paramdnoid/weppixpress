@@ -14,12 +14,18 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const { sign, verify } = jwt;
 
 function generateAccessToken(payload) {
-  return sign(payload, process.env.JWT_SECRET, {
+  return sign({ ...payload, type: 'access' }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '15m'
   });
 }
 
 async function saveRefresh(userId, token, req) {
+  // Clean up expired tokens for this user
+  await db.query(
+    'DELETE FROM refresh_tokens WHERE user_id = ? AND expires_at < NOW()',
+    [userId]
+  );
+
   await db.saveRefreshToken({
     user_id: userId,
     token,
@@ -30,7 +36,7 @@ async function saveRefresh(userId, token, req) {
 }
 
 async function generateRefreshToken(user, req) {
-  const token = sign({ id: user.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+  const token = sign({ id: user.id, type: 'refresh' }, process.env.JWT_REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
 
   const count = await db.countRefreshTokens(user.id);
   if (count >= MAX_DEVICES) {
@@ -58,6 +64,11 @@ async function revokeAllUserTokens(userId) {
 }
 
 const refreshToken = async (req, res) => {
+  const csrf = req.headers['x-csrf-token'];
+  if (!csrf || csrf !== process.env.CSRF_SECRET) {
+    console.warn('[CSRF] Invalid CSRF token on refresh');
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
   const oldToken = req.cookies?.refresh_token || req.body.token;
   if (!oldToken) {
     console.log('[REFRESH] No token provided');
@@ -66,9 +77,21 @@ const refreshToken = async (req, res) => {
 
   try {
     const payload = verify(oldToken, process.env.JWT_REFRESH_SECRET);
+    if (payload.type !== 'refresh') {
+      console.warn('[TOKEN] Invalid token type on refresh');
+      return res.status(401).json({ error: 'Invalid token type' });
+    }
     const found = await db.findRefreshToken(oldToken);
-    if (!found) {
-      console.warn(`[SECURITY] Attempted reuse of invalid/expired refresh token for user ${payload.id}`);
+    // Optional: Validate user agent and IP
+    const userAgentMatches = found?.user_agent === req.headers['user-agent'];
+    const ipMatches = found?.ip_address === req.ip;
+    if (found && (!userAgentMatches || !ipMatches)) {
+      console.warn(`[SECURITY] Mismatch in user-agent or IP for refresh token of user ${payload.id}`);
+      await db.deleteRefreshToken(oldToken);
+      return res.status(403).json({ error: 'Device mismatch' });
+    }
+    if (!found && payload.exp > Date.now() / 1000) {
+      console.warn(`[SECURITY] Attempted reuse of valid (non-expired) refresh token for user ${payload.id}`);
       await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [payload.id]);
       return res.status(403).json({ error: 'Invalid refresh token' });
     }
@@ -94,6 +117,11 @@ const refreshToken = async (req, res) => {
 };
 
 const revokeToken = async (req, res) => {
+  const csrf = req.headers['x-csrf-token'];
+  if (!csrf || csrf !== process.env.CSRF_SECRET) {
+    console.warn('[CSRF] Invalid CSRF token on revoke');
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
   const token = req.cookies?.refresh_token || req.body.token;
   const allDevices = req.body.allDevices === true;
 
@@ -104,6 +132,10 @@ const revokeToken = async (req, res) => {
 
   try {
     const payload = verify(token, process.env.JWT_REFRESH_SECRET);
+    if (payload.type !== 'refresh') {
+      console.warn('[TOKEN] Invalid token type on revoke');
+      return res.status(401).json({ error: 'Invalid token type' });
+    }
 
     if (allDevices) {
       await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [payload.id]);
@@ -161,7 +193,7 @@ const login = async (req, res) => {
         id: user.id,
         email: user.email,
         email_verified: user.email_verified,
-        name: 'Max Mustermann'
+        name: user.full_name
       }
     });
   } catch (err) {
@@ -171,7 +203,7 @@ const login = async (req, res) => {
 };
 
 const register = async (req, res) => {
-  const { email, password } = req.body;
+  const { first_name, last_name, email, password } = req.body;
   try {
     // Validate email
     const isEmailValid = EMAIL_REGEX.test(email);
@@ -192,11 +224,11 @@ const register = async (req, res) => {
     const verificationExpires = new Date(Date.now() + ONE_DAY_MS);
 
     // Create user with verification
-    await db.createUserWithVerification(email, hashedPassword, "1", verificationToken, verificationExpires);
+    await db.createUserWithVerification(first_name, last_name, email, hashedPassword, "1", verificationToken, verificationExpires);
     await mail.sendVerificationEmail(email, verificationToken);
 
     console.log(`[REGISTER] User registered: ${email}`);
-    return res.status(201).json({ message: 'Registered. Please verify your email.' });
+    return res.status(201).json({ email: `${email}`, message: 'Registered. Please verify your email.' });
   } catch (err) {
     console.error('[REGISTER] Error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -227,6 +259,7 @@ const verifyEmail = async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
     await db.markEmailAsVerified(user.id);
+    await db.clearVerificationToken(user.id);
     console.log(`[VERIFY] Email verified: ${user.email}`);
     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-success`);
   } catch (err) {
@@ -291,6 +324,8 @@ const resetPassword = async (req, res) => {
     const hashed = await hash(password, 10);
     await db.updateUserPassword(reset.user_id, hashed);
     await db.deletePasswordResetToken(token);
+    // Revoke all refresh tokens for the user after password reset
+    await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [reset.user_id]);
 
     console.log(`[RESET] Password updated for user ${reset.user_id}`);
     return res.status(200).json({ message: 'Password has been reset' });

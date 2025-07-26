@@ -47,9 +47,15 @@ router.beforeEach(async (to, from, next) => {
     if (!authStore.isAuthenticated) {
       return next({ name: 'Login' })
     }
-    if (!authStore.user.email_verified) {
+
+    if (!authStore.user?.email_verified) {
       return next({ name: 'VerifyEmail' })
     }
+  }
+
+  // Prevent access to /verify-email if user is already verified
+  if (to.name === 'VerifyEmail' && authStore.user?.email_verified) {
+    return next({ name: 'Files' })
   }
 
   next()

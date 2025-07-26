@@ -4,7 +4,14 @@ import { useStorage } from '@vueuse/core'
 
 export const useAuthStore = defineStore('auth', () => {
   const rawUser = useStorage('user', null)
-  const user = computed(() => rawUser.value ? JSON.parse(rawUser.value) : null)
+  const user = computed(() => {
+    try {
+      return rawUser.value ? JSON.parse(rawUser.value) : null
+    } catch (e) {
+      console.warn('Invalid user JSON:', e)
+      return null
+    }
+  })
   const accessToken = useStorage('accessToken', null)
   const isAuthenticated = computed(() => !!user.value && !!accessToken.value)
 
@@ -21,7 +28,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(email, password) {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': import.meta.env.VITE_CSRF_SECRET
+      },
       body: JSON.stringify({ email, password })
     })
 
@@ -35,11 +45,14 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
-  async function register(firstName, lastName, email, password) {
+  async function register(first_name, last_name, email, password) {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstName, lastName, email, password })
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': import.meta.env.VITE_CSRF_SECRET
+      },
+      body: JSON.stringify({ first_name, last_name, email, password })
     })
 
     const data = await res.json()
@@ -54,7 +67,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function forgotPassword(email) {
     const res = await fetch('/api/auth/forgot-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': import.meta.env.VITE_CSRF_SECRET
+      },
       body: JSON.stringify({ email })
     })
 
@@ -69,7 +85,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function resetPassword(token, password) {
     const res = await fetch('/api/auth/reset-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': import.meta.env.VITE_CSRF_SECRET
+      },
       body: JSON.stringify({ token, password })
     })
 
@@ -81,5 +100,33 @@ export const useAuthStore = defineStore('auth', () => {
     return data.message || 'Passwort erfolgreich zurückgesetzt.'
   }
 
-  return { rawUser, user, accessToken, isAuthenticated, setAuth, logout, login, register, forgotPassword, resetPassword }
+  async function resendVerification(fallbackEmail) {
+    const email = user.value?.email || fallbackEmail
+    if (!email) {
+      throw new Error('Kein Benutzer angemeldet oder E-Mail fehlt.')
+    }
+
+    const res = await fetch('/api/auth/resend-verification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': import.meta.env.VITE_CSRF_SECRET
+      },
+      body: JSON.stringify({ email })
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data.error || 'Fehler beim erneuten Senden')
+    }
+
+    return data.message || 'Verifizierungslink gesendet'
+  }
+
+  return {
+    rawUser, user, accessToken, isAuthenticated,
+    setAuth, logout, login, register,
+    forgotPassword, resetPassword,
+    resendVerification
+  }
 })

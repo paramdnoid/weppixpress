@@ -16,7 +16,12 @@
             <p class="text-muted mt-2">Email wird verifiziert...</p>
           </div>
         </div>
-        <div class="text-center mt-4">
+        <div class="text-center mt-2">
+          <button @click="resend" class="btn btn-primary btn-sm" :disabled="loading">
+            <span v-if="loading">Sende erneut...</span>
+            <span v-else>Verifizierungslink erneut senden</span>
+          </button>
+          <p v-if="info" class="text-success mt-2">{{ info }}</p>
           <p v-if="error" class="text-danger">{{ error }}</p>
           <p v-else-if="success" class="text-success">Verifizierung erfolgreich!</p>
         </div>
@@ -24,20 +29,38 @@
     </div>
   </AuthLayout>
 </template>
+
 <script setup>
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/useAuthStore'
 
 const route = useRoute()
 const router = useRouter()
 const error = ref(null)
 const success = ref(false)
 
+const auth = useAuthStore()
+const loading = ref(false)
+const info = ref('')
+
+async function resend() {
+  loading.value = true
+  info.value = ''
+  try {
+    info.value = await auth.resendVerification(route.query.email)
+  } catch (err) {
+    info.value = err.message
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(async () => {
   const token = route.query.token
   if (!token) {
-    error.value = 'Kein Token vorhanden.'
+    info.value = 'überprüfe deine E-Mails.'
     return
   }
 
