@@ -4,6 +4,10 @@ import router from './router'
 import { createPinia } from 'pinia'
 import { Icon } from '@iconify/vue'
 
+import fetchWithAuth from './services/fetchClient';
+import { setupIdleLogout } from './plugins/idleLogout';
+import { useAuthStore } from './store';
+
 import '@tabler/core/js/tabler.js'
 import './assets/styles/main.scss'
 
@@ -22,5 +26,14 @@ app.component('Icon', Icon)
 app.config.errorHandler = (err, vm, info) => {
   console.error('Global Error:', err)
 }
+
+// Token initialisieren
+useAuthStore().initFromStorage();
+
+// Fetch-Client global verfügbar machen
+app.config.globalProperties.$fetch = fetchWithAuth;
+
+// Idle-Logout aktivieren
+setupIdleLogout();
 
 app.mount('#app')

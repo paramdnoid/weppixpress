@@ -60,7 +60,7 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 // Auth store import
-import { useAuthStore } from '@/stores/useAuthStore'
+import { useAuthStore } from '@/store'
 
 // Assets and components
 import logo from '@/assets/images/logo-light.svg'
@@ -128,5 +128,4 @@ function confirmLogout() {
         background-color: var(--tblr-dropdown-link-active-bg);
     }
 }
-
 </style>

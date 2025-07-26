@@ -18,14 +18,8 @@
         </div>
         <form @submit.prevent="submitForgotPassword">
           <div class="form-floating mb-3">
-            <input
-              v-model="email"
-              type="email"
-              id="email"
-              class="form-control"
-              placeholder="Deine E-Mail-Adresse"
-              required
-            />
+            <input v-model="email" type="email" id="email" class="form-control" placeholder="Deine E-Mail-Adresse"
+              required />
             <label for="email">E-Mail-Adresse</label>
           </div>
           <div class="text-center">
@@ -41,7 +35,7 @@
 
 <script setup>
 import AuthLayout from '@/layouts/AuthLayout.vue';
-import { useAuthStore } from '@/stores/useAuthStore'
+import { useAuthStore } from '@/store'
 import { ref } from 'vue'
 
 const email = ref('')

@@ -154,16 +154,6 @@ const revokeToken = async (req, res) => {
   }
 };
 
-function setAuthCookies(res, refreshToken) {
-  const isProd = process.env.NODE_ENV === 'production';
-  res.cookie('refresh_token', refreshToken, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'Strict',
-    maxAge: SEVEN_DAYS_MS // 7 days
-  });
-}
-
 const login = async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -184,7 +174,7 @@ const login = async (req, res) => {
     const refreshToken = await generateRefreshToken(user, req);
 
     // Set refresh token as cookie
-    setAuthCookies(res, refreshToken);
+    setRefreshTokenCookie(res, refreshToken);
 
     console.log(`[LOGIN] User logged in: ${email}`);
     return res.status(200).json({
@@ -341,10 +331,10 @@ export default {
   getProfile,
   verifyEmail,
   resendVerification,
-  setAuthCookies,
+  setRefreshTokenCookie,
   refreshToken,
   revokeToken,
   revokeAllUserTokens,
   forgotPassword,
-  resetPassword
+  resetPassword,
 };

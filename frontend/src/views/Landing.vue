@@ -45,7 +45,7 @@
 <script setup>
 import { computed } from 'vue'
 import HeroShowcase from '@/components/HeroShowcase.vue'
-import { useAuthStore } from '@/stores/useAuthStore'
+import { useAuthStore } from '@/store'
 
 const authStore = useAuthStore()
 const user = computed(() => authStore.user)
@@ -53,6 +53,4 @@ const loginTarget = computed(() => user.value ? '/files' : '/login')
 
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

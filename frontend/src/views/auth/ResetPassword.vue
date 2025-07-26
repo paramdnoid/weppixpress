@@ -17,22 +17,12 @@
           </div>
           <form @submit.prevent="submitResetPassword" class="mt-3">
             <div class="form-group mb-3">
-              <PasswordInput
-                v-model="password"
-                id="password"
-                label="Neues Passwort"
-                placeholder="Neues Passwort eingeben"
-                required
-              />
+              <PasswordInput v-model="password" id="password" label="Neues Passwort"
+                placeholder="Neues Passwort eingeben" required />
             </div>
             <div class="form-group mb-3">
-              <PasswordInput
-                v-model="confirmPassword"
-                id="confirmPassword"
-                label="Passwort bestätigen"
-                placeholder="Passwort erneut eingeben"
-                required
-              />
+              <PasswordInput v-model="confirmPassword" id="confirmPassword" label="Passwort bestätigen"
+                placeholder="Passwort erneut eingeben" required />
             </div>
             <div class="text-center">
               <button type="submit" class="btn btn-primary w-100">Passwort zurücksetzen</button>
@@ -51,7 +41,7 @@ import AuthLayout from '@/layouts/AuthLayout.vue';
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PasswordInput from '@/components/form/PasswordInput.vue';
-import { useAuthStore } from '@/stores/useAuthStore.js'
+import { useAuthStore } from '@/store'
 
 const password = ref('');
 const confirmPassword = ref('');

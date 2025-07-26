@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/useAuthStore'
+import { useAuthStore } from '@/store'
 
 const routes = [
   { path: '/', name: 'Landing', component: () => import('@/views/Landing.vue') },

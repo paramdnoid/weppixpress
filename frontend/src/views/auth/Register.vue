@@ -69,7 +69,7 @@ import PasswordInput from '@/components/form/PasswordInput.vue';
 
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/useAuthStore'
+import { useAuthStore } from '@/store'
 
 const firstName = ref('')
 const lastName = ref('')
@@ -86,11 +86,11 @@ async function register() {
   error.value = null
   try {
     const result = await auth.register(firstName.value, lastName.value, email.value, password.value)
-    
+
     if (result.user?.email_verified) {
       router.push('/files')
     } else {
-      router.push('/verify-email?email='+result.email)
+      router.push('/verify-email?email=' + result.email)
     }
   } catch (err) {
     error.value = err.message

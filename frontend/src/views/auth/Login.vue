@@ -63,7 +63,7 @@ import PasswordInput from '@/components/form/PasswordInput.vue';
 
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/useAuthStore'
+import { useAuthStore } from '@/store'
 
 const email = ref('')
 const password = ref('')

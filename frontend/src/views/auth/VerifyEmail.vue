@@ -34,7 +34,7 @@
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/useAuthStore'
+import { useAuthStore } from '@/store'
 
 const route = useRoute()
 const router = useRouter()

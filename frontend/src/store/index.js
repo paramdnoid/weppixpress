@@ -12,12 +12,35 @@ export const useAuthStore = defineStore('auth', () => {
       return null
     }
   })
+
   const accessToken = useStorage('accessToken', null)
+  const token = computed(() => accessToken.value)
+  const expiresAt = computed(() => {
+    if (!accessToken.value) return 0
+    const parts = accessToken.value.split('.')
+    if (parts.length !== 3) return 0
+    const payload = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+    try {
+      const json = atob(payload)
+      // Optionally handle URI-encoding
+      const obj = JSON.parse(decodeURIComponent(escape(json)))
+      return obj.exp ? obj.exp * 1000 : 0
+    } catch {
+      return 0
+    }
+  })
   const isAuthenticated = computed(() => !!user.value && !!accessToken.value)
 
   function setAuth(data) {
-    rawUser.value = JSON.stringify(data.user)
-    accessToken.value = data.accessToken
+    // Accept either { accessToken, user } or { token }
+    if (data.user) {
+      rawUser.value = JSON.stringify(data.user)
+    }
+    // accessToken may be under data.accessToken or data.token
+    const tok = data.accessToken || data.token
+    accessToken.value = tok
   }
 
   function logout() {
@@ -82,14 +105,14 @@ export const useAuthStore = defineStore('auth', () => {
     return data.message || 'E-Mail zum Zurücksetzen gesendet'
   }
 
-  async function resetPassword(token, password) {
+  async function resetPassword(tokenParam, password) {
     const res = await fetch('/api/auth/reset-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-csrf-token': import.meta.env.VITE_CSRF_SECRET
       },
-      body: JSON.stringify({ token, password })
+      body: JSON.stringify({ token: tokenParam, password })
     })
 
     const data = await res.json()
@@ -101,8 +124,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function resendVerification(fallbackEmail) {
-    const email = user.value?.email || fallbackEmail
-    if (!email) {
+    const emailVal = user.value?.email || fallbackEmail
+    if (!emailVal) {
       throw new Error('Kein Benutzer angemeldet oder E-Mail fehlt.')
     }
 
@@ -112,7 +135,7 @@ export const useAuthStore = defineStore('auth', () => {
         'Content-Type': 'application/json',
         'x-csrf-token': import.meta.env.VITE_CSRF_SECRET
       },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ email: emailVal })
     })
 
     const data = await res.json()
@@ -123,10 +146,24 @@ export const useAuthStore = defineStore('auth', () => {
     return data.message || 'Verifizierungslink gesendet'
   }
 
+  function initFromStorage() {
+    // useStorage sorgt bereits für Persistenz. Hier können Side-Effects ausgeführt werden.
+  }
+
   return {
-    rawUser, user, accessToken, isAuthenticated,
-    setAuth, logout, login, register,
-    forgotPassword, resetPassword,
-    resendVerification
+    rawUser,
+    user,
+    accessToken,
+    token,
+    expiresAt,
+    isAuthenticated,
+    setAuth,
+    logout,
+    login,
+    register,
+    forgotPassword,
+    resetPassword,
+    resendVerification,
+    initFromStorage
   }
 })

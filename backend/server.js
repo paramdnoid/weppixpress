@@ -3,10 +3,15 @@ dotenv.config({ quiet: true })
 
 import express, { json } from 'express';
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 import authRoutes from './routes/auth.js';
 
 const app = express();
-app.use(cors())
+app.use(cookieParser())
+app.use(cors({
+  origin: 'http://localhost:3000',  // passe ggf. an eure Frontend-URL an
+  credentials: true
+}))
 app.use(json());
 
 app.use('/api/auth', authRoutes);
