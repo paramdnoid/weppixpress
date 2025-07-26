@@ -1,6 +1,7 @@
 /**
- * @fileoverview Utilities for sending verification emails using SMTP.
- * Provides functions to generate verification email HTML content and send emails.
+ * @fileoverview Mail utility module for sending verification and password reset emails.
+ * Provides functions to generate email HTML content from templates and send emails via SMTP.
+ * Handles environment configuration, SMTP transporter setup, and template reading with error handling.
  */
 
 import { dirname } from 'path'
@@ -17,7 +18,7 @@ import { createTransport } from 'nodemailer';
 const requiredEnv = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'];
 for (const envVar of requiredEnv) {
   if (!process.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}`);
+    throw new Error(`[Mail] Missing required environment variable: ${envVar}`);
   }
 }
 
@@ -31,9 +32,17 @@ const transporter = createTransport({
   }
 });
 
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('[Mail] SMTP connection failed:', error);
+  } else {
+    console.log('[Mail] SMTP server is ready to send messages');
+  }
+});
+
 /**
- * Generates the HTML content for the verification email by reading a template file.
- * Replaces the placeholder with the verification URL.
+ * Generates the HTML content for the verification email by reading the template file.
+ * Replaces the placeholder with the verification URL containing the token.
  * @param {string} token - The verification token to include in the URL.
  * @returns {string} The HTML content of the verification email.
  * @throws Will throw an error if the template file cannot be read.
@@ -44,23 +53,17 @@ function generateVerificationEmailHtml(token) {
   try {
     return readFileSync(filePath, 'utf8').replace('{{VERIFY_URL}}', verifyUrl);
   } catch (err) {
-    console.error(`Error reading verification email template: ${err.message}`);
+    console.error(`[Mail] Error reading verification email template: ${err.message}`);
     throw err;
   }
 }
 
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('SMTP connection failed:', error);
-  } else {
-    console.log('SMTP server ready to send messages');
-  }
-});
-
 /**
- * Sends a verification email to the specified email address with the given token.
+ * Sends a verification email to the specified email address with the provided token.
  * @param {string} email - The recipient's email address.
  * @param {string} token - The verification token to include in the email.
+ * @returns {Promise<void>} A promise that resolves when the email is sent.
+ * @throws Will throw an error if sending the email fails.
  */
 async function sendVerificationEmail(email, token) {
   try {
@@ -71,24 +74,48 @@ async function sendVerificationEmail(email, token) {
       html: generateVerificationEmailHtml(token)
     });
   } catch (error) {
-    console.error(`Failed to send verification email to ${email}:`, error);
+    console.error(`[Mail] Failed to send verification email to ${email}:`, error);
     throw error;
   }
 }
 
+/**
+ * Generates the HTML content for the password reset email by reading the template file.
+ * Replaces the placeholder with the password reset URL containing the token.
+ * @param {string} token - The password reset token to include in the URL.
+ * @returns {string} The HTML content of the password reset email.
+ * @throws Will throw an error if the template file cannot be read.
+ */
 function generatePasswordResetHtml(token) {
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
   const filePath = resolve(__dirname, 'email-templates/reset.html');
-  return readFileSync(filePath, 'utf8').replace('{{RESET_URL}}', resetUrl);
+  try {
+    return readFileSync(filePath, 'utf8').replace('{{RESET_URL}}', resetUrl);
+  } catch (err) {
+    console.error(`[Mail] Error reading password reset email template: ${err.message}`);
+    throw err;
+  }
 }
 
+/**
+ * Sends a password reset email to the specified email address with the provided token.
+ * @param {string} email - The recipient's email address.
+ * @param {string} token - The password reset token to include in the email.
+ * @returns {Promise<void>} A promise that resolves when the email is sent.
+ * @throws Will throw an error if sending the email fails.
+ */
 async function sendPasswordResetEmail(email, token) {
-  await transporter.sendMail({
-    from: '"weppiXPRESS" <noreply@weppixpress.com>',
-    to: email,
-    subject: 'Passwort zurücksetzen',
-    html: generatePasswordResetHtml(token)
-  });
+  try {
+    await transporter.sendMail({
+      from: '"weppiXPRESS" <noreply@weppixpress.com>',
+      to: email,
+      subject: 'Passwort zurücksetzen',
+      html: generatePasswordResetHtml(token)
+    });
+  } catch (error) {
+    console.error(`[Mail] Failed to send password reset email to ${email}:`, error);
+    throw error;
+  }
 }
 
 export default {
@@ -97,3 +124,5 @@ export default {
   sendPasswordResetEmail,
   generatePasswordResetHtml
 };
+
+/* End of mail.js - Mail utility module */

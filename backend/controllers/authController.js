@@ -6,6 +6,15 @@ import mail from '../utils/mail.js';
 import dotenv from 'dotenv';
 dotenv.config({ quiet: true });
 
+/**
+ * Authentication Controller
+ * 
+ * This controller handles all authentication-related operations including user registration,
+ * login, token generation and rotation, email verification, password reset, and profile retrieval.
+ * It manages JWT access and refresh tokens, enforces security measures such as CSRF validation,
+ * and interacts with the database through the db module.
+ */
+
 const REFRESH_EXPIRES_IN = '7d';
 const MAX_DEVICES = 5;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -41,11 +50,11 @@ async function generateRefreshToken(user, req) {
   const count = await db.countRefreshTokens(user.id);
   if (count >= MAX_DEVICES) {
     await db.deleteOldestRefreshToken(user.id);
-    console.log(`[refreshToken] Device limit reached for user ${user.id}, deleted oldest refresh token`);
+    console.log(`[Auth] Device limit reached for user ${user.id}, deleted oldest refresh token`);
   }
 
   await saveRefresh(user.id, token, req);
-  console.log(`[refreshToken] Created refresh token for user ${user.id} from IP ${req.ip}`);
+  console.log(`[Auth] Created refresh token for user ${user.id} from IP ${req.ip}`);
   return token;
 }
 
@@ -59,101 +68,124 @@ function setRefreshTokenCookie(res, refreshToken) {
   });
 }
 
+/**
+ * Revoke all refresh tokens associated with a user.
+ * @param {number} userId - The ID of the user whose tokens will be revoked.
+ * @returns {Promise<void>}
+ */
 async function revokeAllUserTokens(userId) {
   await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [userId]);
 }
 
+/**
+ * Handle refresh token rotation and access token renewal.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @returns {Promise<object>} JSON response containing new access token or error.
+ */
 const refreshToken = async (req, res) => {
   const csrf = req.headers['x-csrf-token'];
   if (!csrf || csrf !== process.env.CSRF_SECRET) {
-    console.warn('[CSRF] Invalid CSRF token on refresh');
-    return res.status(403).json({ error: 'Invalid CSRF token' });
+    console.warn('[Auth] Invalid CSRF token on refresh');
+    return res.status(403).json({ error: 'Forbidden: Invalid CSRF token' });
   }
   const oldToken = req.cookies?.refresh_token || req.body.token;
   if (!oldToken) {
-    console.log('[REFRESH] No token provided');
-    return res.status(401).json({ error: 'No refresh token provided' });
+    console.log('[Auth] No refresh token provided');
+    return res.status(401).json({ error: 'Unauthorized: No refresh token provided' });
   }
 
   try {
     const payload = verify(oldToken, process.env.JWT_REFRESH_SECRET);
     if (payload.type !== 'refresh') {
-      console.warn('[TOKEN] Invalid token type on refresh');
-      return res.status(401).json({ error: 'Invalid token type' });
+      console.warn('[Auth] Invalid token type on refresh');
+      return res.status(401).json({ error: 'Unauthorized: Invalid token type' });
     }
     const found = await db.findRefreshToken(oldToken);
     // Optional: Validate user agent and IP
     const userAgentMatches = found?.user_agent === req.headers['user-agent'];
     const ipMatches = found?.ip_address === req.ip;
     if (found && (!userAgentMatches || !ipMatches)) {
-      console.warn(`[SECURITY] Mismatch in user-agent or IP for refresh token of user ${payload.id}`);
+      console.warn(`[Auth] Device mismatch detected for user ${payload.id}`);
       await db.deleteRefreshToken(oldToken);
-      return res.status(403).json({ error: 'Device mismatch' });
+      return res.status(403).json({ error: 'Forbidden: Device mismatch detected' });
     }
     if (!found && payload.exp > Date.now() / 1000) {
-      console.warn(`[SECURITY] Attempted reuse of valid (non-expired) refresh token for user ${payload.id}`);
+      console.warn(`[Auth] Attempted reuse of valid (non-expired) refresh token for user ${payload.id}`);
       await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [payload.id]);
-      return res.status(403).json({ error: 'Invalid refresh token' });
+      return res.status(403).json({ error: 'Forbidden: Invalid refresh token' });
     }
 
     await db.deleteRefreshToken(oldToken);
-    const newRefreshToken = sign({ id: payload.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+    const newRefreshToken = sign({ id: payload.id, type: 'refresh' }, process.env.JWT_REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
     await saveRefresh(payload.id, newRefreshToken, req);
 
     const accessToken = generateAccessToken({ id: payload.id });
     setRefreshTokenCookie(res, newRefreshToken);
 
-    console.log(`[ROTATE] Refresh token rotated for user ${payload.id}`);
+    console.log(`[Auth] Refresh token rotated for user ${payload.id}`);
     return res.json({ accessToken });
   } catch (err) {
-    console.warn('[ROTATE] Invalid or expired refresh token:', err.message);
+    console.warn('[Auth] Invalid or expired refresh token:', err.message);
     try {
       await db.deleteRefreshToken(oldToken);
     } catch (deleteErr) {
-      console.warn('[TOKEN] Failed to delete expired token:', deleteErr.message);
+      console.warn('[Auth] Failed to delete expired token:', deleteErr.message);
     }
-    return res.status(401).json({ error: 'Invalid refresh token' });
+    return res.status(401).json({ error: 'Unauthorized: Invalid or expired refresh token' });
   }
 };
 
+/**
+ * Revoke refresh token(s) for a user.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @returns {Promise<object>} JSON response indicating revocation status.
+ */
 const revokeToken = async (req, res) => {
   const csrf = req.headers['x-csrf-token'];
   if (!csrf || csrf !== process.env.CSRF_SECRET) {
-    console.warn('[CSRF] Invalid CSRF token on revoke');
-    return res.status(403).json({ error: 'Invalid CSRF token' });
+    console.warn('[Auth] Invalid CSRF token on revoke');
+    return res.status(403).json({ error: 'Forbidden: Invalid CSRF token' });
   }
   const token = req.cookies?.refresh_token || req.body.token;
   const allDevices = req.body.allDevices === true;
 
   if (!token) {
-    console.log('[REVOKE] No token provided');
-    return res.json({ revoked: false });
+    console.log('[Auth] No refresh token provided for revocation');
+    return res.json({ revoked: false, message: 'No token provided for revocation' });
   }
 
   try {
     const payload = verify(token, process.env.JWT_REFRESH_SECRET);
     if (payload.type !== 'refresh') {
-      console.warn('[TOKEN] Invalid token type on revoke');
-      return res.status(401).json({ error: 'Invalid token type' });
+      console.warn('[Auth] Invalid token type on revoke');
+      return res.status(401).json({ error: 'Unauthorized: Invalid token type' });
     }
 
     if (allDevices) {
       await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [payload.id]);
-      console.log(`[REVOKE] All devices revoked for user ${payload.id}`);
+      console.log(`[Auth] All refresh tokens revoked for user ${payload.id}`);
     } else {
       await db.deleteRefreshToken(token);
-      console.log(`[REVOKE] Single device token revoked for user ${payload.id}`);
+      console.log(`[Auth] Single refresh token revoked for user ${payload.id}`);
     }
 
     res.clearCookie('refresh_token');
     return res.json({ revoked: true });
   } catch (err) {
-    console.warn('[REVOKE] Invalid token:', err.message);
+    console.warn('[Auth] Invalid token during revocation:', err.message);
     res.clearCookie('refresh_token');
-    return res.json({ revoked: false, error: 'Invalid token' });
+    return res.json({ revoked: false, error: 'Invalid token provided for revocation' });
   }
 };
 
+/**
+ * Authenticate user and issue access and refresh tokens.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @returns {Promise<object>} JSON response with tokens and user info or error.
+ */
 const login = async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -166,7 +198,7 @@ const login = async (req, res) => {
     }
     const match = await compare(password, user.password);
     if (!match) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     // Generate tokens
@@ -176,7 +208,7 @@ const login = async (req, res) => {
     // Set refresh token as cookie
     setRefreshTokenCookie(res, refreshToken);
 
-    console.log(`[LOGIN] User logged in: ${email}`);
+    console.log(`[Auth] User logged in: ${email}`);
     return res.status(200).json({
       accessToken,
       user: {
@@ -187,24 +219,30 @@ const login = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('[LOGIN] Error:', err);
+    console.error('[Auth] Login error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
+/**
+ * Register a new user and send email verification.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @returns {Promise<object>} JSON response indicating registration status.
+ */
 const register = async (req, res) => {
   const { first_name, last_name, email, password } = req.body;
   try {
     // Validate email
     const isEmailValid = EMAIL_REGEX.test(email);
     if (!isEmailValid) {
-      return res.status(400).json({ error: 'Invalid email format' });
+      return res.status(400).json({ error: 'Invalid email address format' });
     }
 
     // Check for existing user
     const existingUser = await db.getUserByEmail(email);
     if (existingUser) {
-      return res.status(409).json({ error: 'Email already in use' });
+      return res.status(409).json({ error: 'Email address already registered' });
     }
 
     // Hash password
@@ -217,14 +255,20 @@ const register = async (req, res) => {
     await db.createUserWithVerification(first_name, last_name, email, hashedPassword, "1", verificationToken, verificationExpires);
     await mail.sendVerificationEmail(email, verificationToken);
 
-    console.log(`[REGISTER] User registered: ${email}`);
-    return res.status(201).json({ email: `${email}`, message: 'Registered. Please verify your email.' });
+    console.log(`[Auth] User registered: ${email}`);
+    return res.status(201).json({ email, message: 'Registration successful. Please verify your email.' });
   } catch (err) {
-    console.error('[REGISTER] Error:', err);
+    console.error('[Auth] Registration error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
+/**
+ * Retrieve the profile of the authenticated user.
+ * @param {object} req - Express request object (expects req.user.id from middleware).
+ * @param {object} res - Express response object.
+ * @returns {Promise<object>} JSON response with user profile or error.
+ */
 const getProfile = async (req, res) => {
   try {
     // req.user.id comes from verifyToken middleware
@@ -236,28 +280,40 @@ const getProfile = async (req, res) => {
     const { id, email, full_name, created_at } = user;
     return res.status(200).json({ id, email, name: full_name, created_at });
   } catch (err) {
-    console.error('[PROFILE] Error:', err);
+    console.error('[Auth] Profile retrieval error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
+/**
+ * Verify user's email using a token.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @returns {Promise<object|void>} Redirects on success or sends JSON error.
+ */
 const verifyEmail = async (req, res) => {
   const { token } = req.query;
   try {
     const user = await db.getUserByVerificationToken(token);
     if (!user || new Date(user.verify_token_expires) < new Date()) {
-      return res.status(400).json({ error: 'Invalid or expired token' });
+      return res.status(400).json({ error: 'Invalid or expired verification token' });
     }
     await db.markEmailAsVerified(user.id);
     await db.clearVerificationToken(user.id);
-    console.log(`[VERIFY] Email verified: ${user.email}`);
+    console.log(`[Auth] Email verified: ${user.email}`);
     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-success`);
   } catch (err) {
-    console.error('[VERIFY] Error:', err);
+    console.error('[Auth] Email verification error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
+/**
+ * Resend email verification token to user.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @returns {Promise<object>} JSON response indicating resend status.
+ */
 const resendVerification = async (req, res) => {
   const { email } = req.body;
   try {
@@ -266,7 +322,7 @@ const resendVerification = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     if (user.email_verified) {
-      return res.status(400).json({ error: 'Email already verified' });
+      return res.status(400).json({ error: 'Email is already verified' });
     }
 
     const token = randomBytes(32).toString('hex');
@@ -274,14 +330,20 @@ const resendVerification = async (req, res) => {
     await db.updateVerificationToken(user.id, token, expires);
     await mail.sendVerificationEmail(email, token);
 
-    console.log(`[RESEND] Verification email resent to: ${email}`);
-    return res.status(200).json({ message: 'Verification email resent' });
+    console.log(`[Auth] Verification email resent to: ${email}`);
+    return res.status(200).json({ message: 'Verification email has been resent' });
   } catch (err) {
-    console.error('[RESEND] Error:', err);
+    console.error('[Auth] Resend verification error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
+/**
+ * Initiate password reset by sending reset link to user's email.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @returns {Promise<object>} JSON response indicating reset link status.
+ */
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -295,20 +357,26 @@ const forgotPassword = async (req, res) => {
     await db.savePasswordResetToken(user.id, token, expires);
 
     await mail.sendPasswordResetEmail(email, token);
-    console.log(`[FORGOT] Reset mail sent to: ${email}`);
-    return res.status(200).json({ message: 'Reset link sent' });
+    console.log(`[Auth] Password reset email sent to: ${email}`);
+    return res.status(200).json({ message: 'Password reset link has been sent' });
   } catch (err) {
-    console.error('[FORGOT] Error:', err);
+    console.error('[Auth] Forgot password error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
+/**
+ * Reset user password using a valid token.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @returns {Promise<object>} JSON response indicating reset status.
+ */
 const resetPassword = async (req, res) => {
   const { token, password } = req.body;
   try {
     const reset = await db.getPasswordResetByToken(token);
     if (!reset || new Date(reset.expires_at) < new Date()) {
-      return res.status(400).json({ error: 'Invalid or expired token' });
+      return res.status(400).json({ error: 'Invalid or expired password reset token' });
     }
 
     const hashed = await hash(password, 10);
@@ -317,10 +385,10 @@ const resetPassword = async (req, res) => {
     // Revoke all refresh tokens for the user after password reset
     await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [reset.user_id]);
 
-    console.log(`[RESET] Password updated for user ${reset.user_id}`);
-    return res.status(200).json({ message: 'Password has been reset' });
+    console.log(`[Auth] Password updated for user ${reset.user_id}`);
+    return res.status(200).json({ message: 'Password has been successfully reset' });
   } catch (err) {
-    console.error('[RESET] Error:', err);
+    console.error('[Auth] Reset password error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -338,3 +406,5 @@ export default {
   forgotPassword,
   resetPassword,
 };
+
+/* End of Authentication Controller */
