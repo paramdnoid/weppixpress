@@ -30,9 +30,6 @@ export const useAuthStore = defineStore('auth', {
     async login(email, password) {
       try {
         const { data } = await axios.post('/auth/login', { email, password });
-
-        console.log(data);
-        
         if (data.requires2FA) {
           this.pending2FA = data.userId;
           this.accessToken = null;

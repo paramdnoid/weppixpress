@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { sendMail } from '../utils/mail.js';
+import { validationResult } from 'express-validator';
 import {
   findUserByEmail, createUser, setVerificationToken, verifyUserByToken,
   setResetToken, getUserByResetToken, updatePassword,
@@ -19,6 +20,10 @@ function generateRefreshToken(user) {
 
 // --- REGISTRIEREN MIT MAIL-BESTÄTIGUNG ---
 export async function register(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   try {
     const { first_name, last_name, email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Missing data' });
@@ -54,6 +59,10 @@ export async function verifyEmail(req, res, next) {
 
 // --- LOGIN MIT 2FA-SUPPORT ---
 export async function login(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   try {
     const { email, password } = req.body;
     const user = await findUserByEmail(email);
@@ -76,6 +85,10 @@ export async function login(req, res, next) {
 }
 
 export async function verify2FA(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   const { userId, code } = req.body;
   const user = await getUserById(userId);
   if (!user || !user.is_2fa_enabled) return res.status(401).json({ message: "Nicht aktiviert" });
@@ -95,6 +108,10 @@ export async function setup2FA(req, res) {
   res.json({ secret: secret.base32, qr });
 }
 export async function enable2FAController(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   const { code, secret } = req.body;
   const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token: code });
   if (!verified) return res.status(400).json({ message: "Ungültiger Code" });
@@ -108,6 +125,10 @@ export async function disable2FAController(req, res) {
 
 // --- PASSWORD RESET ---
 export async function forgotPassword(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   try {
     const { email } = req.body;
     const token = crypto.randomBytes(32).toString('hex');
@@ -124,6 +145,10 @@ export async function forgotPassword(req, res, next) {
   }
 }
 export async function resetPassword(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   try {
     const { token, password } = req.body;
     const user = await getUserByResetToken(token);

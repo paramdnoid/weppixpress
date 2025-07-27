@@ -2,51 +2,100 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
-import {
-  register, login, verifyEmail, forgotPassword, resetPassword,
-  setup2FA, enable2FAController, disable2FAController, verify2FA,
-  refreshToken, logout
-} from './controllers/authController.js';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import RedisStore from 'rate-limit-redis';
+import { createClient } from 'redis';
+import rateLimit from 'express-rate-limit';
+import authRouter from './routes/auth.js';
 import authenticate from './middleware/authenticate.js';
 
 dotenv.config();
 
+// Load and parse CORS whitelist from environment
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : [];
+
+const corsOptions = {
+  origin: allowedOrigins,
+  credentials: true
+};
+
 const app = express();
 
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
-}));
+// Parse JSON bodies and cookies
 app.use(express.json());
 app.use(cookieParser());
 
-app.post('/api/auth/register', register);
-app.get('/api/auth/verify-email', verifyEmail);
-app.post('/api/auth/login', login);
-app.post('/api/auth/verify-2fa', verify2FA);
+// HTTP request logging in development
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'));
+}
 
-app.post('/api/auth/forgot-password', forgotPassword);
-app.post('/api/auth/reset-password', resetPassword);
+// Health check endpoint
+app.get('/health', (_req, res) => res.sendStatus(200));
 
-app.post('/api/auth/refresh', refreshToken);
-app.post('/api/auth/logout', logout);
+// Enable CORS
+app.use(cors(corsOptions));
 
-// 2FA Management
-app.post('/api/auth/setup-2fa', authenticate, setup2FA);
-app.post('/api/auth/enable-2fa', authenticate, enable2FAController);
-app.post('/api/auth/disable-2fa', authenticate, disable2FAController);
+// Helmet security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"]
+    }
+  }
+}));
+app.use(helmet.crossOriginOpenerPolicy());
+app.use(helmet.crossOriginEmbedderPolicy());
+
+// HTTP Strict Transport Security
+app.use(helmet.hsts({
+  maxAge: 31536000,      // 1 year in seconds
+  includeSubDomains: true,
+  preload: true
+}));
+
+// Prevent Clickjacking
+app.use(helmet.frameguard({ action: 'deny' }));
+
+// Referrer Policy
+app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
+
+// Setup Redis client for rate limiting
+const redisClient = createClient();
+redisClient.connect().catch(console.error);
+
+const limiter = rateLimit({
+  store: new RedisStore({
+    sendCommand: (...args) => redisClient.sendCommand(args)
+  }),
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: 'Zu viele Anfragen, bitte später erneut versuchen.'
+});
+app.use(limiter);
+
+// Mount auth routes
+app.use('/api/auth', authRouter);
 
 // Geschützte Beispielroute
 app.get('/api/files', authenticate, (req, res) => {
   res.json({ message: `Hallo User ${req.user.userId}` });
 });
 
-
-app.listen(process.env.PORT, () => console.log('Backend ready on port ' + process.env.PORT));
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`Backend ready on port ${PORT}`));
 
 // Globales Error-Handling-Middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);                        // Stack-Trace in der Konsole
+  console.error(err.stack);                         // Stack-Trace in der Konsole
   const statusCode = err.statusCode || 500;         // Eigener statusCode oder 500
   res.status(statusCode).json({
     success: false,
