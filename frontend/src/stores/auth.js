@@ -20,69 +20,124 @@ export const useAuthStore = defineStore('auth', {
   }),
   actions: {
     async register(first_name, last_name, email, password) {
-      await axios.post('/auth/register', { first_name, last_name, email, password });
+      try {
+        await axios.post('/auth/register', { first_name, last_name, email, password });
+      } catch (err) {
+        console.error('register error:', err);
+        throw err;
+      }
     },
     async login(email, password) {
-      const { data } = await axios.post('/auth/login', { email, password });
+      try {
+        const { data } = await axios.post('/auth/login', { email, password });
 
-      console.log(data);
-      
-      if (data.requires2FA) {
-        this.pending2FA = data.userId;
-        this.accessToken = null;
-        this.user = null;
-      } else {
-        this.accessToken = data.accessToken;
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        this.user = data.user;
-        this.pending2FA = null;
-        axios.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+        console.log(data);
+        
+        if (data.requires2FA) {
+          this.pending2FA = data.userId;
+          this.accessToken = null;
+          this.user = null;
+        } else {
+          this.accessToken = data.accessToken;
+          localStorage.setItem('accessToken', data.accessToken);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          this.user = data.user;
+          this.pending2FA = null;
+          axios.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+        }
+      } catch (err) {
+        console.error('login error:', err);
+        throw err;
       }
     },
     async verify2FA(code) {
-      const { data } = await axios.post('/auth/verify-2fa', {
-        userId: this.pending2FA, code
-      });
-      this.accessToken = data.accessToken;
-      this.user = data.user;
-      axios.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
-      this.pending2FA = null;
+      try {
+        const { data } = await axios.post('/auth/verify-2fa', {
+          userId: this.pending2FA, code
+        });
+        this.accessToken = data.accessToken;
+        this.user = data.user;
+        axios.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+        this.pending2FA = null;
+      } catch (err) {
+        console.error('verify2FA error:', err);
+        throw err;
+      }
     },
     async logout() {
-      await axios.post('/auth/logout');
-      this.user = null;
-      this.accessToken = null;
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      this.pending2FA = null;
-      delete axios.defaults.headers.common['Authorization'];
+      try {
+        await axios.post('/auth/logout');
+        this.user = null;
+        this.accessToken = null;
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        this.pending2FA = null;
+        delete axios.defaults.headers.common['Authorization'];
+      } catch (err) {
+        console.error('logout error:', err);
+        throw err;
+      }
     },
     async refresh() {
-      const { data } = await axios.post('/auth/refresh');
-      this.accessToken = data.accessToken;
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+      try {
+        const { data } = await axios.post('/auth/refresh');
+        this.accessToken = data.accessToken;
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        axios.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+      } catch (err) {
+        console.error('refresh error:', err);
+        throw err;
+      }
     },
     async forgotPassword(email) {
-      await axios.post('/auth/forgot-password', { email });
+      try {
+        await axios.post('/auth/forgot-password', { email });
+      } catch (err) {
+        console.error('forgotPassword error:', err);
+        throw err;
+      }
     },
     async resetPassword(token, password) {
-      await axios.post('/auth/reset-password', { token, password });
+      try {
+        await axios.post('/auth/reset-password', { token, password });
+      } catch (err) {
+        console.error('resetPassword error:', err);
+        throw err;
+      }
     },
     async setup2FA() {
-      const { data } = await axios.post('/auth/setup-2fa');
-      return data; // { secret, qr }
+      try {
+        const { data } = await axios.post('/auth/setup-2fa');
+        return data; // { secret, qr }
+      } catch (err) {
+        console.error('setup2FA error:', err);
+        throw err;
+      }
     },
     async enable2FA(secret, code) {
-      await axios.post('/auth/enable-2fa', { secret, code });
+      try {
+        await axios.post('/auth/enable-2fa', { secret, code });
+      } catch (err) {
+        console.error('enable2FA error:', err);
+        throw err;
+      }
     },
     async disable2FA() {
-      await axios.post('/auth/disable-2fa');
+      try {
+        await axios.post('/auth/disable-2fa');
+      } catch (err) {
+        console.error('disable2FA error:', err);
+        throw err;
+      }
     },
     async fetchProtected() {
-      return axios.get('/files');
+      try {
+        return axios.get('/files');
+      } catch (err) {
+        console.error('fetchProtected error:', err);
+        throw err;
+      }
     },
   },
 });

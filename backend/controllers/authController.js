@@ -18,49 +18,61 @@ function generateRefreshToken(user) {
 }
 
 // --- REGISTRIEREN MIT MAIL-BESTÄTIGUNG ---
-export async function register(req, res) {
-  const { first_name, last_name, email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ message: 'Missing data' });
-  const existing = await findUserByEmail(email);
-  if (existing) return res.status(409).json({ message: 'User exists' });
-  const hash = await bcrypt.hash(password, 12);
-  await createUser(first_name, last_name, email, hash);
+export async function register(req, res, next) {
+  try {
+    const { first_name, last_name, email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ message: 'Missing data' });
+    const existing = await findUserByEmail(email);
+    if (existing) return res.status(409).json({ message: 'User exists' });
+    const hash = await bcrypt.hash(password, 12);
+    await createUser(first_name, last_name, email, hash);
 
-  // Mail-Token generieren und senden
-  const token = crypto.randomBytes(32).toString('hex');
-  await setVerificationToken(email, token);
-  await sendMail({
-    to: email,
-    subject: "Bitte bestätige deine E-Mail",
-    html: `<p>Bestätige deine Registrierung:</p><a href="http://localhost:5173/verify-email?token=${token}">Jetzt bestätigen</a>`
-  });
-  res.status(201).json({ message: 'Registered. Check your E-Mail!' });
+    // Mail-Token generieren und senden
+    const token = crypto.randomBytes(32).toString('hex');
+    await setVerificationToken(email, token);
+    await sendMail({
+      to: email,
+      subject: "Bitte bestätige deine E-Mail",
+      html: `<p>Bestätige deine Registrierung:</p><a href="http://localhost:5173/verify-email?token=${token}">Jetzt bestätigen</a>`
+    });
+    res.status(201).json({ message: 'Registered. Check your E-Mail!' });
+  } catch (err) {
+    next(err);
+  }
 }
 
-export async function verifyEmail(req, res) {
-  const { token } = req.query;
-  if (!token) return res.status(400).json({ message: "Token fehlt" });
-  await verifyUserByToken(token);
-  res.json({ message: "E-Mail bestätigt!" });
+export async function verifyEmail(req, res, next) {
+    try {
+      const { token } = req.query;
+      if (!token) return res.status(400).json({ message: "Token fehlt" });
+      await verifyUserByToken(token);
+      res.json({ message: "E-Mail bestätigt!" });
+    } catch (err) {
+      next(err);
+    }
 }
 
 // --- LOGIN MIT 2FA-SUPPORT ---
-export async function login(req, res) {
-  const { email, password } = req.body;
-  const user = await findUserByEmail(email);
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json({ message: 'Invalid credentials' });
+export async function login(req, res, next) {
+  try {
+    const { email, password } = req.body;
+    const user = await findUserByEmail(email);
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    if (!user.is_verified) {
+      return res.status(401).json({ message: 'Bitte bestätige deine E-Mail!' });
+    }
+    if (user.is_2fa_enabled) {
+      return res.json({ requires2FA: true, userId: user.id });
+    }
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    res.cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict', secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.json({ accessToken, user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } });
+  } catch (err) {
+    next(err);
   }
-  if (!user.is_verified) {
-    return res.status(401).json({ message: 'Bitte bestätige deine E-Mail!' });
-  }
-  if (user.is_2fa_enabled) {
-    return res.json({ requires2FA: true, userId: user.id });
-  }
-  const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
-  res.cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict', secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
-  res.json({ accessToken, user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } });
 }
 
 export async function verify2FA(req, res) {
@@ -95,25 +107,33 @@ export async function disable2FAController(req, res) {
 }
 
 // --- PASSWORD RESET ---
-export async function forgotPassword(req, res) {
-  const { email } = req.body;
-  const token = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 1000 * 60 * 30);
-  await setResetToken(email, token, expires);
-  await sendMail({
-    to: email,
-    subject: "Passwort zurücksetzen",
-    html: `<p>Setze dein Passwort zurück:</p><a href="http://localhost:5173/reset-password?token=${token}">Passwort zurücksetzen</a>`
-  });
-  res.json({ message: "Reset-Mail verschickt." });
+export async function forgotPassword(req, res, next) {
+  try {
+    const { email } = req.body;
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 1000 * 60 * 30);
+    await setResetToken(email, token, expires);
+    await sendMail({
+      to: email,
+      subject: "Passwort zurücksetzen",
+      html: `<p>Setze dein Passwort zurück:</p><a href="http://localhost:5173/reset-password?token=${token}">Passwort zurücksetzen</a>`
+    });
+    res.json({ message: "Reset-Mail verschickt." });
+  } catch (err) {
+    next(err);
+  }
 }
-export async function resetPassword(req, res) {
-  const { token, password } = req.body;
-  const user = await getUserByResetToken(token);
-  if (!user) return res.status(400).json({ message: "Token ungültig oder abgelaufen" });
-  const hash = await bcrypt.hash(password, 12);
-  await updatePassword(user.id, hash);
-  res.json({ message: "Passwort aktualisiert" });
+export async function resetPassword(req, res, next) {
+  try {
+    const { token, password } = req.body;
+    const user = await getUserByResetToken(token);
+    if (!user) return res.status(400).json({ message: "Token ungültig oder abgelaufen" });
+    const hash = await bcrypt.hash(password, 12);
+    await updatePassword(user.id, hash);
+    res.json({ message: "Passwort aktualisiert" });
+  } catch (err) {
+    next(err);
+  }
 }
 
 // --- JWT REFRESH & LOGOUT ---
@@ -128,7 +148,11 @@ export function refreshToken(req, res) {
     res.status(401).json({ message: 'Invalid refresh token' });
   }
 }
-export function logout(req, res) {
-  res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict', secure: false });
-  res.json({ message: 'Logged out' });
+export function logout(req, res, next) {
+  try {
+    res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict', secure: false });
+    res.json({ message: 'Logged out' });
+  } catch (err) {
+    next(err);
+  }
 }

@@ -1,5 +1,5 @@
 <template>
-    <div class="page" :class="{ 'landing body-bg': logoTargetPath === '/' }">
+    <div class="page">
         <header class="navbar navbar-expand-md d-print-none d-block pb-0" data-bs-theme="dark">
             <div class="container-fluid">
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"
@@ -7,11 +7,14 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3 py-0">
-                    <router-link :to="logoTargetPath" class="logo d-flex align-items-center text-decoration-none">
+                    <router-link to="/" class="logo d-flex align-items-center text-decoration-none">
                         <img :src="logo" alt="" class="logo-img" />
-                        <div class="logo-text ms-2">
-                            <div class="brand-highlight">weppi</div>
-                            <div class="logo-subtext">xpress.com</div>
+                        <div>
+                            <div class="logo-text ms-2">
+                                <div class="brand-highlight">weppi</div>
+                                <div class="logo-subtext">xpress</div>
+                            </div>
+                            <div class="brand-sub-highlight">technologies</div>
                         </div>
                     </router-link>
                 </div>
@@ -54,13 +57,9 @@
 import Navbar from '@/components/Navbar.vue'
 import UserDropdown from '@/components/UserDropdown.vue'
 import TreeView from '@/components/tree/TreeView.vue';
-
-import { computed } from 'vue';
-const logoTargetPath = computed(() => auth.user ? '/files' : '/');
-
-// Assets and components
 import logo from '@/assets/images/logo-light.svg'
 
+// Assets and components
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router'
@@ -69,7 +68,6 @@ const { treeData } = defineProps({ auth: Boolean, treeData: Array })
 const router = useRouter()
 const auth = useAuthStore();
 const data = ref(null);
-
 
 const showConfirm = ref(false)
 
@@ -80,51 +78,58 @@ function confirmLogout() {
 }
 
 onMounted(async () => {
-  try {
-    const res = await auth.fetchProtected();
-    data.value = res.data;
-  } catch (e) {
-    // Optional: Token refresh fallback
     try {
-      await auth.refresh();
-      const res = await auth.fetchProtected();
-      data.value = res.data;
-    } catch (err) {
-      data.value = { message: 'Nicht autorisiert' };
+        const res = await auth.fetchProtected();
+        data.value = res.data;
+    } catch (e) {
+        // Optional: Token refresh fallback
+        try {
+            await auth.refresh();
+            const res = await auth.fetchProtected();
+            data.value = res.data;
+        } catch (err) {
+            data.value = { message: 'Nicht autorisiert' };
+        }
     }
-  }
 });
 </script>
 
-<style type="scss" scoped>
+<style scoped>
 .nav-link {
     font-size: 1rem;
     font-weight: 400;
 }
 
-.logo-img {
-    height: 38px;
-    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
-}
-
-.logo-text {
-    line-height: 1;
-    font-size: .9rem;
-    font-weight: 300;
+.logo {
     letter-spacing: -0.4px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
     font-weight: 400;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 
-    .brand-highlight {
-        color: var(--tblr-gray-300);
-        line-height: .7;
+    .logo-img {
+        height: 38px;
+        filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
     }
 
-    .logo-subtext {
-        font-size: 1.3rem;
-        color: var(--tblr-light);
-        line-height: 1;
-        font-weight: 500;
+    .logo-text {
+        font-size: 1.2rem;
+        display: flex;
+
+        .brand-highlight {
+            color: var(--tblr-gray-100);
+        }
+
+        .logo-subtext {
+            font-size: 1.2rem;
+            color: var(--tblr-gray-400);
+            font-weight: 400;
+        }
+    }
+
+    .brand-sub-highlight {
+        font-size: .8rem;
+        color: var(--tblr-gray-100);
+        margin-left: .6rem;
+        font-weight: 300;
     }
 }
 

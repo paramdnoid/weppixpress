@@ -24,11 +24,16 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  const auth = useAuthStore();
-  if (to.meta.requiresAuth && !auth.user) {
-    return next('/login');
+  try {
+    const auth = useAuthStore();
+    if (to.meta.requiresAuth && !auth.user) {
+      return next('/login');
+    }
+    next();
+  } catch (err) {
+    console.error('Navigation guard error:', err);
+    next(err);
   }
-  next();
 });
 
 export default router;

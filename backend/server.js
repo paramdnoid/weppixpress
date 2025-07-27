@@ -41,4 +41,15 @@ app.get('/api/files', authenticate, (req, res) => {
   res.json({ message: `Hallo User ${req.user.userId}` });
 });
 
+
 app.listen(process.env.PORT, () => console.log('Backend ready on port ' + process.env.PORT));
+
+// Globales Error-Handling-Middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);                        // Stack-Trace in der Konsole
+  const statusCode = err.statusCode || 500;         // Eigener statusCode oder 500
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || 'Internal Server Error' // Standard-Text
+  });
+});

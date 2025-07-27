@@ -34,15 +34,20 @@ const verified = ref(false);
 const router = useRouter();
 
 onMounted(async () => {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  if (token) {
-    await axios.get(`/auth/verify-email?token=${token}`);
-    verified.value = true;
-    window.$toast && window.$toast('E-Mail bestätigt!', { type: 'success' });
-    setTimeout(() => {
-      router.push('/login');
-    }, 3000);
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      await axios.get(`/auth/verify-email?token=${token}`);
+      verified.value = true;
+      window.$toast && window.$toast('E-Mail bestätigt!', { type: 'success' });
+      setTimeout(() => {
+        router.push('/login');
+      }, 3000);
+    }
+  } catch (err) {
+    console.error('VerifyEmail error:', err);
+    window.$toast && window.$toast('Fehler bei E-Mail-Verifizierung', { type: 'danger' });
   }
 });
 </script>

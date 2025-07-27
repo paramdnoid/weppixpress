@@ -47,9 +47,9 @@ import { useAuthStore } from '@/stores/auth.js';
 import { useRouter } from 'vue-router';
 
 const loading = ref(false);
-const password = ref(''); 
+const password = ref('');
 const confirmPassword = ref('');
-const info = ref(''); 
+const info = ref('');
 const error = ref('');
 const store = useAuthStore();
 const router = useRouter();

@@ -1,13 +1,23 @@
 import jwt from 'jsonwebtoken';
 export default function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ message: 'No token' });
-  const token = authHeader.split(' ')[1];
   try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      const err = new Error('No token');
+      err.statusCode = 401;
+      throw err;
+    }
+    const token = authHeader.split(' ')[1];
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     req.user = payload;
     next();
-  } catch {
-    res.status(401).json({ message: 'Invalid token' });
+  } catch (err) {
+    // Für ungültige oder abgelaufene Tokens HTTP 401
+    if (!err.statusCode) {
+      err.statusCode = err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError'
+        ? 401
+        : 500;
+    }
+    next(err);
   }
 }
