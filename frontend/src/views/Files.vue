@@ -1,14 +1,21 @@
 <template>
-    <DefaultLayout :treeData="treeData" />
+  <DefaultLayout>
+    <aside class="open col-docs flex-fill">
+      <TreeView v-if="treeData?.length" :treeData="treeData" />
+    </aside>
+    <main class="content">
+
+    </main>
+  </DefaultLayout>
 </template>
 
 <script setup>
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
+import TreeView from '@/components/tree/TreeView.vue'
 import { computed, onMounted } from 'vue';
 import { useFileStore } from '@/stores/file';
 
 const fileStore = useFileStore();
-
 const treeData = computed(() => [
   {
     title: 'Uploads',

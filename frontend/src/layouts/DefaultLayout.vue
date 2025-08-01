@@ -31,12 +31,7 @@
                 <div class="d-flex flex-fill position-relative">
                     <div class="position-absolute top-0 end-0 start-0 bottom-0 overflow-hidden">
                         <div class="d-flex h-100">
-                            <aside class="open col-docs flex-fill">
-                                <TreeView v-if="treeData?.length" :treeData="treeData" />
-                            </aside>
-                            <main class="content">
-                                <slot />
-                            </main>
+                            <slot />
                         </div>
                     </div>
                 </div>
@@ -47,8 +42,7 @@
 
 <script setup>
 import Navbar from '@/components/Navbar.vue'
-import UserDropdown from '@/components/UserDropdown.vue'
-import TreeView from '@/components/tree/TreeView.vue';
+import UserDropdown from '@/components/UserDropdown.vue';
 import logo from '@/assets/images/logo-light.svg'
 
 // Assets and components
@@ -56,11 +50,9 @@ import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router'
 
-const { treeData } = defineProps({ auth: Boolean, treeData: Array })
 const router = useRouter()
 const auth = useAuthStore();
 const data = ref(null);
-
 const showConfirm = ref(false)
 
 function confirmLogout() {
