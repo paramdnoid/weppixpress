@@ -61,10 +61,10 @@ body {
 
         &.open {
             min-width: 100%;
-            width: 320px;
+            width: 350px;
 
             @media (min-width: 576px) {
-                min-width: 320px;
+                min-width: 350px;
             }
         }
     }

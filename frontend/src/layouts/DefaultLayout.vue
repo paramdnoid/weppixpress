@@ -32,14 +32,8 @@
                     <div class="position-absolute top-0 end-0 start-0 bottom-0 overflow-hidden">
                         <div class="d-flex h-100">
                             <aside class="open">
-                                <div class="col-docs">
-                                    <div class="py-3">
-                                        <div class="space-y space-y-5">
-                                            <div class="flex-fill">
-                                                <TreeView v-if="treeData?.length" :treeData="treeData" />
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div class="col-docs flex-fill">
+                                    <TreeView v-if="treeData?.length" :treeData="treeData" />
                                 </div>
                             </aside>
                             <main class="content">
@@ -79,13 +73,13 @@ function confirmLogout() {
 
 onMounted(async () => {
     try {
-        const res = await auth.fetchProtected();
+        const res = await auth.fetchUser();
         data.value = res.data;
     } catch (e) {
         // Optional: Token refresh fallback
         try {
             await auth.refresh();
-            const res = await auth.fetchProtected();
+            const res = await auth.fetchUser();
             data.value = res.data;
         } catch (err) {
             data.value = { message: 'Nicht autorisiert' };

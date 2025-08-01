@@ -128,9 +128,13 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async fetchProtected() {
+    async fetchUser() {
       try {
-        return axios.get('/files');
+        return await axios.get('/auth/me', {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`
+          }
+        });
       } catch (err) {
         console.error('fetchProtected error:', err);
         throw err;

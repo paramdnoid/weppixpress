@@ -1,35 +1,26 @@
 <template>
   <div>
-    <a
-      class="nav-link"
-      :href="node.link || '#'"
-      v-if="!hasChildren"
-    >
-      {{ node.label }}
-    </a>
+    <div v-if="node && node.type === 'folder' || !node.type">
 
-    <div v-else>
-      <a
-        class="nav-link"
-        href="#"
-        @click.prevent="toggle"
-        :data-bs-toggle="`collapse`"
-        :data-bs-target="`#${collapseId}`"
-        :aria-expanded="isOpen.toString()"
-      >
-        {{ node.label }}
-        <span class="nav-link-toggle"></span>
+
+      <a class="nav-link" href="#" @click.prevent="toggle" :data-bs-toggle="hasChildren ? 'collapse' : null"
+        :data-bs-target="hasChildren ? '#' + collapseId : null" :aria-expanded="isOpen.toString()">
+        {{ node.label || node.name }}
+        <span class="nav-link-toggle" v-if="hasChildren">
+          <i :class="isOpen ? 'ti ti-chevron-down' : 'ti ti-chevron-right'"></i>
+        </span>
       </a>
 
-      <nav
-        class="nav nav-vertical collapse"
-        :class="{ show: isOpen }"
-        :id="collapseId"
-      >
-        <div v-for="(child, idx) in node.children" :key="idx">
+      <nav v-if="hasChildren" class="nav nav-vertical collapse" :class="{ show: isOpen }" :id="collapseId">
+        <div v-for="(child, idx) in sortedChildren" :key="idx">
           <TreeNode :node="child" />
         </div>
       </nav>
+    </div>
+
+        <!-- Datei -->
+    <div v-else-if="node">
+      <span class="nav-link disabled">{{ node.name }}</span>
     </div>
   </div>
 </template>
@@ -45,11 +36,18 @@ const props = defineProps({
   },
 })
 
-const isOpen = ref(true)
+const isOpen = ref(false)
 const toggle = () => (isOpen.value = !isOpen.value)
 
 const hasChildren = computed(() => props.node.children && props.node.children.length > 0)
-const collapseId = `collapse-${btoa(props.node.label).replace(/=/g, '')}`
+const collapseId = `collapse-${btoa(props.node.name).replace(/=/g, '')}`
+
+const sortedChildren = computed(() => {
+  return [...(props.node.children || [])].sort((a, b) => {
+    if (a.type === b.type) return a.name.localeCompare(b.name);
+    return a.type === 'folder' ? -1 : 1;
+  });
+});
 </script>
 
 <style scoped>

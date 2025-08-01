@@ -4,27 +4,27 @@
             title: 'Flows',
             items: [
                 {
-                    label: 'Kategorien',
+                    name: 'Kategorien',
                     link: '/flows'
                 },
                 {
-                    label: 'Erstellte Flows',
+                    name: 'Erstellte Flows',
                     link: '/flows'
                 },
                 {
-                    label: 'Team Flows',
+                    name: 'Team Flows',
                     link: '/flows'
                 },
                 {
-                    label: 'Zugewiesene Aufgaben',
+                    name: 'Zugewiesene Aufgaben',
                     link: '/flows'
                 },
                 {
-                    label: 'Archivierte Flows',
+                    name: 'Archivierte Flows',
                     link: '/flows'
                 },
                 {
-                    label: 'Vorlagen',
+                    name: 'Vorlagen',
                     link: '/flows'
                 }
             ]

@@ -4,15 +4,15 @@
             title: 'Mails',
             items: [
                 {
-                    label: 'Posteingang',
+                    name: 'Posteingang',
                     link: '/mails'
                 },
                 {
-                    label: 'Postausgang',
+                    name: 'Postausgang',
                     link: '/mails'
                 },
                 {
-                    label: 'Kontakte',
+                    name: 'Kontakte',
                     link: '/mails'
                 }
             ]

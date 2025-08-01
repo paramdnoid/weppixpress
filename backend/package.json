@@ -15,6 +15,7 @@
     "express": "^4.18.2",
     "express-rate-limit": "^8.0.1",
     "express-validator": "^7.2.1",
+    "filesize": "^11.0.2",
     "helmet": "^8.1.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
@@ -22,6 +23,7 @@
     "morgan": "^1.10.1",
     "nodemailer": "^6.9.11",
     "qrcode": "^1.5.3",
+    "rate-limit-redis": "^4.2.1",
     "redis": "^5.6.1",
     "safer-buffer": "^2.1.2",
     "speakeasy": "^2.0.0"

@@ -1,27 +1,28 @@
 <template>
-    <DefaultLayout :treeData="[
-        {
-            title: 'Uploads',
-            items: [
-                {
-                    label: 'Introduction',
-                    children: [
-                        { label: 'Installation', link: '/ui/getting-started/installation/' },
-                        { label: 'FAQ', link: '/ui/getting-started/faq/' },
-                    ]
-                },
-                {
-                    label: 'Base',
-                    children: [
-                        { label: 'Colors', link: '/ui/base/colors/' }
-                    ]
-                }
-            ]
-        }
-    ]"></DefaultLayout>
+    <DefaultLayout :treeData="treeData" />
 </template>
 
 <script setup>
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
+import { computed, onMounted } from 'vue';
+import { useFileStore } from '@/stores/file';
 
+const fileStore = useFileStore();
+
+const treeData = computed(() => [
+  {
+    title: 'Uploads',
+    items: fileStore.files.map(f => ({
+      name: f.name,
+      path: f.path,
+      type: f.type,
+      link: f.type === 'folder' ? null : `/files/${f.path}`,
+      children: f.children ?? (f.type === 'folder' ? null : undefined)
+    }))
+  }
+]);
+
+onMounted(() => {
+  fileStore.fetchFiles();
+});
 </script>

@@ -42,19 +42,20 @@ export async function register(req, res, next) {
     });
     res.status(201).json({ message: 'Registered. Check your E-Mail!' });
   } catch (err) {
+    console.error('[REGISTER] Error:', err);
     next(err);
   }
 }
 
 export async function verifyEmail(req, res, next) {
-    try {
-      const { token } = req.query;
-      if (!token) return res.status(400).json({ message: "Token fehlt" });
-      await verifyUserByToken(token);
-      res.json({ message: "E-Mail bestätigt!" });
-    } catch (err) {
-      next(err);
-    }
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).json({ message: "Token fehlt" });
+    await verifyUserByToken(token);
+    res.json({ message: "E-Mail bestätigt!" });
+  } catch (err) {
+    next(err);
+  }
 }
 
 // --- LOGIN MIT 2FA-SUPPORT ---
@@ -80,6 +81,7 @@ export async function login(req, res, next) {
     res.cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict', secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
     res.json({ accessToken, user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } });
   } catch (err) {
+    console.error('[LOGIN] Error:', err);
     next(err);
   }
 }
@@ -103,6 +105,7 @@ export async function verify2FA(req, res) {
 // --- 2FA SETUP/DEAKTIVIERUNG ---
 export async function setup2FA(req, res) {
   const user = await getUserById(req.user.userId);
+  if (!user) return res.status(404).json({ message: "User not found" });
   const secret = speakeasy.generateSecret({ name: `DemoApp (${user.email})` });
   const qr = await QRCode.toDataURL(secret.otpauth_url);
   res.json({ secret: secret.base32, qr });
@@ -112,6 +115,9 @@ export async function enable2FAController(req, res) {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
+  const user = await getUserById(req.user.userId);
+  if (!user) return res.status(404).json({ message: "User not found" });
+  if (user.is_2fa_enabled) return res.status(400).json({ message: "2FA bereits aktiviert" });
   const { code, secret } = req.body;
   const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token: code });
   if (!verified) return res.status(400).json({ message: "Ungültiger Code" });
@@ -157,16 +163,19 @@ export async function resetPassword(req, res, next) {
     await updatePassword(user.id, hash);
     res.json({ message: "Passwort aktualisiert" });
   } catch (err) {
+    console.error('[RESET PASSWORD] Error:', err);
     next(err);
   }
 }
 
 // --- JWT REFRESH & LOGOUT ---
-export function refreshToken(req, res) {
+export async function refreshToken(req, res) {
   const { refreshToken } = req.cookies;
   if (!refreshToken) return res.status(401).json({ message: 'No refresh token' });
   try {
     const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await getUserById(payload.userId);
+    if (!user) return res.status(401).json({ message: 'User not found' });
     const accessToken = jwt.sign({ userId: payload.userId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
     res.json({ accessToken });
   } catch (e) {
@@ -175,9 +184,26 @@ export function refreshToken(req, res) {
 }
 export function logout(req, res, next) {
   try {
-    res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict', secure: false });
+    res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
     res.json({ message: 'Logged out' });
   } catch (err) {
     next(err);
   }
 }
+
+export async function getProfile(req, res) {
+  try {
+    const user = await getUserById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const accessToken = generateAccessToken(user);
+
+    // Destructure user to avoid accessing properties directly
+    res.status(200).json({accessToken, user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } });
+  } catch (err) {
+    console.error('[PROFILE] Error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

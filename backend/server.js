@@ -7,8 +7,8 @@ import morgan from 'morgan';
 import RedisStore from 'rate-limit-redis';
 import { createClient } from 'redis';
 import rateLimit from 'express-rate-limit';
-import authRouter from './routes/auth.js';
-import authenticate from './middleware/authenticate.js';
+import authRoutes from './routes/auth.js';
+import fileRoutes from './routes/files.js'
 
 dotenv.config();
 
@@ -76,19 +76,15 @@ const limiter = rateLimit({
   store: new RedisStore({
     sendCommand: (...args) => redisClient.sendCommand(args)
   }),
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 1 * 60 * 1000, // 15 minutes
   max: 100,
   message: 'Zu viele Anfragen, bitte später erneut versuchen.'
 });
 app.use(limiter);
 
 // Mount auth routes
-app.use('/api/auth', authRouter);
-
-// Geschützte Beispielroute
-app.get('/api/files', authenticate, (req, res) => {
-  res.json({ message: `Hallo User ${req.user.userId}` });
-});
+app.use('/api/auth', authRoutes);
+app.use('/api/files', fileRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Backend ready on port ${PORT}`));

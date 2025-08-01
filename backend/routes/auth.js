@@ -2,7 +2,7 @@ import express from 'express';
 import {
   register, login, verifyEmail, forgotPassword, resetPassword,
   setup2FA, enable2FAController, disable2FAController, verify2FA,
-  refreshToken, logout
+  refreshToken, logout, getProfile
 } from '../controllers/authController.js';
 import authenticate from '../middleware/authenticate.js';
 import validateRequest from '../validation/validateRequest.js';
@@ -35,5 +35,7 @@ router.post('/logout', logout);
 router.post('/setup-2fa', authenticate, setup2FA);
 router.post('/enable-2fa', authenticate, validateRequest(enable2FASchema), enable2FAController);
 router.post('/disable-2fa', authenticate, disable2FAController);
+
+router.get('/me', authenticate, getProfile );
 
 export default router;
