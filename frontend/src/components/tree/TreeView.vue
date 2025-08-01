@@ -75,4 +75,14 @@ function search(node, path) {
   text-transform: uppercase;
   margin-left: .5rem;
 }
+
+/* Hide scrollbar but allow scrolling */
+#menu {
+  overflow-y: auto;
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+#menu::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
+}
 </style>

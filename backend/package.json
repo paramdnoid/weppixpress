@@ -22,11 +22,13 @@
     "mariadb": "^3.3.5",
     "morgan": "^1.10.1",
     "nodemailer": "^6.9.11",
+    "p-limit": "^6.2.0",
     "qrcode": "^1.5.3",
     "rate-limit-redis": "^4.2.1",
     "redis": "^5.6.1",
     "safer-buffer": "^2.1.2",
-    "speakeasy": "^2.0.0"
+    "speakeasy": "^2.0.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"

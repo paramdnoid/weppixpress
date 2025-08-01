@@ -31,10 +31,8 @@
                 <div class="d-flex flex-fill position-relative">
                     <div class="position-absolute top-0 end-0 start-0 bottom-0 overflow-hidden">
                         <div class="d-flex h-100">
-                            <aside class="open">
-                                <div class="col-docs flex-fill">
-                                    <TreeView v-if="treeData?.length" :treeData="treeData" />
-                                </div>
+                            <aside class="open col-docs flex-fill">
+                                <TreeView v-if="treeData?.length" :treeData="treeData" />
                             </aside>
                             <main class="content">
                                 <slot />

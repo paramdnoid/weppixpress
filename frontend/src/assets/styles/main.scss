@@ -2,17 +2,8 @@ $primary: hsl(192, 100%, 35%);
 
 @use "@tabler/core/scss/core" with ($primary: $primary);
 
-
-.navbar[data-bs-theme=dark] {
-    color-scheme: dark;
-    --tblr-bg-surface: var(--tblr-primary);
-    --tblr-navbar-border-color: transparent;
-
-    z-index: 999;
-    
-}
-
 body {
+    background-color: transparent !important;
     font-family: 'Nunito', sans-serif;
     position: relative;
 
@@ -51,7 +42,7 @@ body {
         width: 0;
         display: flex;
         flex-direction: column;
-        background-color: var(--tblr-gray-100);
+        background-color: var(--tblr-gray-50);
         border-right: 1px solid var(--tblr-gray-300);
         position: relative;
         overflow-y: auto;
@@ -77,3 +68,13 @@ body {
         overflow-y: auto;
     }
 }
+
+.navbar[data-bs-theme=dark] {
+    color-scheme: dark;
+    --tblr-bg-surface: var(--tblr-primary);
+    --tblr-navbar-border-color: transparent;
+
+    z-index: 999;
+    
+}
+
