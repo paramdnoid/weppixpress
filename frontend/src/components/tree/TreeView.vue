@@ -1,7 +1,6 @@
 <template>
-  <nav class="space-y space-y-5 py-3" id="menu" ref="treeRoot">
+  <nav id="menu" ref="treeRoot">
     <div v-for="(group, index) in treeData" :key="index">
-      <div class="subheader mb-2">{{ group.title }}</div>
       <nav class="nav nav-vertical">
         <TreeNode
           v-for="(node, i) in group.items"
@@ -48,14 +47,21 @@ function scrollToPath(path) {
   });
 }
 
+function collapseAllExcept(path) {
+  treeNodeRefs.value.forEach(ref => {
+    if (ref && typeof ref.collapseAllExcept === 'function') ref.collapseAllExcept(path);
+  });
+}
+
 function expandAndScrollToPath(path) {
+  collapseAllExcept(path);
   treeNodeRefs.value.forEach(ref => {
     if (ref && typeof ref.expandToPath === 'function') ref.expandToPath(path);
   });
   nextTick(() => scrollToPath(path));
 }
 
-defineExpose({ scrollToPath, expandAndScrollToPath });
+defineExpose({ scrollToPath, expandAndScrollToPath, collapseAllExcept });
 
 watch(() => props.selectedPath, (newPath) => {
   expandAndScrollToPath(newPath);

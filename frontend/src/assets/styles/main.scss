@@ -5,7 +5,13 @@
     /* Replace the color value with your desired hue */
     --tblr-primary: hsl(192, 98%, 35%);
     --tblr-gutter-x: calc(var(--tblr-page-padding) * 2);
+    --tblr-border-color-translucent: var(--tblr-gray-100);
     --text-lighter:
+}
+
+.table,
+.markdown>table {
+    --tblr-table-hover-bg: var(--tblr-gray-50);
 }
 
 .navbar[data-bs-theme=dark] {
@@ -81,6 +87,3 @@ body {
         overflow-y: auto;
     }
 }
-
-
-

@@ -52,7 +52,7 @@ async function readItemRecursively(item, targetPath, baseDirUser) {
       name: item.name,
       path: relative(baseDirUser, fullPath),
       type: item.isDirectory() ? 'folder' : 'file',
-      size: isFile ? { formatted: filesize(stats.size), bytes: stats.size } : null,
+      size: isFile ? filesize(stats.size) : null,
       updated: stats.mtime.toISOString(),
       hasSubfolder: item.isDirectory() ? children?.some(child => child.type === 'folder') ?? false : false,
       children: children?.filter(Boolean) ?? undefined

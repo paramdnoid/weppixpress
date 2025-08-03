@@ -29,11 +29,27 @@ function expandToPath(path) {
   }
 }
 
+function collapseAllExcept(path) {
+  if (
+    props.node.type === 'folder' &&
+    props.node.path !== path &&
+    !(path && path.startsWith(props.node.path + '/'))
+  ) {
+    isOpen.value = false;
+  }
+  // Children auch prüfen
+  childRefs.value.forEach(child => {
+    if (child && typeof child.collapseAllExcept === 'function') {
+      child.collapseAllExcept(path);
+    }
+  });
+}
+
 function normalizePath(path) {
   if (!path) return '';
   return path.replace(/\/+$/, ''); // entfernt abschließende Slashes
 }
-defineExpose({ expandToPath });
+defineExpose({ expandToPath, collapseAllExcept });
 </script>
 
 <template>
