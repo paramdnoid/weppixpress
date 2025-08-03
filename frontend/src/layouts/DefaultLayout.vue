@@ -28,9 +28,11 @@
         </header>
         <div class="page-wrapper">
             <div class="page-body m-0">
-                <div class="d-flex flex-fill position-relative">
+                <slot name="navscrollbar" />
+                <div class="d-flex flex-fill flex-column position-relative">
                     <div class="position-absolute top-0 end-0 start-0 bottom-0 overflow-hidden">
                         <div class="d-flex h-100">
+                            
                             <slot />
                         </div>
                     </div>

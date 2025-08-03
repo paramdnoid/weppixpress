@@ -16,7 +16,7 @@
       <form @submit.prevent="onLogin">
         <div class="form-floating mb-2">
           <input v-model="email" type="email" class="form-control" id="floatingEmail" placeholder="name@example.com"
-            required>
+            required autocomplete="username">
           <label for="floatingEmail">E-Mail</label>
         </div>
 

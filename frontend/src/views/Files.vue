@@ -1,17 +1,19 @@
 <template>
   <DefaultLayout>
-    <aside class="open col-docs flex-fill">
-      <div class="input-icon p-2">
-        <input type="text" value="" class="form-control form-control-sm shadow-none" placeholder="Search…" />
-        <span class="input-icon-addon">
-          <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
-            stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-            <circle cx="10" cy="10" r="7" />
-            <line x1="21" y1="21" x2="15" y2="15" />
-          </svg>
-        </span>
+    <template #navscrollbar>
+      <div class="d-flex align-items-center border-bottom">
+        <NavScrollBar class="flex-fill" style="margin: 2px;">
+            <button class="btn btn-sm" type="button">
+              new
+            </button>
+
+        </NavScrollBar>
+        <ViewSwitcher style="margin: 2px;" v-model="viewMode" />
       </div>
+    </template>
+
+
+    <aside class="open col-docs flex-fill">
       <TreeView ref="treeView" v-if="treeData?.length" :treeData="treeData" :selectedPath="selectedPath"
         @select="selectedPath = $event" />
     </aside>
@@ -20,11 +22,10 @@
       <div class="d-flex justify-content-between align-items-center sticky-top bg-white mx-2"
         style="z-index:11; top:0; padding:8px 0px;">
         <Breadcrumb :segments="breadcrumbItems" @navigate="onNavigate" />
-        <ViewSwitcher v-model="viewMode" />
+
       </div>
 
-      <GridView v-if="viewMode === 'grid'" :items="currentItems" @itemClick="onFileItemClick"
-        @itemDblClick="onFileItemDblClick">
+      <GridView v-if="viewMode === 'grid'" :items="currentItems" @itemDblClick="onFileItemDblClick">
         <template #default="{ item }">
           <div class="col">
             <div class="card card-sm">
@@ -41,7 +42,7 @@
           </div>
         </template>
       </GridView>
-      <ListView v-else :items="currentItems" @itemClick="onFileItemClick" @itemDblClick="onFileItemDblClick">
+      <ListView v-else :items="currentItems" @itemDblClick="onFileItemDblClick">
         <template #default="{ item }">
           <div class="list-group-item d-flex align-items-center">
             <span class="me-2">
@@ -63,8 +64,9 @@ import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import GridView from '@/components/GridView.vue';
 import ListView from '@/components/ListView.vue';
 import ViewSwitcher from '@/components/ui/ViewSwitcher.vue';
+import NavScrollBar from '@/components/ui/NavScrollBar.vue';
 import { Icon } from '@iconify/vue'
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, nextTick, onMounted } from 'vue';
 import { useFileStore } from '@/stores/file';
 
 const fileStore = useFileStore();
@@ -126,7 +128,6 @@ const breadcrumbItems = computed(() => {
   return items.concat(breadcrumbs);
 });
 
-
 function normalizePath(path) {
   if (!path) return '';
   return path.replace(/\/+$/, '').replace(/^\/+/, ''); // entfernt vorne und hinten Slashes
@@ -137,16 +138,6 @@ function onNavigate(path) {
   nextTick(() => {
     treeView.value?.expandAndScrollToPath(selectedPath.value);
   });
-}
-
-onMounted(() => {
-  fileStore.fetchFiles();
-});
-
-function onFileItemClick(item) {
-  //onNavigate(item.path)
-  // Einzelauswahl oder Info anzeigen
-  //console.log('Clicked:', item)
 }
 
 function onFileItemDblClick(item) {
@@ -166,9 +157,10 @@ function onFileItemDblClick(item) {
   // Normale Ordnernavigation
   if (item.type === 'folder') {
     onNavigate(item.path)
-  } else {
-    // Datei-Preview oder Download
-    console.log('DoubleClicked file:', item)
   }
 }
+
+onMounted(() => {
+  fileStore.fetchFiles();
+});
 </script>
