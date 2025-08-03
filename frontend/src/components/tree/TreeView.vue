@@ -3,8 +3,17 @@
     <div v-for="(group, index) in treeData" :key="index">
       <div class="subheader mb-2">{{ group.title }}</div>
       <nav class="nav nav-vertical">
-        <TreeNode v-for="(node, i) in group.items" :key="i" :node="node" :selectedPath="selectedPath"
-          @select="$emit('select', $event)" />
+        <TreeNode
+          v-for="(node, i) in group.items"
+          :key="i"
+          :node="node"
+          :selectedPath="selectedPath"
+          @select="$emit('select', $event)"
+          :ref="el => {
+            if (!treeNodeRefs.value) treeNodeRefs.value = [];
+            treeNodeRefs.value[i] = el;
+          }"
+        />
       </nav>
     </div>
   </nav>
@@ -24,18 +33,33 @@ const props = defineProps({
   }
 });
 
-import { ref, nextTick, defineExpose } from 'vue';
+import { ref, nextTick, defineExpose, watch } from 'vue';
 const treeRoot = ref(null);
+const treeNodeRefs = ref([]);
 
 function scrollToPath(path) {
   nextTick(() => {
-
-    const el = treeRoot.value?.querySelector(`[data-path="${path}"]`);
-    if (el) el.classList.add('active');
+    const menu = treeRoot.value;
+    if (!menu) return;
+    const el = menu.querySelector(`[data-path="${path}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   });
 }
 
-defineExpose({ scrollToPath });
+function expandAndScrollToPath(path) {
+  treeNodeRefs.value.forEach(ref => {
+    if (ref && typeof ref.expandToPath === 'function') ref.expandToPath(path);
+  });
+  nextTick(() => scrollToPath(path));
+}
+
+defineExpose({ scrollToPath, expandAndScrollToPath });
+
+watch(() => props.selectedPath, (newPath) => {
+  expandAndScrollToPath(newPath);
+});
 </script>
 
 <style scoped>
@@ -55,6 +79,7 @@ defineExpose({ scrollToPath });
   /* IE and Edge */
   scrollbar-width: none;
   /* Firefox */
+  max-height: 100vh;
 }
 
 #menu::-webkit-scrollbar {

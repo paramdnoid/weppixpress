@@ -49,14 +49,16 @@ const breadcrumbItems = computed(() => {
   return items.concat(breadcrumbs);
 });
 
+
+function normalizePath(path) {
+  if (!path) return '';
+  return path.replace(/\/+$/, '').replace(/^\/+/, ''); // entfernt vorne und hinten Slashes
+}
+
 function onNavigate(path) {
-  if (selectedPath.value === path) {
-    selectedPath.value = '';
-  } else {
-    selectedPath.value = path;
-  }
+  selectedPath.value = normalizePath(path);
   nextTick(() => {
-    treeView.value?.scrollToPath(path);
+    treeView.value?.expandAndScrollToPath(selectedPath.value);
   });
 }
 
