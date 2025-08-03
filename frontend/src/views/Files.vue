@@ -17,8 +17,8 @@
     </aside>
 
     <main class="content">
-      <div class="d-flex justify-content-between align-items-center sticky-top bg-gray-50"
-        style="z-index:11; top:0; padding:8px;">
+      <div class="d-flex justify-content-between align-items-center sticky-top bg-white mx-2"
+        style="z-index:11; top:0; padding:8px 0px;">
         <Breadcrumb :segments="breadcrumbItems" @navigate="onNavigate" />
         <ViewSwitcher v-model="viewMode" />
       </div>
@@ -112,7 +112,7 @@ const currentItems = computed(() => {
 })
 
 const breadcrumbItems = computed(() => {
-  const items = [{ name: 'Uploads', path: '' }];
+  const items = [{ name: 'files', path: '' }];
   if (!selectedPath.value) return items;
 
   const segments = selectedPath.value.split('/').filter(Boolean);

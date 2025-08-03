@@ -10,7 +10,8 @@ const emit = defineEmits(['navigate']);
 const isObject = val => typeof val === 'object' && val !== null;
 </script>
 <template>
-  <ol class="breadcrumb breadcrumb-muted mb-0  breadcrumb-truncate">
+  <div>
+  <ol class="breadcrumb breadcrumb-muted breadcrumb-arrows ps-2">
     <li v-for="(seg, idx) in segments" :key="idx" class="breadcrumb-item"
       :class="{ active: idx === segments.length - 1 }" :aria-current="idx === segments.length - 1 ? 'page' : null">
       <template v-if="idx < segments.length - 1">
@@ -27,25 +28,21 @@ const isObject = val => typeof val === 'object' && val !== null;
       </template>
     </li>
   </ol>
+  </div>
+
 </template>
 
 <style scoped>
-.breadcrumb-truncate {
-  display: flex;
-  flex-wrap: nowrap;
-  overflow: hidden;
-  white-space: nowrap;
-  max-width: 100%;
-}
-.breadcrumb-truncate .breadcrumb-item {
+.breadcrumb-item {
   min-width: 0;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: .8rem;
 }
-.breadcrumb-truncate .breadcrumb-item a,
-.breadcrumb-truncate .breadcrumb-item span {
+.breadcrumb-item a,
+.breadcrumb-item span {
   display: inline-block;
   max-width: 160px;
   overflow: hidden;

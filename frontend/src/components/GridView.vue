@@ -24,7 +24,7 @@
           <Icon
             v-else-if="item.name === '..'"
             icon="tabler:arrow-back-up"
-            class="explorer-icon folder"
+            class="explorer-icon text-primary "
           />
           <Icon
             v-else
@@ -84,8 +84,8 @@ function onItemDblClick(item) { emit('itemDblClick', item) }
 .explorer-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1.5rem;
-  padding: 1rem;
+  gap: .5rem;
+  padding: 0px 1rem;
   background: transparent;
 }
 .explorer-item {
@@ -95,6 +95,7 @@ function onItemDblClick(item) { emit('itemDblClick', item) }
   outline: none;
   cursor: pointer;
   transition: background 0.15s;
+  background: var(--tblr-gray-50);  
   border-radius: 8px;
   padding: 8px 2px 2px 2px;
 }
