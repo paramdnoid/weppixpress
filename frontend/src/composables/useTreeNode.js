@@ -6,7 +6,9 @@ import { ref, computed } from 'vue'
  */
 export function useTreeNode(node) {
   const isOpen = ref(false)
-  const toggle   = () => { isOpen.value = !isOpen.value }
+  const toggle = () => {
+    isOpen.value = !isOpen.value
+  }
 
   const hasSubfolder = computed(() =>
     (node.children || []).some(c => c.type === 'folder')
@@ -21,6 +23,6 @@ export function useTreeNode(node) {
     // if you ever want custom ordering, you can drop the `.filter` here
     (node.children || []).filter(c => c.type === 'folder')
   )
-
+  
   return { isOpen, toggle, hasSubfolder, collapseId, sortedChildren }
 }

@@ -1,10 +1,12 @@
 <template>
   <DefaultLayout>
     <aside class="open col-docs flex-fill">
-      <TreeView v-if="treeData?.length" :treeData="treeData" />
+      <TreeView ref="treeView" v-if="treeData?.length" :treeData="treeData" :selectedPath="selectedPath"
+        @select="selectedPath = $event" />
     </aside>
-    <main class="content">
 
+    <main class="content p-3">
+      <Breadcrumb :segments="breadcrumbItems" @navigate="onNavigate" />
     </main>
   </DefaultLayout>
 </template>
@@ -12,10 +14,13 @@
 <script setup>
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
 import TreeView from '@/components/tree/TreeView.vue'
-import { computed, onMounted } from 'vue';
+import Breadcrumb from '@/components/ui/Breadcrumb.vue'
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useFileStore } from '@/stores/file';
 
 const fileStore = useFileStore();
+const selectedPath = ref('');
+const treeView = ref(null);
 const treeData = computed(() => [
   {
     title: 'Uploads',
@@ -28,6 +33,32 @@ const treeData = computed(() => [
     }))
   }
 ]);
+
+const breadcrumbItems = computed(() => {
+  const items = [{ name: 'Uploads', path: '' }];
+  if (!selectedPath.value) return items;
+
+  const segments = selectedPath.value.split('/').filter(Boolean);
+  const breadcrumbs = segments.map((segment, index) => {
+    return {
+      name: segment,
+      path: '/' + segments.slice(0, index + 1).join('/')
+    };
+  });
+
+  return items.concat(breadcrumbs);
+});
+
+function onNavigate(path) {
+  if (selectedPath.value === path) {
+    selectedPath.value = '';
+  } else {
+    selectedPath.value = path;
+  }
+  nextTick(() => {
+    treeView.value?.scrollToPath(path);
+  });
+}
 
 onMounted(() => {
   fileStore.fetchFiles();
