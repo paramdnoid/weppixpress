@@ -1,30 +1,26 @@
 <template>
   <div class="card flex-fill">
-    <Topbar @refresh="refreshFiles" @create-folder="createFolder" @sort="onSort" v-model="viewMode" />
+    <Topbar @refresh="refreshFiles" @create-folder="createFolder" @sort="onSort"
+      @toggle-sidebar="isSidebarCollapsed = !isSidebarCollapsed" v-model="viewMode" />
 
     <div class="d-flex border-top splitter-container flex-fill position-relative">
       <!-- Sidebar -->
-      <div ref="sidebar" class="border-end" style="min-width: 264px;">
-        <TreeSidebar
-          ref="treeSidebar"
-          v-if="treeData?.length"
-          :treeData="treeData"
-          :selectedPath="selectedPath"
-          @select="selectedPath = $event"
-        />
+      <div ref="sidebar" class="border-end sidebar" :class="{ 'w-0': isSidebarCollapsed }">
+        <TreeSidebar ref="treeSidebar" v-if="treeData?.length" :treeData="treeData" :selectedPath="selectedPath"
+          @select="selectedPath = $event" />
       </div>
 
       <div class="splitter" @mousedown="startDragging"></div>
 
       <!-- Content -->
-      <div class="resizable-grid border-start"
-        style="flex-grow: 1; resize: vertical; overflow: auto; min-height: 200px;">
+      <div class="resizable-grid border-start">
         <div class="nav-scroller bg-body p-1 border-bottom">
           <nav class="nav" aria-label="Secondary navigation">
             <Breadcrumb :segments="breadcrumbItems" @navigate="onNavigate" />
           </nav>
           <div class="input-icon w-25">
-            <input type="text" value="" class="form-control form-control-sm shadow-none" placeholder="Search in files…" />
+            <input type="text" value="" class="form-control form-control-sm shadow-none"
+              placeholder="Search in files…" />
             <span class="input-icon-addon">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
                 stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -37,20 +33,10 @@
         </div>
         <div class="d-flex flex-column position-relative file-view">
           <div class="position-absolute top-0 end-0 start-0 bottom-0 overflow-x-auto">
-            <FileGrid
-              v-if="viewMode === 'grid'"
-              :items="currentItems"
-              :sortKey="sortKey"
-              :sortDir="sortDir"
-              @itemDblClick="onItemDblClick"
-            />
-            <FileTable
-              v-if="viewMode === 'list'"
-              :items="currentItems"
-              :sortKey="sortKey"
-              :sortDir="sortDir"
-              @itemDblClick="onItemDblClick"
-            />
+            <FileGrid v-if="viewMode === 'grid'" :items="currentItems" :sortKey="sortKey" :sortDir="sortDir"
+              @itemDblClick="onItemDblClick" />
+            <FileTable v-if="viewMode === 'list'" :items="currentItems" :sortKey="sortKey" :sortDir="sortDir"
+              @itemDblClick="onItemDblClick" />
           </div>
         </div>
       </div>
@@ -113,6 +99,12 @@ const currentTreeNode = computed(() => {
   return findNodeByPath(rootItems, selectedPath.value) || { children: rootItems };
 });
 
+async function syncTreeSidebar(path) {
+  await nextTick();
+  treeSidebar.value?.collapseAllExcept(path);
+  treeSidebar.value?.expandAndScrollToPath(path);
+}
+
 async function onItemDblClick(item) {
   if (item.type === 'folder') {
     if (item.isParent) {
@@ -126,9 +118,7 @@ async function onItemDblClick(item) {
       selectedPath.value = newPath;
     }
 
-    await nextTick();
-    treeSidebar.value?.collapseAllExcept(selectedPath.value);
-    treeSidebar.value?.expandAndScrollToPath(selectedPath.value);
+    await syncTreeSidebar(selectedPath.value);
   } else {
     window.open(`/files/${item.path}`, '_blank');
   }
@@ -136,9 +126,7 @@ async function onItemDblClick(item) {
 
 async function onNavigate(path) {
   selectedPath.value = path.replace(/^\/+/, ''); // normalize path
-  await nextTick();
-  treeSidebar.value?.collapseAllExcept(selectedPath.value);
-  treeSidebar.value?.expandAndScrollToPath(selectedPath.value);
+  await syncTreeSidebar(selectedPath.value);
 }
 
 const currentItems = computed(() => {
@@ -162,10 +150,11 @@ async function refreshFiles() {
 }
 
 function createFolder() {
-  alert('Create folder clicked')
+  console.log('Create folder clicked');
 }
 
 const sidebar = ref(null)
+const isSidebarCollapsed = ref(false)
 let isDragging = false
 
 function startDragging(e) {
@@ -191,22 +180,18 @@ const breadcrumbItems = computed(() => {
   if (!selectedPath.value) return items;
 
   const segments = selectedPath.value.split('/').filter(Boolean);
-  const breadcrumbs = segments.map((segment, index) => {
-    return {
-      name: segment,
-      path: '/' + segments.slice(0, index + 1).join('/')
-    };
-  });
+  const breadcrumbs = segments.map((segment, index) => ({
+    name: segment,
+    path: '/' + segments.slice(0, index + 1).join('/')
+  }));
 
   return items.concat(breadcrumbs);
 });
 
 onMounted(async () => {
   await fileStore.fetchFiles();
-  await nextTick();
   if (selectedPath.value) {
-    treeSidebar.value?.collapseAllExcept(selectedPath.value);
-    treeSidebar.value?.expandAndScrollToPath(selectedPath.value);
+    await syncTreeSidebar(selectedPath.value);
   }
 });
 </script>
@@ -220,6 +205,9 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: auto;
+  flex-grow: 1;
+  resize: vertical;
+  min-height: 200px;
 }
 
 .splitter-container {
@@ -274,5 +262,22 @@ onMounted(async () => {
 .file-view::-webkit-scrollbar {
   display: none;
   /* Chrome, Safari, Opera */
+}
+
+.w-0 {
+  width: 0 !important;
+  min-width: 0 !important;
+}
+
+.sidebar {
+  min-width: 300px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+@media (max-width: 576px) {
+  .sidebar {
+    min-width: 100%;
+  }
 }
 </style>
