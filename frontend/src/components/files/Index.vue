@@ -10,7 +10,7 @@
           @select="selectedPath = $event" />
       </div>
 
-      <div class="splitter" @mousedown="startDragging"></div>
+      <div class="splitter" v-show="!isSidebarCollapsed" @mousedown="startDragging"></div>
 
       <!-- Content -->
       <div class="resizable-grid border-start">
@@ -173,6 +173,11 @@ function stopDragging() {
   isDragging = false
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDragging)
+
+  // Clear inline width to allow transition
+  if (sidebar.value) {
+    sidebar.value.style.removeProperty('width');
+  }
 }
 
 const breadcrumbItems = computed(() => {
@@ -278,6 +283,7 @@ onMounted(async () => {
 @media (max-width: 576px) {
   .sidebar {
     min-width: 100%;
+    width: 100%;
   }
 }
 </style>
