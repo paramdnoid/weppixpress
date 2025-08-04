@@ -40,6 +40,7 @@ const isObject = val => typeof val === 'object' && val !== null;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: .8rem;
+  font-weight: 200;
 }
 .breadcrumb-item a,
 .breadcrumb-item span {
@@ -49,5 +50,10 @@ const isObject = val => typeof val === 'object' && val !== null;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
+}
+
+.breadcrumb-item.active {
+    font-weight: 400;
+    color: var(--tblr-black)
 }
 </style>
