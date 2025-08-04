@@ -1,7 +1,22 @@
+<template>
+  <div>
+    <a ref="nodeLink" :class="['nav-link', { active: normalizePath(node.path) === normalizePath(selectedPath) }]"
+      href="#" @click.prevent="() => { toggle(); $emit('select', node.path) }" :data-path="node.path">
+      {{ node.name }}
+      <span class="nav-link-toggle" v-if="hasSubfolder"></span>
+    </a>
+
+    <nav v-if="hasSubfolder" class="nav nav-vertical" v-show="isOpen" :id="collapseId">
+      <TreeNode v-for="(child, i) in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
+        @select="$emit('select', $event)" :ref="el => { childRefs[i] = el }" />
+    </nav>
+  </div>
+</template>
+
 <script setup>
 import TreeNode from './TreeNode.vue'
 import { useTreeNode } from '@/composables/useTreeNode'
-import { ref, defineExpose } from 'vue';
+import { ref, defineExpose, watch } from 'vue';
 
 const props = defineProps({
   node: { type: Object, required: true },
@@ -51,8 +66,6 @@ function normalizePath(path) {
 }
 defineExpose({ expandToPath, collapseAllExcept });
 
-import { watch } from 'vue';
-
 watch(
   () => props.selectedPath,
   (newPath) => {
@@ -69,18 +82,3 @@ watch(
   { immediate: true }
 );
 </script>
-
-<template>
-  <div>
-    <a ref="nodeLink" :class="['nav-link', { active: normalizePath(node.path) === normalizePath(selectedPath) }]"
-      href="#" @click.prevent="() => { toggle(); $emit('select', node.path) }" :data-path="node.path">
-      {{ node.name }}
-      <span class="nav-link-toggle" v-if="hasSubfolder"></span>
-    </a>
-
-    <nav v-if="hasSubfolder" class="nav nav-vertical" v-show="isOpen" :id="collapseId">
-      <TreeNode v-for="(child, i) in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
-        @select="$emit('select', $event)" :ref="el => { childRefs[i] = el }" />
-    </nav>
-  </div>
-</template>

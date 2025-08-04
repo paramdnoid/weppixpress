@@ -16,6 +16,7 @@
 
 <script setup>
 import TreeNode from './TreeNode.vue'
+import { ref, nextTick, defineExpose, watch } from 'vue';
 
 const props = defineProps({
   treeData: {
@@ -28,7 +29,6 @@ const props = defineProps({
   }
 });
 
-import { ref, nextTick, defineExpose, watch } from 'vue';
 const treeRoot = ref(null);
 const treeNodeRefs = ref([]);
 
