@@ -2,9 +2,21 @@
   <table class="table table-hover table-nowrap">
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Modified</th>
-        <th class="text-end">Size</th>
+        <th>
+          <button class="btn btn-sm p-0" @click="$emit('sort', 'name')">
+            Name
+          </button>
+        </th>
+        <th>
+          <button class="btn btn-sm p-0" @click="$emit('sort', 'modified')">
+            Modified
+          </button>
+        </th>
+        <th class="text-end">
+          <button class="btn btn-sm p-0" @click="$emit('sort', 'size')">
+            Size
+          </button>
+        </th>
       </tr>
     </thead>
     <tbody>
@@ -38,8 +50,15 @@ function onItemDblClick(item) { emit('itemDblClick', item) }
 
 const sortedItems = computed(() => {
   return [...props.items].sort((a, b) => {
-    if (a.type === b.type) return 0
-    return a.type === 'folder' ? -1 : 1
-  })
+    if (a.type === b.type) {
+      const valA = (props.sortKey && a[props.sortKey]) || '';
+      const valB = (props.sortKey && b[props.sortKey]) || '';
+      if (props.sortDir === 'desc') {
+        return valB.localeCompare(valA, undefined, { numeric: true });
+      }
+      return valA.localeCompare(valB, undefined, { numeric: true });
+    }
+    return a.type === 'folder' ? -1 : 1;
+  });
 })
 </script>

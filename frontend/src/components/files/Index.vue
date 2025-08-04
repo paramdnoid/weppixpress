@@ -1,6 +1,6 @@
 <template>
   <div class="card flex-fill">
-    <Topbar @refresh="refreshFiles" @create-folder="createFolder" v-model="viewMode" />
+    <Topbar @refresh="refreshFiles" @create-folder="createFolder" @sort="onSort" v-model="viewMode" />
 
     <div class="d-flex border-top splitter-container flex-fill position-relative">
       <!-- Sidebar -->
@@ -37,8 +37,20 @@
         </div>
         <div class="d-flex flex-column position-relative file-view">
           <div class="position-absolute top-0 end-0 start-0 bottom-0 overflow-x-auto">
-            <FileGrid v-if="viewMode === 'grid'" :items="currentItems" @itemDblClick="onItemDblClick" />
-            <FileTable v-if="viewMode === 'list'" :items="currentItems" @itemDblClick="onItemDblClick" />
+            <FileGrid
+              v-if="viewMode === 'grid'"
+              :items="currentItems"
+              :sortKey="sortKey"
+              :sortDir="sortDir"
+              @itemDblClick="onItemDblClick"
+            />
+            <FileTable
+              v-if="viewMode === 'list'"
+              :items="currentItems"
+              :sortKey="sortKey"
+              :sortDir="sortDir"
+              @itemDblClick="onItemDblClick"
+            />
           </div>
         </div>
       </div>
@@ -59,6 +71,19 @@ const fileStore = useFileStore();
 const viewMode = ref('grid') // or 'list'
 const selectedPath = ref('');
 const treeSidebar = ref(null)
+
+// Sorting state
+const sortKey = ref('name')
+const sortDir = ref('asc')
+
+function onSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = 'asc'
+  }
+}
 
 const treeData = computed(() => [
   {

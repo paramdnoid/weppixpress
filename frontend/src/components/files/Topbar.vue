@@ -9,9 +9,9 @@
           <Icon icon="mdi:sort-variant" class="me-1" width="20" height="20" /> Sort by
         </button>
         <ul class="dropdown-menu">
-          <li><a class="dropdown-item" href="#">Name</a></li>
-          <li><a class="dropdown-item" href="#">Date</a></li>
-          <li><a class="dropdown-item" href="#">Size</a></li>
+          <li><a class="dropdown-item" href="#" @click.prevent="$emit('sort', 'name')">Name</a></li>
+          <li><a class="dropdown-item" href="#" @click.prevent="$emit('sort', 'modified')">Date</a></li>
+          <li><a class="dropdown-item" href="#" @click.prevent="$emit('sort', 'size')">Size</a></li>
         </ul>
 
         <div class="ms-auto">
@@ -52,7 +52,7 @@ defineProps({
     required: true
   }
 })
-defineEmits(['refresh', 'create-folder', 'update:modelValue'])
+defineEmits(['refresh', 'create-folder', 'update:modelValue', 'sort'])
 </script>
 
 <style>
