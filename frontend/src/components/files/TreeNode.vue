@@ -50,19 +50,35 @@ function normalizePath(path) {
   return path.replace(/\/+$/, ''); // entfernt abschließende Slashes
 }
 defineExpose({ expandToPath, collapseAllExcept });
+
+import { watch } from 'vue';
+
+watch(
+  () => props.selectedPath,
+  (newPath) => {
+    if (
+      props.node.type === 'folder' &&
+      newPath &&
+      newPath.startsWith(props.node.path)
+    ) {
+      isOpen.value = true;
+    } else {
+      isOpen.value = false;
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
   <div>
     <a ref="nodeLink" :class="['nav-link', { active: normalizePath(node.path) === normalizePath(selectedPath) }]"
-      href="#" @click.prevent="() => { toggle(); $emit('select', node.path) }" :data-path="node.path"
-      :data-bs-toggle="hasSubfolder ? 'collapse' : null" :data-bs-target="hasSubfolder ? '#' + collapseId : null"
-      :aria-expanded="isOpen.toString()">
+      href="#" @click.prevent="() => { toggle(); $emit('select', node.path) }" :data-path="node.path">
       {{ node.name }}
       <span class="nav-link-toggle" v-if="hasSubfolder"></span>
     </a>
 
-    <nav v-if="hasSubfolder" class="nav nav-vertical collapse" :class="{ show: isOpen }" :id="collapseId">
+    <nav v-if="hasSubfolder" class="nav nav-vertical" v-show="isOpen" :id="collapseId">
       <TreeNode v-for="(child, i) in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
         @select="$emit('select', $event)" :ref="el => { childRefs[i] = el }" />
     </nav>

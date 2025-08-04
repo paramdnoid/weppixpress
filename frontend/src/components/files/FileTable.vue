@@ -9,12 +9,12 @@
     </thead>
     <tbody>
       <tr
-        v-for="item in items" :key="itemKey(item)"
+        v-for="item in sortedItems" :key="itemKey(item)"
         @dblclick="onItemDblClick(item)" 
         class="cursor-pointer"
       >
         <td>
-          <Icon icon="mdi:folder" class="text-warning me-2" />{{ item.name }}
+          <Icon :icon="item.type === 'folder' ? 'mdi:folder' : 'mdi:file-outline'" :class="item.type === 'folder' ? 'text-warning me-2' : 'text-primary me-2'" />{{ item.name }}
         </td>
         <td>{{ item.modified }}</td>
         <td class="text-end">{{ item.size || '-' }}</td>
@@ -24,8 +24,7 @@
 </template>
 
 <script setup>
-import { Icon } from '@iconify/vue'
-import { getFileIcon, getFileColor } from '@/composables/useFiles';
+import { computed } from 'vue'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -34,6 +33,13 @@ const props = defineProps({
   sortDir: { type: String, default: 'asc' }
 })
 
-const emit = defineEmits(['itemDblClick'])
-function onItemDblClick(item) { emit('itemDblClick', item) }  
+const emit = defineEmits(['itemDblClick', 'sort'])
+function onItemDblClick(item) { emit('itemDblClick', item) }
+
+const sortedItems = computed(() => {
+  return [...props.items].sort((a, b) => {
+    if (a.type === b.type) return 0
+    return a.type === 'folder' ? -1 : 1
+  })
+})
 </script>

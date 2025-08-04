@@ -33,6 +33,9 @@ const isObject = val => typeof val === 'object' && val !== null;
 </template>
 
 <style scoped>
+.breadcrumb {
+  display: -webkit-inline-box
+}
 .breadcrumb-item {
   min-width: 0;
   max-width: 180px;

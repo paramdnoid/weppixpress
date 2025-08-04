@@ -1,11 +1,11 @@
 <template>
-  <div class="py-3">
-    <div v-if="items.length === 0" class="text-center text-muted py-6">
+  <div>
+    <div v-if="sortedItems.length === 0" class="text-center text-muted py-6">
       <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
       <div>Keine Dateien oder Ordner im aktuellen Verzeichnis.</div>
     </div>
     <div v-else class="explorer-grid">
-      <div v-for="item in items" :key="itemKey(item)" class="explorer-item" :tabindex="0" role="button"
+      <div v-for="item in sortedItems" :key="itemKey(item)" class="explorer-item" :tabindex="0" role="button"
         @dblclick="onItemDblClick(item)" :title="item.name">
         <div class="icon-wrap">
           <Icon v-if="item.type === 'folder' && item.name !== '..'" icon="flat-color-icons:folder"
@@ -20,8 +20,9 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { getFileIcon, getFileColor } from '@/composables/useFiles';
+import { getFileComparator, getFileIcon, getFileColor } from '@/composables/useFiles';
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -30,16 +31,20 @@ const props = defineProps({
   sortDir: { type: String, default: 'asc' }
 })
 
+const sortedItems = computed(() => {
+  return [...props.items].sort(getFileComparator(props.sortKey, props.sortDir));
+})
+
 const emit = defineEmits(['itemDblClick'])
-function onItemDblClick(item) { emit('itemDblClick', item) }  
+function onItemDblClick(item) { emit('itemDblClick', item) }
 </script>
 
 <style scoped>
 .explorer-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1rem;
-  padding: 0px 1rem;
+  gap: .5rem;
+  padding: .5rem;
   background: transparent;
 }
 
@@ -50,7 +55,6 @@ function onItemDblClick(item) { emit('itemDblClick', item) }
   outline: none;
   cursor: pointer;
   transition: background 0.15s;
-  background: var(--tblr-gray-50);
   border-radius: 8px;
   padding: 8px 2px 2px 2px;
 }

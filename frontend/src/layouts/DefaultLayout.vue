@@ -1,5 +1,5 @@
 <template>
-    <div class="page">
+    <div class="page d-flex flex-column flex-fill">
         <header class="navbar navbar-expand-md d-print-none d-block pb-0" data-bs-theme="dark">
             <div class="container-fluid">
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"

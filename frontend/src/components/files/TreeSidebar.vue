@@ -1,21 +1,17 @@
 <template>
-  <nav id="menu" ref="treeRoot">
-    <div v-for="(group, index) in treeData" :key="index">
-      <nav class="nav nav-vertical">
-        <TreeNode
-          v-for="(node, i) in group.items"
-          :key="i"
-          :node="node"
-          :selectedPath="selectedPath"
-          @select="$emit('select', $event)"
-          :ref="el => {
-            if (!treeNodeRefs.value) treeNodeRefs.value = [];
-            treeNodeRefs.value[i] = el;
-          }"
-        />
-      </nav>
-    </div>
-  </nav>
+  <div class="col-docs flex-fill">
+    <nav id="menu" ref="treeRoot">
+      <div v-for="(group, index) in treeData" :key="index">
+        <nav class="nav nav-vertical">
+          <TreeNode ref="treeRoot" v-for="(node, i) in group.items" :key="i" :node="node" :selectedPath="selectedPath"
+            @select="$emit('select', $event)" :ref="el => {
+              if (!treeNodeRefs.value) treeNodeRefs.value = [];
+              treeNodeRefs.value[i] = el;
+            }" />
+        </nav>
+      </div>
+    </nav>
+  </div>
 </template>
 
 <script setup>

@@ -66,6 +66,7 @@ body {
         height: 100%;
         transition: min-width 0.3s ease, width 0.3s ease;
         min-width: 0px;
+        width: 100%;
 
         &.open {
             min-width: 100%;

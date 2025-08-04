@@ -1,8 +1,8 @@
 <template>
   <router-view />
-  <ToastContainer />
+  <toast />
 </template>
 
 <script setup>
-import ToastContainer from '@/components/ui/ToastContainer.vue';
+import Toast from '@/components/Toast.vue';
 </script>

@@ -1,10 +1,7 @@
 <template>
-    <DefaultLayout :treeData="[
-        {
-            title: 'Profil',
-            items: []
-        }
-    ]"></DefaultLayout>
+  <DefaultLayout>
+
+  </DefaultLayout>
 </template>
 
 <script setup>
