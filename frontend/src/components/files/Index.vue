@@ -4,7 +4,7 @@
 
     <div class="d-flex border-top splitter-container flex-fill position-relative">
       <!-- Sidebar -->
-      <div ref="sidebar" class="border-end p-2" style="min-width: 264px;">
+      <div ref="sidebar" class="border-end" style="min-width: 264px;">
         <TreeSidebar
           ref="treeSidebar"
           v-if="treeData?.length"
@@ -24,7 +24,7 @@
             <Breadcrumb :segments="breadcrumbItems" @navigate="onNavigate" />
           </nav>
           <div class="input-icon w-25">
-            <input type="text" value="" class="form-control form-control-sm shadow-none" placeholder="Search…" />
+            <input type="text" value="" class="form-control form-control-sm shadow-none" placeholder="Search in files…" />
             <span class="input-icon-addon">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
                 stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">

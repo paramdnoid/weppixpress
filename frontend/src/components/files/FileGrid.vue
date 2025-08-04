@@ -10,7 +10,7 @@
         <div class="icon-wrap">
           <Icon v-if="item.type === 'folder' && item.name !== '..'" icon="flat-color-icons:folder"
             class="explorer-icon folder" />
-          <Icon v-else-if="item.name === '..'" icon="tabler:arrow-back-up" class="explorer-icon text-primary " />
+          <Icon v-else-if="item.name === '..'" icon="tabler:arrow-back-up" class="explorer-icon text-secondary " />
           <Icon v-else :icon="getFileIcon(item)" :class="['explorer-icon', getFileColor(item)]" />
         </div>
         <div class="explorer-label" :title="item.name">{{ item.name }}</div>
