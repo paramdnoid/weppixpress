@@ -15,7 +15,7 @@
       <!-- Content -->
       <div class="resizable-grid border-start">
         <div class="nav-scroller bg-body p-1 border-bottom">
-          <nav class="nav" aria-label="Secondary navigation">
+          <nav class="nav me-1" aria-label="Secondary navigation">
             <Breadcrumb :segments="breadcrumbItems" @navigate="onNavigate" />
           </nav>
           <div class="input-icon w-25">

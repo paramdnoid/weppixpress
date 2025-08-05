@@ -1,5 +1,5 @@
 <template>
-  <div class="col-docs flex-fill">
+  <div class="col-docs flex-fill p-1">
     <nav id="menu" ref="treeRoot">
       <div v-for="(group, index) in treeData" :key="index">
         <nav class="nav nav-vertical">

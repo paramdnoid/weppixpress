@@ -52,7 +52,9 @@ async function readItemRecursively(item, targetPath, baseDirUser) {
       name: item.name,
       path: relative(baseDirUser, fullPath),
       type: item.isDirectory() ? 'folder' : 'file',
-      size: isFile ? filesize(stats.size) : null,
+      size: isFile
+        ? filesize(stats.size)
+        : filesize(await getFolderSize(fullPath)),
       updated: stats.mtime.toISOString(),
       hasSubfolder: item.isDirectory() ? children?.some(child => child.type === 'folder') ?? false : false,
       children: children?.filter(Boolean) ?? undefined
@@ -60,6 +62,31 @@ async function readItemRecursively(item, targetPath, baseDirUser) {
   } catch (error) {
     logger.debug(`Failed to read item at ${fullPath}: ${error.message}`);
   }
+}
+
+/**
+ * Recursively calculates the total size of a folder (in bytes).
+ * @param {string} folderPath - Absolute path to the folder.
+ * @returns {Promise<number>} Total size in bytes.
+ */
+async function getFolderSize(folderPath) {
+  let totalSize = 0;
+  try {
+    const entries = await fsp.readdir(folderPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(folderPath, entry.name);
+      if (entry.isDirectory()) {
+        totalSize += await getFolderSize(fullPath);
+      } else if (entry.isFile()) {
+        const stats = await fsp.stat(fullPath);
+        totalSize += stats.size;
+      }
+    }
+  } catch (error) {
+    logger.debug(`Error reading folder size at ${folderPath}: ${error.message}`);
+  }
+  return totalSize;
 }
 
 /**
