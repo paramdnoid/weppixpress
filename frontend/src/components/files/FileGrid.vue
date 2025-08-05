@@ -2,18 +2,22 @@
   <div>
     <div v-if="sortedItems.length === 0" class="text-center text-muted py-6">
       <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
-      <div>Keine Dateien oder Ordner im aktuellen Verzeichnis.</div>
+      <div>No files or folders in the current directory.</div>
     </div>
     <div v-else class="explorer-grid">
-      <div v-for="item in sortedItems" :key="itemKey(item)" class="explorer-item" :tabindex="0" role="button"
-        @dblclick="onItemDblClick(item)" :title="item.name">
+      <div
+        v-for="item in displayItems"
+        :key="itemKey(item.raw)"
+        class="explorer-item"
+        tabindex="0"
+        role="button"
+        @dblclick="onItemDblClick(item.raw)"
+        :title="item.name"
+      >
         <div class="icon-wrap">
-          <Icon v-if="item.type === 'folder' && item.name !== '..'" icon="flat-color-icons:folder"
-            class="explorer-icon folder" />
-          <Icon v-else-if="item.name === '..'" icon="tabler:arrow-back-up" class="explorer-icon text-secondary " />
-          <Icon v-else :icon="getFileIcon(item)" :class="['explorer-icon', getFileColor(item)]" />
+          <Icon :icon="item.icon" class="explorer-icon" :class="item.iconClass" />
         </div>
-        <div class="explorer-label" :title="item.name">{{ item.name }}</div>
+        <div class="explorer-label">{{ item.name }}</div>
       </div>
     </div>
   </div>
@@ -33,10 +37,30 @@ const props = defineProps({
 
 const sortedItems = computed(() => {
   return [...props.items].sort(getFileComparator(props.sortKey, props.sortDir));
-})
+});
 
-const emit = defineEmits(['itemDblClick'])
-function onItemDblClick(item) { emit('itemDblClick', item) }
+const displayItems = computed(() => {
+  return sortedItems.value.map(item => {
+    let icon;
+    let iconClass = '';
+    if (item.type === 'folder' && item.name !== '..') {
+      icon = 'flat-color-icons:folder';
+      iconClass = 'folder';
+    } else if (item.name === '..') {
+      icon = 'tabler:arrow-back-up';
+      iconClass = 'text-secondary';
+    } else {
+      icon = getFileIcon(item);
+      iconClass = getFileColor(item);
+    }
+    return { raw: item, icon, iconClass, name: item.name };
+  });
+});
+
+const emit = defineEmits(['itemDblClick']);
+function onItemDblClick(item) {
+  emit('itemDblClick', item);
+}
 </script>
 
 <style scoped>

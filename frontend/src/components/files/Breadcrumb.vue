@@ -1,37 +1,55 @@
 <template>
-  <div>
+  <nav aria-label="Breadcrumb">
     <ol class="breadcrumb breadcrumb-muted breadcrumb-arrows ps-2">
-      <li v-for="(seg, idx) in segments" :key="idx" class="breadcrumb-item"
-        :class="{ active: idx === segments.length - 1 }" :aria-current="idx === segments.length - 1 ? 'page' : null">
-        <template v-if="idx < segments.length - 1">
-          <a :href="isObject(seg) ? seg.path : '#'" @click.prevent="emit('navigate', isObject(seg) ? seg.path : '')"
-            :title="isObject(seg) ? seg.name : seg">
-            {{ isObject(seg) ? seg.name : seg }}
+      <li v-for="(item, idx) in crumbItems" :key="item.path || idx" class="breadcrumb-item"
+        :class="{ active: idx === crumbItems.length - 1 }"
+        :aria-current="idx === crumbItems.length - 1 ? 'page' : null">
+        <template v-if="item.isObject && idx < crumbItems.length - 1">
+          <a :href="item.path" @click.prevent="emit('navigate', item.path)" :title="item.name">
+
+            <template v-if="idx === 0">
+            <Icon icon="mdi:home" width="16" height="16" class="me-0" />
+            </template>
+            <template v-else>
+              {{ item.name }}
+            </template>
+
           </a>
         </template>
         <template v-else>
-          <span :title="isObject(seg) ? seg.name : seg">{{ isObject(seg) ? seg.name : seg }}</span>
+          <span :title="item.name">
+            {{ item.name }}
+          </span>
         </template>
       </li>
     </ol>
-  </div>
+  </nav>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
   segments: {
     type: Array,
     default: () => []
   }
 });
-
 const emit = defineEmits(['navigate']);
-const isObject = val => typeof val === 'object' && val !== null;
+
+const crumbItems = computed(() =>
+  props.segments.map(seg => {
+    if (typeof seg === 'object' && seg !== null) {
+      return { name: seg.name, path: seg.path, isObject: true };
+    }
+    return { name: seg, path: '', isObject: false };
+  })
+);
 </script>
 
 <style scoped>
 .breadcrumb {
-  display: -webkit-inline-box
+  display: inline-flex;
 }
 
 .breadcrumb-item {

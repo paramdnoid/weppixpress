@@ -1,15 +1,16 @@
 <template>
   <div class="col-docs flex-fill p-1">
     <nav id="menu" ref="treeRoot">
-      <div v-for="(group, index) in treeData" :key="index">
-        <nav class="nav nav-vertical">
-          <TreeNode ref="treeRoot" v-for="(node, i) in group.items" :key="i" :node="node" :selectedPath="selectedPath"
-            @select="$emit('select', $event)" :ref="el => {
-              if (!treeNodeRefs.value) treeNodeRefs.value = [];
-              treeNodeRefs.value[i] = el;
-            }" />
-        </nav>
-      </div>
+      <nav class="nav nav-vertical" v-for="group in treeData" :key="group.title">
+        <TreeNode
+          v-for="node in group.items"
+          :key="node.path"
+          :node="node"
+          :selectedPath="selectedPath"
+          @select="$emit('select', $event)"
+          ref="treeNodeRefs"
+        />
+      </nav>
     </nav>
   </div>
 </template>
@@ -62,6 +63,7 @@ defineExpose({ scrollToPath, expandAndScrollToPath, collapseAllExcept });
 watch(() => props.selectedPath, (newPath) => {
   expandAndScrollToPath(newPath);
 });
+
 </script>
 
 <style scoped>

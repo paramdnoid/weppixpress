@@ -1,14 +1,18 @@
 <template>
   <div>
-    <a ref="nodeLink" :class="['nav-link', { active: normalizePath(node.path) === normalizePath(selectedPath) }]"
-      href="#" @click.prevent="() => { toggle(); $emit('select', node.path) }" :data-path="node.path">
+    <a ref="nodeLink" :class="['nav-link', { active: isActive }]" href="#" @click.prevent="handleClick"
+      :data-path="node.path">
       {{ node.name }}
-      <span class="nav-link-toggle" v-if="hasSubfolder"></span>
+      <span class="nav-link-toggle" v-if="hasSubfolder" />
     </a>
 
     <nav v-if="hasSubfolder" class="nav nav-vertical" v-show="isOpen" :id="collapseId">
       <TreeNode v-for="(child, i) in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
-        @select="$emit('select', $event)" :ref="el => { childRefs[i] = el }" />
+        @select="emitSelect" :ref="el => {
+          // ensure the array exists
+          childRefs.value = childRefs.value || [];
+          childRefs.value[i] = el;
+        }" />
     </nav>
   </div>
 </template>
@@ -16,17 +20,32 @@
 <script setup>
 import TreeNode from './TreeNode.vue'
 import { useTreeNode } from '@/composables/useTreeNode'
-import { ref, defineExpose, watch } from 'vue';
+import { ref, defineExpose, watch, defineEmits, computed } from 'vue';
 
 const props = defineProps({
   node: { type: Object, required: true },
   selectedPath: { type: String, required: false }
 })
 
+const emit = defineEmits(['select']);
+const isActive = computed(() => {
+  const normalize = path => path?.replace(/\/+$/, '') || '';
+  return normalize(props.node.path) === normalize(props.selectedPath);
+});
+
 // pull in all your state + funcs from the composable:
 const { isOpen, toggle, hasSubfolder, collapseId, sortedChildren } = useTreeNode(props.node)
 
 const childRefs = ref([]);
+
+function handleClick() {
+  toggle();
+  emit('select', props.node.path);
+}
+
+function emitSelect(path) {
+  emit('select', path);
+}
 function expandToPath(path) {
   if (
     props.node.type === 'folder' &&
@@ -60,10 +79,6 @@ function collapseAllExcept(path) {
   });
 }
 
-function normalizePath(path) {
-  if (!path) return '';
-  return path.replace(/\/+$/, ''); // entfernt abschließende Slashes
-}
 defineExpose({ expandToPath, collapseAllExcept });
 
 watch(

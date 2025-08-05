@@ -1,66 +1,107 @@
 <template>
-  <div class="d-flex justify-content-between align-items-center py-1 px-1 bg-body" style="column-gap: 2px;">
-    <nav class="nav nav-segmented nav-sm flex-fill" role="tablist">
-      <div class="d-flex align-items-center flex-fill" style="column-gap: 1px;">
-        <button class="btn btn-sm" @click="$emit('toggle-sidebar')">
-          <Icon icon="mdi:file-tree" width="20" height="20" /> 
-          <span class="d-none d-lg-block ms-lg-1">Toggle Sidebar</span>
+  <div class="topbar d-flex justify-content-between align-items-center py-1 px-1 bg-body gap-1">
+    <nav class="d-flex align-items-center flex-fill gap-1" role="toolbar">
+      <button type="button" class="btn btn-sm" @click="toggleSidebar">
+        <Icon icon="mdi:file-tree" width="20" height="20" />
+        <span class="d-none d-lg-inline ms-1">Toggle Sidebar</span>
+      </button>
+      <button type="button" class="btn btn-sm" @click="createFolder">
+        <Icon icon="mdi:folder-plus" width="20" height="20" class="me-1" />
+        New Folder
+      </button>
+      <div class="ms-auto position-relative">
+        <button
+          type="button"
+          class="btn btn-sm"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          <Icon icon="mdi:sort-variant" width="20" height="20" />
+          <span class="d-none d-lg-inline ms-1">Sort By</span>
         </button>
-        <button class="btn btn-sm" @click="$emit('create-folder')">
-          <Icon icon="mdi:folder-plus" class="me-1" width="20" height="20" /> New folder
-        </button>
-        <div class="ms-auto">
-          <button class="btn btn-sm d-none" @click="$emit('refresh')">
-            <Icon icon="mdi:refresh" width="20" height="20" />
-          </button>
-          <button class="btn btn-sm" data-bs-toggle="dropdown">
-            <Icon icon="mdi:sort-variant" width="20" height="20" /> 
-            <span class="d-none d-lg-block ms-lg-1">SortBy</span>
-          </button>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#" @click.prevent="$emit('sort', 'name')">Name</a></li>
-            <li><a class="dropdown-item" href="#" @click.prevent="$emit('sort', 'modified')">Date</a></li>
-            <li><a class="dropdown-item" href="#" @click.prevent="$emit('sort', 'size')">Size</a></li>
-          </ul>
-        </div>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li
+            v-for="option in sortOptions"
+            :key="option.value"
+          >
+            <a
+              href="#"
+              class="dropdown-item"
+              @click.prevent="onSort(option.value)"
+            >
+              {{ option.label }}
+            </a>
+          </li>
+        </ul>
       </div>
-
     </nav>
 
-    <div class="d-flex">
-      <nav class="nav nav-segmented nav-sm" role="tablist">
-        <button class="nav-link" :class="{ active: modelValue === 'grid' }" role="tab"
-          :aria-selected="modelValue === 'grid'" :aria-current="modelValue === 'grid'"
-          @click="$emit('update:modelValue', 'grid')" title="Gridansicht" type="button">
-          <Icon icon="mdi:view-grid" width="20" height="20" />
-          <span class="d-none d-lg-block">Grid</span>
-        </button>
-        <button class="nav-link" :class="{ active: modelValue === 'list' }" role="tab"
-          :aria-selected="modelValue === 'list'" :aria-current="modelValue === 'list'"
-          @click="$emit('update:modelValue', 'list')" title="Listenansicht" type="button">
-          <Icon icon="mdi:view-list" width="20" height="20" />
-          <span class="d-none d-lg-block">List</span>
-        </button>
-      </nav>
-    </div>
-
+    <nav class="nav nav-segmented nav-sm" role="tablist">
+      <button
+        v-for="mode in viewModes"
+        :key="mode.value"
+        type="button"
+        class="nav-link"
+        :class="{ active: modelValue === mode.value }"
+        :aria-selected="modelValue === mode.value"
+        :aria-current="modelValue === mode.value"
+        @click="updateView(mode.value)"
+        :title="mode.title"
+      >
+        <Icon :icon="mode.icon" width="20" height="20" />
+        <span class="d-none d-lg-inline ms-1">{{ mode.label }}</span>
+      </button>
+    </nav>
   </div>
 </template>
 
 <script setup>
 import { Icon } from '@iconify/vue'
 
-defineProps({
+const props = defineProps({
   modelValue: {
     type: String,
     required: true
   }
 })
-defineEmits(['refresh', 'create-folder', 'update:modelValue', 'sort', 'toggle-sidebar'])
+
+const emit = defineEmits([
+  'toggle-sidebar',
+  'create-folder',
+  'sort',
+  'update:modelValue'
+])
+
+const sortOptions = [
+  { value: 'name', label: 'Name' },
+  { value: 'modified', label: 'Date' },
+  { value: 'size', label: 'Size' }
+]
+
+const viewModes = [
+  { value: 'grid', icon: 'mdi:view-grid', title: 'Grid view', label: 'Grid' },
+  { value: 'list', icon: 'mdi:view-list', title: 'List view', label: 'List' }
+]
+
+function toggleSidebar() {
+  emit('toggle-sidebar')
+}
+
+function createFolder() {
+  emit('create-folder')
+}
+
+function onSort(key) {
+  emit('sort', key)
+}
+
+function updateView(mode) {
+  emit('update:modelValue', mode)
+}
 </script>
 
-<style>
-.btn.btn-sm {
+<style scoped>
+.topbar .btn {
   margin: 1px;
   box-shadow: none;
   padding: 2px 5px 3px;
