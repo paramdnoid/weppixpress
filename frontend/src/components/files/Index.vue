@@ -97,7 +97,7 @@ import TreeSidebar from './TreeSidebar.vue'
 import Breadcrumb from './Breadcrumb.vue'
 import FileTable from './FileTable.vue'
 import FileGrid from './FileGrid.vue'
-import { useFileStore } from '@/stores/file'
+import { useFileStore } from '@/stores/files'
 
 const fileStore = useFileStore()
 
