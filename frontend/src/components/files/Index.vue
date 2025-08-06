@@ -110,6 +110,11 @@ const treeSidebar = ref(null)
 const sortKey = ref('name')
 const sortDir = ref('asc')
 
+function onSort({ key, dir }) {
+  sortKey.value = key
+  sortDir.value = dir
+}
+
 // Sidebar-Resizing (reactive)
 const sidebar = ref(null)
 const isSidebarCollapsed = ref(false)
