@@ -1,99 +1,61 @@
 <template>
   <div>
-    <a ref="nodeLink" :class="['nav-link', { active: isActive }]" href="#" @click.prevent="handleClick"
-      :data-path="node.path">
+    <a ref="nodeLink" :class="['nav-link', { active: isActive }]" href="#"
+      :data-path="node.path" @click.prevent="toggleOpen">
       {{ node.name }}
       <span class="nav-link-toggle" v-if="hasSubfolder" />
     </a>
 
     <nav v-if="hasSubfolder" class="nav nav-vertical" v-show="isOpen" :id="collapseId">
-      <TreeNode v-for="(child, i) in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
-        @select="emitSelect" :ref="el => {
-          // ensure the array exists
-          childRefs.value = childRefs.value || [];
-          childRefs.value[i] = el;
-        }" />
+      <TreeNode
+        v-for="(child, i) in sortedChildren"
+        :key="child.path"
+        :node="child"
+        :selectedPath="selectedPath"
+        :loadChildren="loadChildren"
+      />
+      <div v-if="loading" class="ps-3 text-muted small">Loading…</div>
     </nav>
   </div>
 </template>
 
 <script setup>
+import { ref, computed } from 'vue'
+import { useFileStore } from '@/stores/files'
 import TreeNode from './TreeNode.vue'
-import { useTreeNode } from '@/composables/useTreeNode'
-import { ref, defineExpose, watch, defineEmits, computed } from 'vue';
 
 const props = defineProps({
   node: { type: Object, required: true },
-  selectedPath: { type: String, required: false }
+  selectedPath: { type: String, required: false },
+  loadChildren: { type: Function, required: false }
 })
 
-const emit = defineEmits(['select']);
-const isActive = computed(() => {
-  const normalize = path => path?.replace(/\/+$/, '') || '';
-  return normalize(props.node.path) === normalize(props.selectedPath);
-});
+const fileStore = useFileStore()
 
-// pull in all your state + funcs from the composable:
-const { isOpen, toggle, hasSubfolder, collapseId, sortedChildren } = useTreeNode(props.node)
+const isOpen = ref(false)
+const loading = ref(false)
+const children = ref(props.node.children ?? null)
 
-const childRefs = ref([]);
+const collapseId = computed(() => `collapse-${props.node.path}`)
 
-function handleClick() {
-  toggle();
-  emit('select', props.node.path);
-}
+const hasSubfolder = computed(() => Array.isArray(children.value) && children.value.length > 0)
 
-function emitSelect(path) {
-  emit('select', path);
-}
-function expandToPath(path) {
-  if (
-    props.node.type === 'folder' &&
-    path &&
-    path.startsWith(props.node.path)
-  ) {
-    isOpen.value = true;
-    childRefs.value.forEach(child => {
-      if (child && typeof child.expandToPath === 'function') {
-        child.expandToPath(path);
-      }
-    });
-  } else {
-    isOpen.value = false;
+const sortedChildren = computed(() => {
+  return [...(children.value || [])].sort((a, b) => {
+    if (a.type === 'folder' && b.type !== 'folder') return -1
+    if (a.type !== 'folder' && b.type === 'folder') return 1
+    return a.name.localeCompare(b.name)
+  })
+})
+
+const isActive = computed(() => props.node.path === fileStore.selectedPath)
+
+const toggleOpen = async () => {
+  if (!isOpen.value && children.value === null && props.node.type === 'folder' && props.loadChildren) {
+    loading.value = true
+    children.value = await props.loadChildren(props.node)
+    loading.value = false
   }
+  isOpen.value = !isOpen.value
 }
-
-function collapseAllExcept(path) {
-  if (
-    props.node.type === 'folder' &&
-    props.node.path !== path &&
-    !(path && path.startsWith(props.node.path + '/'))
-  ) {
-    isOpen.value = false;
-  }
-  // Children auch prüfen
-  childRefs.value.forEach(child => {
-    if (child && typeof child.collapseAllExcept === 'function') {
-      child.collapseAllExcept(path);
-    }
-  });
-}
-
-defineExpose({ expandToPath, collapseAllExcept });
-
-watch(
-  () => props.selectedPath,
-  (newPath) => {
-    if (
-      props.node.type === 'folder' &&
-      newPath &&
-      newPath.startsWith(props.node.path)
-    ) {
-      isOpen.value = true;
-    } else {
-      isOpen.value = false;
-    }
-  },
-  { immediate: true }
-);
 </script>

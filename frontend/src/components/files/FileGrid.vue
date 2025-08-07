@@ -1,25 +1,6 @@
 <template>
   <div>
-    <div v-if="sortedItems.length === 0" class="text-center text-muted py-6">
-      <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
-      <div>No files or folders in the current directory.</div>
-    </div>
-    <div v-else class="explorer-grid">
-      <div
-        v-for="item in displayItems"
-        :key="itemKey(item.raw)"
-        class="explorer-item"
-        tabindex="0"
-        role="button"
-        @dblclick="onItemDblClick(item.raw)"
-        :title="item.name"
-      >
-        <div class="icon-wrap">
-          <Icon :icon="item.icon" class="explorer-icon" :class="item.iconClass" />
-        </div>
-        <div class="explorer-label">{{ item.name }}</div>
-      </div>
-    </div>
+
   </div>
 </template>
 

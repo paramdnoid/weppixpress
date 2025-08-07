@@ -6,6 +6,13 @@ function getExtension(item) {
 }
 
 export function getFileIcon(item) {
+  if (item.type === 'folder') {
+    const name = item.name?.toLowerCase() || '';
+    if (name.includes('shared')) return 'bxs:folder-open';
+    if (name.includes('archive') || name.includes('backup')) return 'bxs:archive';
+    if (name.includes('system') || name.startsWith('.')) return 'bxs:hard-drive';
+    return 'bxs:folder';
+  }
   const ext = getExtension(item);
   const map = {
     xml: 'bxs:file-xml',
@@ -93,7 +100,7 @@ export function getFileComparator(sortKey = '', sortDir = 'asc') {
   };
 }
 
-export function getSizeFormated(bytes) {
+export function formatFileSize(bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   if (!bytes) return '0 B';
   const i = Math.floor(Math.log(bytes) / Math.log(1024));

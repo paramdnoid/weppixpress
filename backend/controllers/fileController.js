@@ -27,25 +27,27 @@ dotenv.config();
 const baseDir = _resolve(process.env.UPLOAD_DIR || join(__dirname, '../..', 'uploads'));
 
 /**
- * Recursively reads a file system item and returns its metadata.
+ * Non-recursively reads a file system item and returns its metadata (flat listing only).
  * @param {import('fs').Dirent} item - Directory entry.
  * @param {string} targetPath - Absolute path to the entry.
  * @param {string} baseDirUser - User's base upload directory.
  * @returns {Promise<Object|undefined>} Metadata object or undefined on error.
  */
-async function readItemRecursively(item, targetPath, baseDirUser) {
+async function readItem(item, targetPath, baseDirUser) {
   const fullPath = join(targetPath, item.name);
   try {
     const stats = await fsp.stat(fullPath);
     const isFile = item.isFile();
-    let children;
+    let hasSubfolder = false;
+    
+    // Only check if directory has subfolders, don't read them
     if (item.isDirectory()) {
-      const subItems = await fsp.readdir(fullPath, { withFileTypes: true });
-      children = await Promise.all(
-        subItems.map(subItem =>
-          readItemRecursively(subItem, fullPath, baseDirUser)
-        )
-      );
+      try {
+        const subItems = await fsp.readdir(fullPath, { withFileTypes: true });
+        hasSubfolder = subItems.some(subItem => subItem.isDirectory());
+      } catch (error) {
+        logger.debug(`Failed to check subfolders in ${fullPath}: ${error.message}`);
+      }
     }
 
     return {
@@ -54,10 +56,10 @@ async function readItemRecursively(item, targetPath, baseDirUser) {
       type: item.isDirectory() ? 'folder' : 'file',
       size: isFile
         ? filesize(stats.size)
-        : filesize(await getFolderSize(fullPath)),
+        : filesize(await getFolderSize(fullPath)), // This still calculates folder size recursively
       updated: stats.mtime.toISOString(),
-      hasSubfolder: item.isDirectory() ? children?.some(child => child.type === 'folder') ?? false : false,
-      children: children?.filter(Boolean) ?? undefined
+      hasSubfolder: hasSubfolder,
+      children: undefined // Never populate children in non-recursive mode
     };
   } catch (error) {
     logger.debug(`Failed to read item at ${fullPath}: ${error.message}`);
@@ -66,6 +68,7 @@ async function readItemRecursively(item, targetPath, baseDirUser) {
 
 /**
  * Recursively calculates the total size of a folder (in bytes).
+ * Note: This function remains recursive as it's needed for accurate folder size calculation.
  * @param {string} folderPath - Absolute path to the folder.
  * @returns {Promise<number>} Total size in bytes.
  */
@@ -90,7 +93,7 @@ async function getFolderSize(folderPath) {
 }
 
 /**
- * Express handler: retrieves the list of files/folders for a user path.
+ * Express handler: retrieves the list of files/folders for a user path (non-recursive).
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
@@ -115,11 +118,9 @@ export async function getFolderFiles(req, res) {
   try {
     const items = await fsp.readdir(targetPath, { withFileTypes: true });
 
-    logger.info(`Listing ${items.length} items in ${targetPath}`);
+    logger.info(`Listing ${items.length} items in ${targetPath} (non-recursive)`);
     const children = await Promise.all(
-      items.map(item =>
-        readItemRecursively(item, targetPath, baseDirUser)
-      )
+      items.map(item => readItem(item, targetPath, baseDirUser))
     );
 
     res.json({ children: children.filter(Boolean) });

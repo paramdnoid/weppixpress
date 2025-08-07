@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
-export const useFileStore = defineStore('file', {
+export const useFileStore = defineStore('files', {
   state: () => ({
     currentPath: '/',
     files: [],
     loading: false,
     error: null,
+    root: [],
+    children: [],
     selectedFiles: [],
     breadcrumbs: [],
     accessToken: localStorage.getItem('accessToken') || null
@@ -30,7 +32,11 @@ export const useFileStore = defineStore('file', {
         })
         this.files = res.data.children
         this.currentPath = path
-        this.breadcrumbs = path.split('/').filter(Boolean)
+        this.breadcrumbs = path.split('/').filter(Boolean).map((name, i, arr) => ({
+          name,
+          path: '/' + arr.slice(0, i + 1).join('/'),
+          isObject: true
+        }))
       } catch (err) {
         this.error = err?.response?.data?.message || 'Failed to fetch files'
       } finally {
@@ -90,7 +96,9 @@ export const useFileStore = defineStore('file', {
     },
 
     // Load children for a folder path without modifying the main file list
-    async loadChildrenForPath(path) {
+    async fetchFolderChildren(path = this.currentPath) {
+      this.loading = true
+      this.error = null
       try {
         const res = await axios.get(`/files`, {
           params: { path },
@@ -98,12 +106,19 @@ export const useFileStore = defineStore('file', {
             Authorization: `Bearer ${this.accessToken}`
           }
         });
+        this.breadcrumbs = path.split('/').filter(Boolean).map((name, i, arr) => ({
+          name,
+          path: '/' + arr.slice(0, i + 1).join('/'),
+          isObject: true
+        }))
         this.currentPath = path
-        this.breadcrumbs = path.split('/').filter(Boolean)
-        return res.data.children;
+        this.children = res.data.children
+        
+        return this.children;
       } catch (err) {
-        this.error = err?.response?.data?.message || 'Failed to load folder';
-        return [];
+        this.error = err?.response?.data?.message || 'Failed to fetch files'
+      } finally {
+        this.loading = false
       }
     },
   },
