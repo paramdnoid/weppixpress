@@ -1,61 +1,227 @@
 <template>
-  <div>
-    <a ref="nodeLink" :class="['nav-link', { active: isActive }]" href="#"
-      :data-path="node.path" @click.prevent="toggleOpen">
+  <div :data-path="node.path">
+    <a ref="nodeLink" :id="`node-${node.path}`" :class="['nav-link', { active: isActive, selected: isExactActive }]"
+      href="#" :data-path="node.path" @click.prevent="handleNodeClick" :aria-expanded="isOpen"
+      :aria-selected="isExactActive" :aria-label="`${node.type === 'folder' ? 'Folder' : 'File'}: ${node.name}`">
+      <Icon :icon="node.type === 'folder' ? 'mdi:folder' : 'mdi:file-outline'"
+        :class="node.type === 'folder' ? 'text-warning me-1' : 'text-muted me-1'" width="18" height="18" />
       {{ node.name }}
-      <span class="nav-link-toggle" v-if="hasSubfolder" />
+      <Icon v-if="node.hasSubfolder" :icon="isOpen ? 'mdi:chevron-down' : 'mdi:chevron-right'" class="nav-link-toggle"
+        width="16" height="16" />
     </a>
 
-    <nav v-if="hasSubfolder" class="nav nav-vertical" v-show="isOpen" :id="collapseId">
-      <TreeNode
-        v-for="(child, i) in sortedChildren"
-        :key="child.path"
-        :node="child"
-        :selectedPath="selectedPath"
-        :loadChildren="loadChildren"
-      />
-      <div v-if="loading" class="ps-3 text-muted small">Loading…</div>
+    <nav v-if="node.hasSubfolder" class="nav nav-vertical ms-3" v-show="isOpen" :id="collapseId" role="group"
+      :aria-labelledby="`node-${node.path}`">
+      <TreeNode v-for="child in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
+        :loadChildren="loadChildren" @nodeSelect="(n) => emit('nodeSelect', n)"
+        @nodeToggle="(e) => emit('nodeToggle', e)" />
+      <div v-if="loading" class="ps-3 text-muted small d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        Loading…
+      </div>
+      <div v-else-if="loadError" class="ps-3 text-danger small">
+        <Icon icon="mdi:alert-circle" class="me-1" width="14" height="14" />
+        Failed to load
+      </div>
     </nav>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useFileStore } from '@/stores/files'
 import TreeNode from './TreeNode.vue'
+import { Icon } from '@iconify/vue'
 
 const props = defineProps({
-  node: { type: Object, required: true },
-  selectedPath: { type: String, required: false },
-  loadChildren: { type: Function, required: false }
+  node: {
+    type: Object,
+    required: true,
+    validator: (node) => node && typeof node.path === 'string' && typeof node.name === 'string'
+  },
+  selectedPath: {
+    type: String,
+    required: false
+  },
+  loadChildren: {
+    type: Function,
+    required: false
+  }
 })
 
-const fileStore = useFileStore()
+const emit = defineEmits(['nodeSelect', 'nodeToggle'])
 
+const fileStore = useFileStore()
+const nodeLink = ref(null)
+
+// State
 const isOpen = ref(false)
 const loading = ref(false)
+const loadError = ref(false)
 const children = ref(props.node.children ?? null)
+const hasLoadedChildren = ref(!!props.node.children)
 
-const collapseId = computed(() => `collapse-${props.node.path}`)
-
-const hasSubfolder = computed(() => Array.isArray(children.value) && children.value.length > 0)
+// Computed properties
+const collapseId = computed(() => `collapse-${props.node.path.replace(/[^\w-]/g, '_')}`)
 
 const sortedChildren = computed(() => {
-  return [...(children.value || [])].sort((a, b) => {
+  if (!children.value) return []
+
+  return [...children.value].sort((a, b) => {
+    // Folders first, then alphabetical
     if (a.type === 'folder' && b.type !== 'folder') return -1
     if (a.type !== 'folder' && b.type === 'folder') return 1
-    return a.name.localeCompare(b.name)
+    return a.name.localeCompare(b.name, undefined, { numeric: true })
   })
 })
 
-const isActive = computed(() => props.node.path === fileStore.selectedPath)
+const isActive = computed(() => {
+  return props.selectedPath === props.node.path ||
+    (props.selectedPath && props.selectedPath.startsWith(props.node.path + '/'))
+})
+
+const isExactActive = computed(() => props.selectedPath === props.node.path)
+
+// Methods
+const handleNodeClick = async () => {
+  emit('nodeSelect', props.node)
+
+  if (props.node.type === 'folder') {
+    await toggleOpen()
+  }
+}
 
 const toggleOpen = async () => {
-  if (!isOpen.value && children.value === null && props.node.type === 'folder' && props.loadChildren) {
-    loading.value = true
-    children.value = await props.loadChildren(props.node)
-    loading.value = false
+  if (props.node.type !== 'folder' || !props.node.hasSubfolder) {
+    return
   }
-  isOpen.value = !isOpen.value
+
+  // If closing, just toggle
+  if (isOpen.value) {
+    isOpen.value = false
+    emit('nodeToggle', { node: props.node, isOpen: false })
+    return
+  }
+
+  // If opening and we need to load children
+  if (!hasLoadedChildren.value && props.loadChildren) {
+    loading.value = true
+    loadError.value = false
+
+    try {
+      const loadedChildren = await props.loadChildren(props.node)
+      children.value = loadedChildren || []
+      hasLoadedChildren.value = true
+    } catch (error) {
+      console.error('Failed to load children for node:', props.node.path, error)
+      loadError.value = true
+      // Don't open if loading failed
+      return
+    } finally {
+      loading.value = false
+    }
+  }
+
+  isOpen.value = true
+  emit('nodeToggle', { node: props.node, isOpen: true })
 }
+
+const expandToPath = async (targetPath) => {
+  if (!targetPath || !targetPath.startsWith(props.node.path)) {
+    return
+  }
+
+  // If this node is on the target path, expand it
+  if (targetPath === props.node.path || targetPath.startsWith(props.node.path + '/')) {
+    if (!isOpen.value && props.node.hasSubfolder) {
+      await toggleOpen()
+    }
+  }
+}
+
+// Event handlers
+const handleOpenPath = async (event) => {
+  const targetPath = event.detail?.path
+  if (!targetPath) return
+
+  try {
+    await expandToPath(targetPath)
+  } catch (error) {
+    console.error('Failed to expand to path:', targetPath, error)
+  }
+}
+
+const handleKeyDown = (event) => {
+  switch (event.key) {
+    case 'Enter':
+    case ' ':
+      event.preventDefault()
+      handleNodeClick()
+      break
+    case 'ArrowRight':
+      if (props.node.hasSubfolder && !isOpen.value) {
+        event.preventDefault()
+        toggleOpen()
+      }
+      break
+    case 'ArrowLeft':
+      if (isOpen.value) {
+        event.preventDefault()
+        isOpen.value = false
+      }
+      break
+  }
+}
+
+// Watch for external path changes
+watch(() => props.selectedPath, (newPath) => {
+  if (newPath && newPath.startsWith(props.node.path + '/') && !isOpen.value) {
+    // Auto-expand if selected path is within this node
+    toggleOpen()
+  }
+}, { immediate: true })
+
+// Lifecycle
+onMounted(() => {
+  const treeRoot = nodeLink?.value?.closest('#menu') || document.getElementById('menu')
+
+  if (treeRoot) {
+    treeRoot.addEventListener('tree:openPath', handleOpenPath)
+  }
+
+  if (nodeLink.value) {
+    nodeLink.value.addEventListener('keydown', handleKeyDown)
+  }
+})
+
+onUnmounted(() => {
+  const treeRoot = nodeLink?.value?.closest('#menu') || document.getElementById('menu')
+
+  if (treeRoot) {
+    treeRoot.removeEventListener('tree:openPath', handleOpenPath)
+  }
+
+  if (nodeLink.value) {
+    nodeLink.value.removeEventListener('keydown', handleKeyDown)
+  }
+})
 </script>
+
+<style scoped>
+.nav-link:focus {
+  background-color: transparent;
+}
+
+.nav-link-toggle {
+  margin-left: auto;
+  padding: 0;
+  transition: transform 0.3s;
+}
+</style>
+<style scoped>
+.nav-link.selected {
+  font-weight: 600;
+}
+</style>

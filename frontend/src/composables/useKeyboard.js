@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, readonly } from 'vue'
 
 /**
  * Keyboard composable for handling keyboard shortcuts and navigation
@@ -129,7 +129,15 @@ export function useKeyboard(options = {}) {
    */
   const getCurrentKeyCombo = () => {
     const keys = Array.from(pressedKeys.value)
-    return keys.sort().join('+').toLowerCase()
+      .filter(key => !['Control', 'Shift', 'Alt', 'Meta'].includes(key))
+    const modifiers = []
+    
+    if (isCtrlPressed.value) modifiers.push('control')
+    if (isShiftPressed.value) modifiers.push('shift')
+    if (isAltPressed.value) modifiers.push('alt')
+    if (isMetaPressed.value) modifiers.push('meta')
+    
+    return [...modifiers, ...keys.map(k => k.toLowerCase())].sort().join('+')
   }
 
   /**
@@ -166,9 +174,12 @@ export function useKeyboard(options = {}) {
 
       return Array.from(container.querySelectorAll(focusableSelectors))
         .filter(el => {
-          // Check if element is visible
+          // Check if element is visible and not hidden
+          const rect = el.getBoundingClientRect()
           const style = window.getComputedStyle(el)
-          return style.display !== 'none' && 
+          return rect.width > 0 && 
+                 rect.height > 0 &&
+                 style.display !== 'none' && 
                  style.visibility !== 'hidden' && 
                  style.opacity !== '0'
         })
@@ -291,48 +302,7 @@ export function useKeyboard(options = {}) {
   }
 
   /**
-   * Main keyboard event handler
-   * @param {KeyboardEvent} event - Keyboard event
-   */
-  const handleKeyDown = (event) => {
-    const key = event.key.toLowerCase()
-    
-    // Update pressed keys
-    pressedKeys.value.add(event.key)
-    lastKeyPressed.value = event.key
-    isModifierPressed.value = isModifierActive.value
-
-    // Handle sequences
-    handleSequences(key)
-
-    // Handle shortcuts
-    const currentCombo = getCurrentKeyCombo()
-    const shortcut = shortcuts.value.get(currentCombo)
-    
-    if (shortcut && shortcut.enabled) {
-      // Check if shortcut should be global or only when not in input
-      const isInInput = ['input', 'textarea', 'select'].includes(event.target.tagName.toLowerCase()) ||
-                       event.target.contentEditable === 'true'
-      
-      if (shortcut.global || !isInInput) {
-        if (shortcut.preventDefault) event.preventDefault()
-        if (shortcut.stopPropagation) event.stopPropagation()
-        
-        shortcut.callback(event, currentCombo)
-      }
-    }
-
-    // Handle arrow navigation
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-      handleArrowNavigation(event)
-    }
-
-    // Track focused element
-    focusedElement.value = event.target
-  }
-
-  /**
-   * Handle key sequences
+   * Handle key sequences (like vim-style navigation)
    * @param {string} key - Pressed key
    */
   const handleSequences = (key) => {
@@ -368,12 +338,72 @@ export function useKeyboard(options = {}) {
   }
 
   /**
+   * Main keyboard event handler
+   * @param {KeyboardEvent} event - Keyboard event
+   */
+  const handleKeyDown = (event) => {
+    const key = event.key
+    
+    // Update pressed keys
+    pressedKeys.value.add(key)
+    lastKeyPressed.value = key
+    isModifierPressed.value = isModifierActive.value
+
+    // Handle sequences first
+    if (!isModifierActive.value) {
+      handleSequences(key.toLowerCase())
+    }
+
+    // Handle shortcuts
+    const currentCombo = getCurrentKeyCombo()
+    const shortcut = shortcuts.value.get(currentCombo)
+    
+    if (shortcut && shortcut.enabled) {
+      // Check if shortcut should be global or only when not in input
+      const isInInput = ['input', 'textarea', 'select'].includes(event.target.tagName.toLowerCase()) ||
+                       event.target.contentEditable === 'true'
+      
+      if (shortcut.global || !isInInput) {
+        if (shortcut.preventDefault) event.preventDefault()
+        if (shortcut.stopPropagation) event.stopPropagation()
+        
+        try {
+          shortcut.callback(event, currentCombo)
+        } catch (error) {
+          console.error('Keyboard shortcut error:', error)
+        }
+      }
+    }
+
+    // Handle arrow navigation for non-input elements
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      const isInInput = ['input', 'textarea', 'select'].includes(event.target.tagName.toLowerCase()) ||
+                       event.target.contentEditable === 'true'
+      
+      if (!isInInput) {
+        handleArrowNavigation(event)
+      }
+    }
+
+    // Track focused element
+    focusedElement.value = event.target
+  }
+
+  /**
    * Handle key up events
    * @param {KeyboardEvent} event - Keyboard event
    */
   const handleKeyUp = (event) => {
     pressedKeys.value.delete(event.key)
     isModifierPressed.value = isModifierActive.value
+  }
+
+  /**
+   * Handle focus events for better tracking
+   * @param {FocusEvent} event - Focus event
+   */
+  const handleFocus = (event) => {
+    focusedElement.value = event.target
   }
 
   /**
@@ -400,40 +430,30 @@ export function useKeyboard(options = {}) {
     }))
   }
 
-  // Lifecycle management
-  onMounted(() => {
-    if (enableGlobalShortcuts) {
-      target.addEventListener('keydown', handleKeyDown, { passive: false })
-      target.addEventListener('keyup', handleKeyUp, { passive: true })
-    }
-
-    // Register common shortcuts if enabled
-    if (enableGlobalShortcuts) {
-      registerCommonShortcuts()
-    }
-  })
-
-  onUnmounted(() => {
-    target.removeEventListener('keydown', handleKeyDown)
-    target.removeEventListener('keyup', handleKeyUp)
-    
-    if (sequenceTimeout) {
-      clearTimeout(sequenceTimeout)
-    }
-  })
+  /**
+   * Clear all pressed keys (useful for cleanup)
+   */
+  const clearPressedKeys = () => {
+    pressedKeys.value.clear()
+    isModifierPressed.value = false
+  }
 
   /**
    * Register common application shortcuts
    */
   const registerCommonShortcuts = () => {
     // Selection shortcuts
-    registerShortcut('ctrl+a', () => {
-      // Will be handled by parent component
+    registerShortcut('control+a', (event) => {
+      // Let parent components handle this
+      const selectAllEvent = new CustomEvent('keyboard-select-all', { 
+        detail: { originalEvent: event }
+      })
+      event.target.dispatchEvent(selectAllEvent)
     }, { description: 'Select all items' })
 
     // Search shortcut
-    registerShortcut('ctrl+f', (event) => {
-      const searchInput = document.querySelector('input[aria-label*="Search"]')
+    registerShortcut('control+f', (event) => {
+      const searchInput = document.querySelector('input[aria-label*="Search"], input[placeholder*="Search"], input[placeholder*="search"]')
       if (searchInput) {
         event.preventDefault()
         searchInput.focus()
@@ -442,27 +462,81 @@ export function useKeyboard(options = {}) {
     }, { description: 'Focus search input' })
 
     // Escape to clear/cancel
-    registerShortcut('escape', () => {
-      const activeElement = document.activeElement
-      if (activeElement && activeElement.blur) {
-        activeElement.blur()
-      }
+    registerShortcut('escape', (event) => {
+      // Clear selection or close modals
+      const escapeEvent = new CustomEvent('keyboard-escape', { 
+        detail: { originalEvent: event }
+      })
+      event.target.dispatchEvent(escapeEvent)
+      
+      // If no custom handler, blur active element
+      setTimeout(() => {
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur()
+        }
+      }, 0)
     }, { description: 'Clear focus/cancel action' })
 
     // Navigation shortcuts
     registerShortcut('home', (event) => {
-      event.preventDefault()
-      focusUtils.focusFirst()
+      if (!['input', 'textarea'].includes(event.target.tagName.toLowerCase())) {
+        event.preventDefault()
+        focusUtils.focusFirst()
+      }
     }, { description: 'Focus first item' })
 
     registerShortcut('end', (event) => {
-      event.preventDefault()
-      focusUtils.focusLast()
+      if (!['input', 'textarea'].includes(event.target.tagName.toLowerCase())) {
+        event.preventDefault()
+        focusUtils.focusLast()
+      }
     }, { description: 'Focus last item' })
+
+    // Delete shortcut
+    registerShortcut('delete', (event) => {
+      const deleteEvent = new CustomEvent('keyboard-delete', { 
+        detail: { originalEvent: event }
+      })
+      event.target.dispatchEvent(deleteEvent)
+    }, { description: 'Delete selected items' })
+
+    // Refresh shortcut
+    registerShortcut('f5', (event) => {
+      const refreshEvent = new CustomEvent('keyboard-refresh', { 
+        detail: { originalEvent: event }
+      })
+      event.target.dispatchEvent(refreshEvent)
+    }, { description: 'Refresh current view' })
   }
 
+  // Lifecycle management
+  onMounted(() => {
+    if (enableGlobalShortcuts) {
+      target.addEventListener('keydown', handleKeyDown, { passive: false })
+      target.addEventListener('keyup', handleKeyUp, { passive: true })
+      target.addEventListener('focus', handleFocus, { passive: true, capture: true })
+      
+      // Handle window blur to clear pressed keys
+      window.addEventListener('blur', clearPressedKeys, { passive: true })
+      
+      // Register common shortcuts
+      registerCommonShortcuts()
+    }
+  })
+
+  onUnmounted(() => {
+    target.removeEventListener('keydown', handleKeyDown)
+    target.removeEventListener('keyup', handleKeyUp)
+    target.removeEventListener('focus', handleFocus)
+    window.removeEventListener('blur', clearPressedKeys)
+    
+    if (sequenceTimeout) {
+      clearTimeout(sequenceTimeout)
+    }
+  })
+
   return {
-    // State
+    // State (readonly to prevent external mutation)
     pressedKeys: readonly(pressedKeys),
     lastKeyPressed: readonly(lastKeyPressed),
     isModifierPressed: readonly(isModifierPressed),
@@ -484,6 +558,7 @@ export function useKeyboard(options = {}) {
     isKeyComboPressed,
     getCurrentKeyCombo,
     handleArrowNavigation,
+    clearPressedKeys,
     
     // Focus utilities
     focusUtils,
