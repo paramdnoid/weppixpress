@@ -148,7 +148,7 @@ const treeData = computed(() => {
       path: f.path,
       type: f.type,
       hasSubfolders: f.hasSubfolders,
-      children: f.children ?? (f.type === 'folder' ? null : undefined)
+      children: f.type === 'folder' && f.hasSubfolders ? null : undefined
     }))
   }]
 })
@@ -369,13 +369,15 @@ async function loadChildren(node) {
     })) || []
   } catch (error) {
     console.error('Error loading children:', error)
-    return []
+    throw error
   }
 }
 
 async function handleNodeSelect(node) {
-  if (node.type === 'folder') {
-    await openFolder(node)
+  // TreeNode already handles folder expansion, just handle other selection logic here
+  if (node.type !== 'folder') {
+    // Handle file selection if needed
+    console.log('File selected:', node.name)
   }
 }
 

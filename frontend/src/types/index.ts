@@ -70,6 +70,7 @@ export interface FileItem {
   hasThumbnail?: boolean;
   thumbnailId?: string;
   permissions?: FilePermissions;
+  children?: FileItem[];
 }
 
 export interface FilePermissions {

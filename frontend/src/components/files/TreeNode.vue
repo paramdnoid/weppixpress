@@ -31,7 +31,6 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useFileStore } from '@/stores/files'
 import TreeNode from './TreeNode.vue'
 import { Icon } from '@iconify/vue'
 
@@ -53,14 +52,13 @@ const props = defineProps({
 
 const emit = defineEmits(['nodeSelect', 'nodeToggle'])
 
-const fileStore = useFileStore()
 const nodeLink = ref(null)
 
 // State
 const isOpen = ref(false)
 const loading = ref(false)
 const loadError = ref(false)
-const children = ref(props.node.children ?? null)
+const children = ref(props.node.children ?? [])
 const hasLoadedChildren = ref(!!props.node.children)
 
 // Computed properties
@@ -86,11 +84,12 @@ const isExactActive = computed(() => props.selectedPath === props.node.path)
 
 // Methods
 const handleNodeClick = async () => {
-  emit('nodeSelect', props.node)
-
   if (props.node.type === 'folder') {
     await toggleOpen()
   }
+  
+  // Emit after toggle to avoid double loading
+  emit('nodeSelect', props.node)
 }
 
 const toggleOpen = async () => {
@@ -114,6 +113,11 @@ const toggleOpen = async () => {
       const loadedChildren = await props.loadChildren(props.node)
       children.value = loadedChildren || []
       hasLoadedChildren.value = true
+      
+      // Update the node's children property for future reference
+      if (props.node.children === null || props.node.children === undefined) {
+        props.node.children = children.value
+      }
     } catch (error) {
       console.error('Failed to load children for node:', props.node.path, error)
       loadError.value = true
@@ -174,6 +178,11 @@ const handleKeyDown = (event) => {
       break
   }
 }
+
+// Watch for node children changes
+watch(() => props.node.children, (newChildren) => {
+  children.value = newChildren ?? []
+}, { immediate: true })
 
 // Watch for external path changes
 watch(() => props.selectedPath, (newPath) => {
