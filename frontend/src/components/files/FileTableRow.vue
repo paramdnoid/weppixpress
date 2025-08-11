@@ -32,8 +32,8 @@
     </td>
     <td class="w-0 text-muted file-date-cell">
       <time 
-        v-if="item.updated" 
-        :datetime="item.updated"
+        v-if="item.modified" 
+        :datetime="item.modified"
         :title="fullDateString"
       >
         {{ formattedDate }}
@@ -71,9 +71,9 @@ const fileTypeClass = computed(() => {
   return `text-${getFileColor(props.item)}`
 })
 
-const formattedDate = computed(() => getDateFormatted(props.item.updated))
+const formattedDate = computed(() => getDateFormatted(props.item.modified))
 const fullDateString = computed(() => 
-  props.item.updated ? new Date(props.item.updated).toLocaleString() : ''
+  props.item.modified ? new Date(props.item.modified).toLocaleString() : ''
 )
 
 const formattedSize = computed(() => {
@@ -88,7 +88,7 @@ const ariaLabel = computed(() => {
   const type = props.item.type === 'folder' ? 'Folder' : 'File'
   const selected = props.isSelected ? ', selected' : ''
   const size = props.item.size ? `, ${getFileSize(props.item.size)}` : ''
-  const modified = props.item.updated ? `, modified ${getDateFormatted(props.item.updated)}` : ''
+  const modified = props.item.modified ? `, modified ${getDateFormatted(props.item.modified)}` : ''
   return `${type}: ${props.item.name}${selected}${size}${modified}`
 })
 </script>

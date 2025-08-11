@@ -100,6 +100,8 @@ const { sidebarWidth, isCollapsed, startDragging, toggleSidebar } = useSidebarRe
   minWidth: MIN_SIDEBAR_WIDTH
 })
 
+const emit = defineEmits(['itemSelect'])
+
 // Template refs
 const renameModal = ref(null)
 const newFolderModal = ref(null)

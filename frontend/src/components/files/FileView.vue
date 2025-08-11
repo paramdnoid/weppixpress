@@ -13,7 +13,7 @@
               :class="{ active: idx === breadcrumbs.length - 1 }"
             >
               <button 
-                v-if="item.isClickable && idx < breadcrumbs.length - 1" 
+                v-if="item.path && idx < breadcrumbs.length - 1" 
                 type="button"
                 class="btn btn-link p-0 m-0 border-0" 
                 :title="item.name" 
