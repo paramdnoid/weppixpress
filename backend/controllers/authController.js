@@ -206,4 +206,4 @@ export async function getProfile(req, res) {
     console.error('[PROFILE] Error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
-};
+}

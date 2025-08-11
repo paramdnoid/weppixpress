@@ -6,11 +6,11 @@
       <Icon :icon="node.type === 'folder' ? 'mdi:folder' : 'mdi:file-outline'"
         :class="node.type === 'folder' ? 'text-warning me-1' : 'text-muted me-1'" width="18" height="18" />
       {{ node.name }}
-      <Icon v-if="node.hasSubfolder" :icon="isOpen ? 'mdi:chevron-down' : 'mdi:chevron-right'" class="nav-link-toggle"
+      <Icon v-if="node.hasSubfolders" :icon="isOpen ? 'mdi:chevron-down' : 'mdi:chevron-right'" class="nav-link-toggle"
         width="16" height="16" />
     </a>
 
-    <nav v-if="node.hasSubfolder" class="nav nav-vertical ms-3" v-show="isOpen" :id="collapseId" role="group"
+    <nav v-if="node.hasSubfolders" class="nav nav-vertical ms-3" v-show="isOpen" :id="collapseId" role="group"
       :aria-labelledby="`node-${node.path}`">
       <TreeNode v-for="child in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
         :loadChildren="loadChildren" @nodeSelect="(n) => emit('nodeSelect', n)"
@@ -94,7 +94,7 @@ const handleNodeClick = async () => {
 }
 
 const toggleOpen = async () => {
-  if (props.node.type !== 'folder' || !props.node.hasSubfolder) {
+  if (props.node.type !== 'folder' || !props.node.hasSubfolders) {
     return
   }
 
@@ -135,7 +135,7 @@ const expandToPath = async (targetPath) => {
 
   // If this node is on the target path, expand it
   if (targetPath === props.node.path || targetPath.startsWith(props.node.path + '/')) {
-    if (!isOpen.value && props.node.hasSubfolder) {
+    if (!isOpen.value && props.node.hasSubfolders) {
       await toggleOpen()
     }
   }
@@ -161,7 +161,7 @@ const handleKeyDown = (event) => {
       handleNodeClick()
       break
     case 'ArrowRight':
-      if (props.node.hasSubfolder && !isOpen.value) {
+      if (props.node.hasSubfolders && !isOpen.value) {
         event.preventDefault()
         toggleOpen()
       }

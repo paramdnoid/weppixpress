@@ -50,16 +50,31 @@ async function readItem(item, targetPath, baseDirUser) {
       }
     }
 
+    const sizeInBytes = isFile
+      ? stats.size
+      : await getFolderSize(fullPath);
+    
     return {
       name: item.name,
       path: relative(baseDirUser, fullPath),
       type: item.isDirectory() ? 'folder' : 'file',
-      size: isFile
-        ? filesize(stats.size)
-        : filesize(await getFolderSize(fullPath)), // This still calculates folder size recursively
-      updated: stats.mtime.toISOString(),
-      hasSubfolder: hasSubfolder,
-      children: undefined // Never populate children in non-recursive mode
+      size: sizeInBytes,
+      sizeFormatted: filesize(sizeInBytes),
+      extension: isFile ? item.name.split('.').pop() || '' : undefined,
+      mimeType: undefined, // TODO: Add mime type detection if needed
+      created: stats.birthtime.toISOString(),
+      modified: stats.mtime.toISOString(),
+      accessed: stats.atime.toISOString(),
+      hasSubfolders: hasSubfolder,
+      itemCount: undefined, // TODO: Add item count for folders if needed
+      hasThumbnail: false,
+      thumbnailId: undefined,
+      permissions: {
+        read: true,
+        write: true,
+        delete: true,
+        share: true
+      }
     };
   } catch (error) {
     logger.debug(`Failed to read item at ${fullPath}: ${error.message}`);
@@ -103,7 +118,7 @@ export async function getFolderFiles(req, res) {
     return res.status(401).json({ error: 'Unauthorized: Missing user ID' });
   }
   const baseDirUser = ensureUserUploadDir(userId);
-  let relativePath = (req.query.path || '').replace(/^\/+/, '');
+  const relativePath = (req.query.path || '').replace(/^\/+/, '');
   const targetPath = _resolve(baseDirUser, relativePath);
   if (relative(baseDirUser, targetPath).startsWith('..')) {
     return res.status(400).json({ error: 'Invalid path' });
@@ -112,18 +127,39 @@ export async function getFolderFiles(req, res) {
   try {
     await fsp.access(targetPath);
   } catch {
-    return res.json({ children: [] });
+    return res.json({
+      items: [],
+      pagination: {
+        page: 1,
+        limit: 0,
+        totalItems: 0,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false
+      }
+    });
   }
 
   try {
-    const items = await fsp.readdir(targetPath, { withFileTypes: true });
+    const entries = await fsp.readdir(targetPath, { withFileTypes: true });
 
-    logger.info(`Listing ${items.length} items in ${targetPath} (non-recursive)`);
+    logger.info(`Listing ${entries.length} items in ${targetPath} (non-recursive)`);
     const children = await Promise.all(
-      items.map(item => readItem(item, targetPath, baseDirUser))
+      entries.map(item => readItem(item, targetPath, baseDirUser))
     );
 
-    res.json({ children: children.filter(Boolean) });
+    const items = children.filter(Boolean);
+    res.json({
+      items,
+      pagination: {
+        page: 1,
+        limit: items.length,
+        totalItems: items.length,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false
+      }
+    });
   } catch (err) {
     logger.error(`Error fetching folder files: ${err.stack || err}`);
     res.status(500).json({ error: 'Failed to read directory' });
@@ -135,7 +171,7 @@ export async function getFolderFiles(req, res) {
  * @param {string|number} userId - ID of the user.
  * @returns {string} Absolute path to the user's upload directory.
  */
-function ensureUserUploadDir(userId) {
+export function ensureUserUploadDir(userId) {
   const userDir = join(baseDir, userId.toString());
   if (!existsSync(userDir)) {
     mkdirSync(userDir, { recursive: true });
