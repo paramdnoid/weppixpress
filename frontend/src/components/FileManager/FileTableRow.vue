@@ -9,8 +9,6 @@
     :tabindex="tabIndex"
     :data-index="index"
     @click="$emit('select', $event)"
-    @dblclick="$emit('dblclick')"
-    @keydown.enter="$emit('dblclick')"
     @keydown.space.prevent="$emit('select', $event)"
     :aria-label="ariaLabel"
     :aria-selected="isSelected"
@@ -63,7 +61,7 @@ const props = defineProps({
   tabIndex: { type: Number, default: -1 }
 })
 
-defineEmits(['select', 'dblclick'])
+defineEmits(['select'])
 
 const fileIcon = computed(() => getFileIcon(props.item))
 const fileTypeClass = computed(() => {

@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useFileManager } from '@/composables/useFileManager'
 import FileToolbar from './FileToolbar.vue'
 import FileSidebar from './FileSidebar.vue'
@@ -147,12 +147,26 @@ function handleCreateFolder(name) {
   console.log('Create folder:', name)
 }
 
+function handleFileViewRefresh(event) {
+  const { path } = event.detail
+  if (path && fileStore.state.currentPath === path) {
+    retryLoadFiles()
+  }
+}
+
 onMounted(async () => {
   try {
     await fileStore.fetchItems()
   } catch (error) {
     console.error('Error loading files:', error)
   }
+  
+  // Listen for file view refresh events from tree nodes
+  document.addEventListener('fileview:refresh', handleFileViewRefresh)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('fileview:refresh', handleFileViewRefresh)
 })
 </script>
 

@@ -14,7 +14,7 @@
       :is-selected="isSelected(item.raw)"
       :tab-index="index === 0 ? 0 : -1"
       @select="handleItemSelection(item, $event)"
-      @dblclick="onItemDblClick(item)"
+
     />
 
     <!-- Empty State -->
@@ -75,7 +75,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['itemDblClick', 'itemSelect', 'selectionChange'])
+const emit = defineEmits(['itemSelect', 'selectionChange'])
 
 // Grid display logic
 const displayItems = computed(() => {
@@ -117,11 +117,6 @@ const showEmptyState = computed(() =>
 function handleItemSelection(item, event) {
   handleSelection(item.raw, event)
 }
-
-function onItemDblClick(item) {
-  emit('itemDblClick', item.raw)
-}
-
 </script>
 
 <style scoped>

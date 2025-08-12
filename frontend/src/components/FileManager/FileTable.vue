@@ -63,7 +63,6 @@
             :is-focused="index === focusedRowIndex"
             :tab-index="index === 0 ? 0 : -1"
             @select="selectItem(item, $event)"
-            @dblclick="onItemDblClick(item)"
           />
         </tbody>
       </table>
@@ -110,7 +109,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['itemDblClick', 'itemSelect', 'sort'])
+const emit = defineEmits(['itemSelect', 'sort'])
 
 // File manager composable
 const { getFileComparator } = useFileManager()
@@ -138,13 +137,11 @@ function handleKeyNavigation(event) {
     case 'Enter':
       event.preventDefault()
       if (sortedItems.value[focusedRowIndex.value]) {
-        onItemDblClick(sortedItems.value[focusedRowIndex.value])
       }
       break
     case ' ':
       event.preventDefault()
       if (sortedItems.value[focusedRowIndex.value]) {
-        selectItem(sortedItems.value[focusedRowIndex.value], event)
       }
       break
   }
@@ -155,25 +152,6 @@ function isSelected(item) {
   return props.selectedItems.has(item.path || item.name)
 }
 
-function selectItem(item, event) {
-  const isCtrlOrCmd = event.ctrlKey || event.metaKey
-  const isShift = event.shiftKey
-  
-  if (isCtrlOrCmd) {
-    // Toggle selection
-    emit('itemSelect', { item, mode: 'toggle' })
-  } else if (isShift) {
-    // Range selection
-    emit('itemSelect', { item, mode: 'range' })
-  } else {
-    // Single selection
-    emit('itemSelect', { item, mode: 'single' })
-  }
-}
-
-function onItemDblClick(item) {
-  emit('itemDblClick', item)
-}
 
 function onSort(key) {
   emit('sort', key)

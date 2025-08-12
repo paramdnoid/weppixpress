@@ -121,7 +121,6 @@
           :selectedItems="selectedItems"
           :loading="isLoading"
           :emptyMessage="emptyMessage"
-          @itemDblClick="$emit('itemDblClick', $event)"
           @itemSelect="$emit('itemSelect', $event)"
         />
 
@@ -135,7 +134,6 @@
           :selectedItems="selectedItems"
           :loading="isLoading"
           :emptyMessage="emptyMessage"
-          @itemDblClick="$emit('itemDblClick', $event)"
           @itemSelect="$emit('itemSelect', $event)"
           @sort="$emit('sort', $event)"
         />
@@ -145,7 +143,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import FileGrid from './FileGrid.vue'
 import FileTable from './FileTable.vue'
@@ -170,7 +168,6 @@ const emit = defineEmits([
   'navigate',
   'search', 
   'retry',
-  'itemDblClick',
   'itemSelect',
   'sort'
 ])

@@ -5,8 +5,6 @@
     :tabindex="tabIndex"
     :data-index="index"
     @click="$emit('select', $event)"
-    @dblclick="$emit('dblclick')"
-    @keydown.enter="$emit('dblclick')"
     @keydown.space.prevent="$emit('select', $event)"
     :title="tooltip"
     :aria-label="ariaLabel"
@@ -34,7 +32,7 @@ const props = defineProps({
   tabIndex: { type: Number, default: -1 }
 })
 
-defineEmits(['select', 'dblclick'])
+defineEmits(['select'])
 
 const icon = computed(() => getFileIcon(props.item))
 const iconClass = computed(() => getFileColor(props.item))
