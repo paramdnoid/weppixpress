@@ -10,11 +10,15 @@
         width="16" height="16" />
     </a>
 
-    <nav v-if="node.hasSubfolders" class="nav nav-vertical ms-3" v-show="isOpen" :id="collapseId" role="group"
-      :aria-labelledby="`node-${node.path}`">
-      <TreeNode v-for="child in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
-        :loadChildren="loadChildren" @nodeSelect="(n) => emit('nodeSelect', n)"
-        @nodeToggle="(e) => emit('nodeToggle', e)" />
+    
+    <nav v-if="node.hasSubfolders" class="nav nav-vertical ms-3 tree-level" v-show="isOpen" :id="collapseId" role="group"
+      :aria-labelledby="`node-${node.path}`" :style="{ 'border-left': '2px solid #ddd', 'padding-left': '10px' }">
+      <template v-for="(child, index) in sortedChildren" :key="child.path">
+        <TreeNode :node="child" :selectedPath="selectedPath"
+          :loadChildren="loadChildren" @nodeSelect="(n) => emit('nodeSelect', n)"
+          @nodeToggle="(e) => emit('nodeToggle', e)" />
+        
+      </template>
       <div v-if="loading" class="ps-3 text-muted small d-flex align-items-center">
         <div class="spinner-border spinner-border-sm me-2" role="status">
           <span class="visually-hidden">Loading...</span>
@@ -30,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, triggerRef } from 'vue'
 import TreeNode from './TreeNode.vue'
 import { Icon } from '@iconify/vue'
 
@@ -58,14 +62,16 @@ const nodeLink = ref(null)
 const isOpen = ref(false)
 const loading = ref(false)
 const loadError = ref(false)
-const children = ref(props.node.children ?? [])
-const hasLoadedChildren = ref(!!props.node.children)
+const children = ref(props.node.children || [])
+const hasLoadedChildren = ref(props.node.children !== null && props.node.children !== undefined)
 
 // Computed properties
 const collapseId = computed(() => `collapse-${props.node.path.replace(/[^\w-]/g, '_')}`)
 
 const sortedChildren = computed(() => {
-  if (!children.value) return []
+  if (!children.value || children.value.length === 0) {
+    return []
+  }
 
   return [...children.value].sort((a, b) => {
     // Folders first, then alphabetical
@@ -82,13 +88,13 @@ const isActive = computed(() => {
 
 const isExactActive = computed(() => props.selectedPath === props.node.path)
 
+
 // Methods
 const handleNodeClick = async () => {
   if (props.node.type === 'folder') {
     await toggleOpen()
   }
   
-  // Emit after toggle to avoid double loading
   emit('nodeSelect', props.node)
 }
 
@@ -111,24 +117,28 @@ const toggleOpen = async () => {
 
     try {
       const loadedChildren = await props.loadChildren(props.node)
-      children.value = loadedChildren || []
+      
+      // Update local state with proper reactivity
+      children.value.splice(0, children.value.length, ...(loadedChildren || []))
       hasLoadedChildren.value = true
       
-      // Update the node's children property for future reference
-      if (props.node.children === null || props.node.children === undefined) {
-        props.node.children = children.value
-      }
+      // Update the node's children to maintain tree structure
+      props.node.children = children.value
     } catch (error) {
       console.error('Failed to load children for node:', props.node.path, error)
       loadError.value = true
-      // Don't open if loading failed
       return
     } finally {
       loading.value = false
     }
   }
 
+  // Set isOpen and force reactivity
   isOpen.value = true
+  triggerRef(isOpen)
+  triggerRef(children)
+  
+  await nextTick()
   emit('nodeToggle', { node: props.node, isOpen: true })
 }
 
@@ -181,7 +191,8 @@ const handleKeyDown = (event) => {
 
 // Watch for node children changes
 watch(() => props.node.children, (newChildren) => {
-  children.value = newChildren ?? []
+  children.value = newChildren || []
+  hasLoadedChildren.value = newChildren !== null && newChildren !== undefined
 }, { immediate: true })
 
 // Watch for external path changes

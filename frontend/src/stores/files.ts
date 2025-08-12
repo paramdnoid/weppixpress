@@ -1,9 +1,16 @@
 import { defineStore } from 'pinia';
 import { computed, shallowRef } from 'vue';
-import type { FileItem, PaginatedResponse, FileOperation } from '../types';
+import type { FileItem, PaginatedResponse, FileOperation } from '@/types';
 import { fileApi } from '@/api/files';
-import { useWebSocket } from '../composables/useWebSocket';
-import { useCacheManager } from '../composables/useCacheManager';
+import { useCacheManager } from '@/composables/useCacheManager';
+import { useWebSocket } from '@/composables/useWebSocket';
+
+interface FileFilters {
+  types: string[];
+  dateRange: [Date, Date] | null;
+  sizeRange: [number, number] | null;
+  showHidden: boolean;
+}
 
 interface FileState {
   currentPath: string;
@@ -19,12 +26,6 @@ interface FileState {
   error: string | null;
 }
 
-interface FileFilters {
-  types: string[];
-  dateRange: [Date, Date] | null;
-  sizeRange: [number, number] | null;
-  showHidden: boolean;
-}
 
 export const useFileStore = defineStore('files', () => {
   // State
@@ -90,8 +91,39 @@ const filtered = filterAndSortItems(items);
   });
 
   // Actions
+  async function fetchFolderContents(path: string, options: any = {}) {
+    // This function loads folder contents without changing the current navigation path
+    // Used for tree loading and other non-navigation purposes
+    const normalizedPath = path === '/' ? '/' : path.replace(/\/+$/, '');
+    const cacheKey = `${normalizedPath}:${JSON.stringify(options)}`;
+    
+    // Check cache first
+    const cached = cache.get(cacheKey);
+    if (cached && !options.force) {
+      return cached;
+    }
+
+    try {
+      const response = await fileApi.list(normalizedPath, {
+        ...options,
+        sortBy: state.value.sortBy,
+        sortOrder: state.value.sortOrder,
+        search: state.value.searchQuery
+      });
+
+      cache.set(cacheKey, response);
+      return response;
+    } catch (error: any) {
+      console.error('Failed to fetch folder contents for:', normalizedPath, error);
+      throw error;
+    }
+  }
+
   async function fetchItems(path: string = state.value.currentPath, options: any = {}) {
-    const cacheKey = `${path}:${JSON.stringify(options)}`;
+    // Normalize path - ensure root path is exactly '/'
+    const normalizedPath = path === '/' ? '/' : path.replace(/\/+$/, '');
+
+    const cacheKey = `${normalizedPath}:${JSON.stringify(options)}`;
     
     // Check cache first
     const cached = cache.get(cacheKey);
@@ -104,7 +136,7 @@ const filtered = filterAndSortItems(items);
     state.value.error = null;
 
     try {
-      const response = await fileApi.list(path, {
+      const response = await fileApi.list(normalizedPath, {
         ...options,
         sortBy: state.value.sortBy,
         sortOrder: state.value.sortOrder,
@@ -113,10 +145,10 @@ const filtered = filterAndSortItems(items);
 
       cache.set(cacheKey, response);
       updateItemsFromResponse(response);
-      state.value.currentPath = path;
+      state.value.currentPath = normalizedPath;
 
       // Subscribe to WebSocket updates for this path
-      ws.send({ type: 'subscribe', path });
+      ws.send({ type: 'subscribe', path: normalizedPath });
 
       return response;
     } catch (error: any) {
@@ -360,7 +392,7 @@ const filtered = filterAndSortItems(items);
 
   // Helper to update items from API response
   function updateItemsFromResponse(response: PaginatedResponse<FileItem>) {
-const newItems = new Map<string, FileItem>();
+    const newItems = new Map<string, FileItem>();
     response.items.forEach(item => {
       newItems.set(item.path, item);
     });
@@ -392,6 +424,7 @@ const newItems = new Map<string, FileItem>();
     
     // Actions
     fetchItems,
+    fetchFolderContents,
     uploadFiles,
     deleteItems,
     moveItems,

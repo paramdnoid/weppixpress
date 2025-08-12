@@ -1,11 +1,27 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  verified?: boolean;
+  has2FA?: boolean;
+}
+
+interface AuthState {
+  user: User | null;
+  accessToken: string | null;
+  pending2FA: string | null;
+  verifiedEmail: boolean;
+}
+
 axios.defaults.baseURL = 'http://localhost:3001/api';
 axios.defaults.withCredentials = true;
 
 export const useAuthStore = defineStore('auth', {
-  state: () => ({
+  state: (): AuthState => ({
     user: (() => {
       try {
         const item = localStorage.getItem('user');
@@ -15,11 +31,11 @@ export const useAuthStore = defineStore('auth', {
       }
     })(),
     accessToken: localStorage.getItem('accessToken') || null,
-    pending2FA: null, // Falls 2FA nach Login nötig
+    pending2FA: null,
     verifiedEmail: false,
   }),
   actions: {
-    async register(first_name, last_name, email, password) {
+    async register(first_name: string, last_name: string, email: string, password: string) {
       try {
         await axios.post('/auth/register', { first_name, last_name, email, password });
       } catch (err) {
@@ -27,7 +43,7 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async login(email, password) {
+    async login(email: string, password: string) {
       try {
         const { data } = await axios.post('/auth/login', { email, password });
         if (data.requires2FA) {
@@ -47,7 +63,7 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async verify2FA(code) {
+    async verify2FA(code: string) {
       try {
         const { data } = await axios.post('/auth/verify-2fa', {
           userId: this.pending2FA, code
@@ -87,7 +103,7 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async forgotPassword(email) {
+    async forgotPassword(email: string) {
       try {
         await axios.post('/auth/forgot-password', { email });
       } catch (err) {
@@ -95,7 +111,7 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async resetPassword(token, password) {
+    async resetPassword(token: string, password: string) {
       try {
         await axios.post('/auth/reset-password', { token, password });
       } catch (err) {
@@ -112,7 +128,7 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async enable2FA(secret, code) {
+    async enable2FA(secret: string, code: string) {
       try {
         await axios.post('/auth/enable-2fa', { secret, code });
       } catch (err) {

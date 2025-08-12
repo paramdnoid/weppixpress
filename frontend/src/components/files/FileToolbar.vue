@@ -103,12 +103,12 @@
     <nav class="nav nav-segmented nav-sm" role="tablist">
       <button 
         v-for="mode in viewModes" 
-        :key="mode.value" 
+        :key="mode.key" 
         type="button" 
         class="nav-link"
-        :class="{ active: viewMode === mode.value }" 
-        :aria-selected="viewMode === mode.value"
-        @click="$emit('viewMode', mode.value)" 
+        :class="{ active: viewMode === mode.key }" 
+        :aria-selected="viewMode === mode.key"
+        @click="$emit('viewMode', mode.key)" 
         :title="mode.title"
       >
         <Icon :icon="mode.icon" width="20" height="20" />

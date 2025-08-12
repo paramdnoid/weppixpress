@@ -92,10 +92,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, type CSSProperties } from 'vue';
-import { useVirtualList } from '../../composables/useVirtualList';
-import { useFileOperations } from '../../composables/useFileOperations';
-import { useKeyboardNavigation } from '../../composables/useKeyboardNavigation';
-import { useDragAndDrop } from '../../composables/useDragAndDrop';
+import { useFileManager } from '@/composables/useFileManager';
 import type { FileItem } from '../../types';
 import FileIcon from './FileIcon.vue';
 
@@ -132,10 +129,8 @@ const {
   buffer: 2
 });
 
-// Virtual scrolling setup
-const {
-  hasClipboard
-} = useFileOperations()
+// File manager setup
+const { hasClipboard } = useFileManager()
 
 // Context menu
 const contextMenu = ref({
@@ -199,26 +194,30 @@ const contextMenuActions = computed(() => [
   }
 ]);
 
-// Keyboard navigation
-const { focusedItem, handleKeyDown } = useKeyboardNavigation({
-  items: computed(() => props.items),
-  onSelect: (item) => emit('select', item, new MouseEvent('click')),
-  onOpen: (item) => emit('open', item),
-  onDelete: (items) => emit('contextAction', 'delete', items)
-});
+// Simple focused item tracking
+const focusedItem = ref<FileItem | null>(null)
 
-// Drag and drop
-const { 
-  isDragging, 
-  draggedItems,
-  handleDragStart,
-  handleDragOver,
-  handleDrop
-} = useDragAndDrop<FileItem>({
-  onDrop: (items, target) => {
-    emit('contextAction', 'move', [...items, target]);
+// Simple drag state
+const isDragging = ref(false)
+const draggedItems = ref<FileItem[]>([])
+
+function handleDragStart(event: DragEvent, item: FileItem) {
+  isDragging.value = true
+  draggedItems.value = [item]
+}
+
+function handleDragOver(event: DragEvent) {
+  event.preventDefault()
+}
+
+function handleDrop(event: DragEvent, target: FileItem) {
+  event.preventDefault()
+  isDragging.value = false
+  if (draggedItems.value.length > 0) {
+    emit('contextAction', 'move', [...draggedItems.value, target])
   }
-});
+  draggedItems.value = []
+}
 
 // Methods
 function isSelected(item: FileItem): boolean {

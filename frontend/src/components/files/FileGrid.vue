@@ -37,12 +37,9 @@
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import FileGridItem from './FileGridItem.vue'
-import { useFiles } from '@/composables/useFiles'
-import { useGridLayout } from '@/composables/useGridLayout'
-import { useGridNavigation } from '@/composables/useGridNavigation'
-import { useGridSelection } from '@/composables/useGridSelection'
+import { useFileManager } from '@/composables/useFileManager'
 
-const { getFileIcon, getFileColor } = useFiles()
+const { getFileIcon, getFileColor } = useFileManager()
 
 const props = defineProps({
   items: { 
@@ -80,35 +77,36 @@ const props = defineProps({
 
 const emit = defineEmits(['itemDblClick', 'itemSelect', 'selectionChange'])
 
-// Composables
-const { displayItems } = useGridLayout({
-  items: computed(() => props.items),
-  sortKey: props.sortKey,
-  sortDir: props.sortDir,
-  getIcon: getFileIcon,
-  getIconClass: getFileColor
+// Grid display logic
+const displayItems = computed(() => {
+  return props.items.map(item => ({
+    raw: item,
+    icon: getFileIcon(item),
+    iconClass: getFileColor(item)
+  }))
 })
 
-const { isSelected, handleSelection } = useGridSelection({
-  selectedItems: props.selectedItems,
-  getItemKey: (item) => item.path || item.name
-})
+// Selection logic
+const isSelected = (item) => {
+  const itemId = props.itemKey ? props.itemKey(item) : (item.path || item.name)
+  return props.selectedItems?.has(itemId) || false
+}
 
-const { handleKeyNavigation } = useGridNavigation({
-  itemWidth: 140,
-  onSelect: (index, event) => {
-    const item = displayItems.value[index]
-    if (item) {
-      handleItemSelection(item, event)
-    }
-  },
-  onActivate: (index) => {
-    const item = displayItems.value[index]
-    if (item) {
-      onItemDblClick(item)
+const handleSelection = (item, event) => {
+  emit('itemSelect', { item, event })
+}
+
+// Keyboard navigation
+const handleKeyNavigation = (event) => {
+  // Basic keyboard navigation - can be enhanced later
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    const focusedElement = document.activeElement
+    if (focusedElement) {
+      focusedElement.click()
     }
   }
-})
+}
 
 // Computed properties
 const showEmptyState = computed(() => 
@@ -117,8 +115,7 @@ const showEmptyState = computed(() =>
 
 // Event handlers
 function handleItemSelection(item, event) {
-  const selection = handleSelection(item.raw, event)
-  emit('itemSelect', selection)
+  handleSelection(item.raw, event)
 }
 
 function onItemDblClick(item) {

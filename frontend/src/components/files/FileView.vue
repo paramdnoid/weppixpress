@@ -18,7 +18,7 @@
                 class="btn btn-link p-0 m-0 border-0" 
                 :title="item.name" 
                 :aria-label="`Navigate to ${item.name}`"
-                @click="$emit('navigate', item)"
+                @click.stop.prevent="$emit('navigate', item)"
               >
                 {{ item.name }}
               </button>
@@ -127,7 +127,7 @@
 
         <!-- Table View -->
         <FileTable
-          v-else-if="viewMode === 'list' && !isLoading && !error && items.length > 0"
+          v-else-if="(viewMode === 'list' || viewMode === 'table') && !isLoading && !error && items.length > 0"
           :items="items"
           :itemKey="itemKey"
           :sortKey="sortKey"
@@ -145,7 +145,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import FileGrid from './FileGrid.vue'
 import FileTable from './FileTable.vue'
@@ -177,6 +177,11 @@ const emit = defineEmits([
 
 const searchInput = ref(null)
 const searchQuery = ref(props.searchValue)
+
+// Watch for prop changes
+watch(() => props.searchValue, (newValue) => {
+  searchQuery.value = newValue
+})
 
 function clearSearch() {
   searchQuery.value = ''

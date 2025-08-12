@@ -29,8 +29,8 @@
         :tree-data="treeData"
         :selected-path="fileStore.state.currentPath"
         :load-children="loadChildren"
-        @node-select="handleNodeSelect"
-        @node-toggle="handleNodeToggle"
+        @node-select="navigate"
+        @node-toggle="() => {}"
       />
 
       <!-- Draggable Splitter -->
@@ -52,7 +52,7 @@
         :is-uploading="isUploading"
         :upload-progress="uploadProgress"
         :empty-message="emptyStateMessage"
-        @navigate="handleItemDoubleClick"
+        @navigate="handleBreadcrumbNavigation"
         @search="handleSearch"
         @retry="retryLoadFiles"
         @item-dbl-click="handleItemDoubleClick"
@@ -66,337 +66,109 @@
       ref="renameModal"
       :item="itemToRename"
       :is-loading="fileStore.state.isLoading"
-      @rename="handleRename"
+      @rename="() => {}"
     />
 
     <NewFolderModal
       ref="newFolderModal"
       :is-loading="fileStore.state.isLoading"
-      @create="handleCreateFolder"
+      @create="() => {}"
     />
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
-import { debounce } from 'lodash-es'
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import FileToolbar from './FileToolbar.vue'
 import FileSidebar from './FileSidebar.vue'
 import FileView from './FileView.vue'
 import RenameModal from './RenameModal.vue'
 import NewFolderModal from './NewFolderModal.vue'
-import { useFileStore } from '@/stores/files.ts'
-import { useFiles } from '@/composables/useFiles'
-import { useFileUpload } from '@/composables/useFileUpload'
-import { useSidebarResize } from '@/composables/useSidebarResize'
-import { SORT_OPTIONS, VIEW_MODES, MIN_SIDEBAR_WIDTH, DEFAULT_SIDEBAR_WIDTH } from '@/constants/files'
+import { useFileManager } from '@/composables/useFileManager'
 
-// Store and composables
-const fileStore = useFileStore()
-const { getFileIcon, getFileColor, getFileComparator } = useFiles()
-const { isUploading, uploadProgress, uploadFiles, handleFileInput } = useFileUpload()
-const { sidebarWidth, isCollapsed, startDragging, toggleSidebar } = useSidebarResize({
-  initialWidth: DEFAULT_SIDEBAR_WIDTH,
-  minWidth: MIN_SIDEBAR_WIDTH
-})
+// Composables
+const fileManager = useFileManager()
 
-const emit = defineEmits(['itemSelect'])
+// Destructure for template usage
+const {
+  fileStore,
+  viewMode,
+  sortKey,
+  sortDir,
+  search,
+  isLoading,
+  itemToRename,
+  breadcrumbs,
+  filteredItems,
+  emptyStateMessage,
+  isUploading,
+  uploadProgress,
+  sidebarWidth,
+  isCollapsed,
+  startDragging,
+  toggleSidebar,
+  SORT_OPTIONS,
+  VIEW_MODES,
+  getItemKey,
+  handleSearch,
+  handleFileUpload,
+  setViewMode,
+  handleSort,
+  retryLoadFiles,
+  deleteSelectedFiles,
+  navigate,
+  handleItemDoubleClick,
+  handleItemClick
+} = fileManager
+
+// Tree data for sidebar - create a simple structure from current items
+const treeData = computed(() => [
+  {
+    title: 'Files',
+    loading: fileStore.state.isLoading,
+    error: fileStore.state.error,
+    items: filteredItems.value.filter(item => item.type === 'folder')
+  }
+])
+
+// Function to load tree children
+async function loadChildren(node: any) {
+  try {
+    await fileStore.fetchFolderContents(node.path)
+  } catch (error) {
+    console.error('Failed to load children for:', node.path, error)
+  }
+}
+
+const emit = defineEmits<{
+  itemSelect: [selection: any]
+}>()
 
 // Template refs
-const renameModal = ref(null)
-const newFolderModal = ref(null)
+const renameModal = ref<InstanceType<typeof RenameModal> | null>(null)
+const newFolderModal = ref<InstanceType<typeof NewFolderModal> | null>(null)
 
-// Reactive state
-const viewMode = ref('grid')
-const sortKey = ref('name')
-const sortDir = ref('asc')
-const search = ref('')
-const isLoading = ref(false)
-const itemToRename = ref(null)
-
-// Helper functions
-const getItemKey = (item) => item.id || item.name
-
-const breadcrumbs = computed(() => {
-  return fileStore.breadcrumbs
-})
-
-const treeData = computed(() => {
-  if (fileStore.state.error) {
-    return [{
-      title: 'Files',
-      icon: 'mdi:home',
-      items: [],
-      error: fileStore.state.error
-    }]
-  }
-
-  if (fileStore.state.isLoading) {
-    return [{
-      title: 'Files',
-      icon: 'mdi:home',
-      items: [],
-      loading: true
-    }]
-  }
-
-  return [{
-    title: 'Files',
-    icon: 'mdi:home',
-    items: fileStore.currentItems.map(f => ({
-      name: f.name,
-      path: f.path,
-      type: f.type,
-      hasSubfolders: f.hasSubfolders,
-      children: f.type === 'folder' && f.hasSubfolders ? null : undefined
-    }))
-  }]
-})
-
-const filteredItems = computed(() => {
-  return fileStore.currentItems.map(item => ({
-    ...item,
-    icon: getFileIcon(item),
-    iconClass: getFileColor(item)
-  }))
-})
-
-const emptyStateMessage = computed(() => {
-  if (search.value) {
-    return 'No files match your search'
-  }
-  return 'This folder is empty'
-})
-
-const isAllSelected = computed(() => {
-  return filteredItems.value.length > 0 &&
-    filteredItems.value.every(item => fileStore.state.selectedIds.has(item.path))
-})
-
-const isSomeSelected = computed(() => {
-  return filteredItems.value.some(item => fileStore.state.selectedIds.has(item.path)) && !isAllSelected.value
-})
-
-
-// Debounced search
-const debouncedSearch = debounce((query) => {
-  search.value = query
-}, 300)
-
-// Helper: unify path selection + scrolling in one place
-async function openPathAndScroll(path) {
-  fileStore.selectedPath = path
-}
-
-// Event handlers
-function handleSearch(query) {
-  debouncedSearch(query)
-}
-
-async function handleFileUpload(event) {
-  const files = handleFileInput(event)
-  if (files.length > 0) {
-    try {
-      await fileStore.uploadFiles(files)
-    } catch (error) {
-      console.error('Upload failed:', error)
-    }
-  }
-}
-
-function handleItemSelection(selection) {
-  emit('itemSelect', selection)
-}
-
+// Modal helpers
 function showCreateFolderModal() {
   newFolderModal.value?.show()
 }
 
-async function handleCreateFolder(name) {
-  try {
-    // TODO: Implement createFolder method in store
-    console.log('Creating folder:', name)
-    newFolderModal.value?.hide()
-  } catch (error) {
-    console.error('Create folder failed:', error)
-  }
+function handleItemSelection(selection: any) {
+  emit('itemSelect', selection)
 }
 
-async function handleRename(data) {
-  try {
-    // TODO: Implement renameFile method in store
-    console.log('Renaming file:', data.oldName, 'to', data.newName)
-    renameModal.value?.hide()
-    itemToRename.value = null
-  } catch (error) {
-    console.error('Rename failed:', error)
-  }
-}
-
-function startRename(item) {
-  itemToRename.value = item
-  renameModal.value?.show()
-}
-
-function setViewMode(mode) {
-  viewMode.value = mode
-  fileStore.clearSelection()
-}
-
-function handleSort(key) {
-  if (sortKey.value === key) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    sortKey.value = key
-    sortDir.value = 'asc'
-  }
-}
-
-
-async function retryLoadFiles() {
-  try {
-    await fileStore.fetchItems(fileStore.state.currentPath, { force: true })
-  } catch (error) {
-    console.error('Retry failed:', error)
-  }
-}
-
-// File operations
-function handleItemClick(item, event) {
-  const isCtrlOrCmd = event.ctrlKey || event.metaKey
-  const isShift = event.shiftKey
-  
-  if (isCtrlOrCmd) {
-    fileStore.selectItem(item, 'toggle')
-  } else if (isShift && fileStore.selectedItems.length > 0) {
-    selectRange(item)
-  } else {
-    fileStore.clearSelection()
-    fileStore.selectItem(item)
-  }
-}
-
-async function handleItemDoubleClick(item) {
-  if (item.type === 'folder' || item.isClickable) {
-    await openFolder(item)
-  } else {
-    // Handle file opening/preview
-    console.log('Open file:', item)
-  }
-}
-
-function handleContextMenu(item, event) {
-  event.preventDefault()
-  // Implement context menu
-  console.log('Context menu for:', item)
-}
-
-function handleItemKeyDown(item, event) {
-  switch (event.key) {
-    case 'Enter':
-    case ' ':
-      event.preventDefault()
-      if (item.type === 'folder') {
-        openFolder(item)
-      }
-      break
-    case 'Delete':
-      event.preventDefault()
-      deleteItem(item)
-      break
-    case 'F2':
-      event.preventDefault()
-      startRename(item)
-      break
-  }
-}
-
-
-function selectRange(endItem) {
-  fileStore.selectItem(endItem, 'range')
-}
-
-
-async function openFolder(folder) {
-  isLoading.value = true
-  try {
-    await loadChildren(folder)
-    await openPathAndScroll(folder.path)
-  } finally {
-    isLoading.value = false
-  }
+async function handleBreadcrumbNavigation(item: any) {
+  console.log('Breadcrumb navigation clicked:', item)
+  await navigate(item)
 }
 
 
 
-
-async function deleteItem(item) {
-  if (!confirm(`Are you sure you want to delete "${item.name}"?`)) {
-    return
-  }
-
-  try {
-    await fileStore.deleteItems([item])
-  } catch (error) {
-    console.error('Delete failed:', error)
-  }
-}
-
-async function deleteSelectedFiles() {
-  const selectedItems = fileStore.selectedItems
-  const count = selectedItems.length
-
-  if (!confirm(`Are you sure you want to delete ${count} selected file${count > 1 ? 's' : ''}?`)) {
-    return
-  }
-
-  try {
-    await fileStore.deleteItems(selectedItems)
-  } catch (error) {
-    console.error('Delete failed:', error)
-  }
-}
-
-
-
-// Tree navigation
-async function loadChildren(node) {
-  try {
-    const response = await fileStore.fetchItems(node.path)
-    return response.items?.map(child => ({
-      ...child,
-      children: child.type === 'folder' ? null : undefined
-    })) || []
-  } catch (error) {
-    console.error('Error loading children:', error)
-    throw error
-  }
-}
-
-async function handleNodeSelect(node) {
-  // TreeNode already handles folder expansion, just handle other selection logic here
-  if (node.type !== 'folder') {
-    // Handle file selection if needed
-    console.log('File selected:', node.name)
-  }
-}
-
-function handleNodeToggle(data) {
-  console.log('Node toggled:', data)
-}
 
 // Lifecycle hooks
 onMounted(async () => {
   try {
     await fileStore.fetchItems()
-
-    // Set up indeterminate checkbox state watcher
-    nextTick(() => {
-      const selectAllCheckbox = document.querySelector('thead .form-check-input')
-      if (selectAllCheckbox) {
-        selectAllCheckbox.indeterminate = isSomeSelected.value
-      }
-    })
   } catch (error) {
     console.error('Error loading files:', error)
   }

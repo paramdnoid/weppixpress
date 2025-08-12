@@ -19,8 +19,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Icon } from '@iconify/vue';
-// @ts-expect-error -- JS composable has no d.ts yet
-import { useFiles } from '@/composables/useFiles';
+import { useFileManager } from '@/composables/useFileManager';
 import type { FileItem } from '../../types';
 
 interface Props {
@@ -34,7 +33,7 @@ const props = withDefaults(defineProps<Props>(), {
   lazy: false
 });
 
-const { getFileIcon, getFileColor } = useFiles() as { getFileIcon: (item: FileItem) => string; getFileColor: (item: FileItem) => string; };
+const { getFileIcon, getFileColor } = useFileManager();
 
 const fileIcon = computed(() => getFileIcon(props.item));
 const fileColor = computed(() => getFileColor(props.item));

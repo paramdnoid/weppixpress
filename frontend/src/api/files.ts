@@ -1,3 +1,4 @@
+import axios from 'axios';
 import type { FileItem, PaginatedResponse } from '@/types';
 
 interface ListOptions {
@@ -14,96 +15,54 @@ interface UploadOptions {
 
 export const fileApi = {
   async list(path: string, options: ListOptions = {}): Promise<PaginatedResponse<FileItem>> {
-    const params = new URLSearchParams();
-    params.append('path', path);
-    
-    Object.entries(options).forEach(([key, value]) => {
-      if (value !== undefined) {
-        params.append(key, String(value));
-      }
-    });
-
     const token = localStorage.getItem('accessToken');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
     
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`/api/files?${params}`, {
-      method: 'GET',
-      headers,
+    const response = await axios.get('/files', {
+      params: {
+        path,
+        ...options
+      },
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to list files: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response.data;
   },
 
-  async upload(formData: FormData, _options: UploadOptions = {}): Promise<any> {
+  async upload(formData: FormData, options: UploadOptions = {}): Promise<any> {
     const token = localStorage.getItem('accessToken');
-    const headers: HeadersInit = {};
     
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      headers,
-      body: formData,
+    const response = await axios.post('/upload', formData, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      onUploadProgress: options.onUploadProgress ? (progressEvent) => {
+        if (options.onUploadProgress && progressEvent.total) {
+          options.onUploadProgress({
+            loaded: progressEvent.loaded,
+            total: progressEvent.total
+          });
+        }
+      } : undefined
     });
 
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response.data;
   },
 
   async delete(paths: string[]): Promise<void> {
     const token = localStorage.getItem('accessToken');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
     
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch('/api/files', {
-      method: 'DELETE',
-      headers,
-      body: JSON.stringify({ paths }),
+    await axios.delete('/files', {
+      data: { paths },
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
-
-    if (!response.ok) {
-      throw new Error(`Delete failed: ${response.statusText}`);
-    }
   },
 
   async move(paths: string[], destination: string): Promise<void> {
     const token = localStorage.getItem('accessToken');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
     
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch('/api/files/move', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ paths, destination }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Move failed: ${response.statusText}`);
-    }
+    await axios.post('/files/move', 
+      { paths, destination },
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      }
+    );
   },
 };

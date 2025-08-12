@@ -72,12 +72,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import SortableHeader from './SortableHeader.vue'
 import FileTableRow from './FileTableRow.vue'
-import { useTableSort } from '@/composables/useTableSort'
-import { useTableNavigation } from '@/composables/useTableNavigation'
+import { useFileManager } from '@/composables/useFileManager'
 
 const props = defineProps({
   items: { 
@@ -113,25 +112,43 @@ const props = defineProps({
 
 const emit = defineEmits(['itemDblClick', 'itemSelect', 'sort'])
 
-// Composables
-const { sortedItems } = useTableSort({
-  items: computed(() => props.items),
-  sortKey: props.sortKey,
-  sortDir: props.sortDir
+// File manager composable
+const { getFileComparator } = useFileManager()
+
+// Sort items using the file comparator
+const sortedItems = computed(() => {
+  const items = [...props.items]
+  const comparator = getFileComparator(props.sortKey, props.sortDir)
+  return items.sort(comparator)
 })
 
-const { focusedRowIndex, handleKeyNavigation } = useTableNavigation({
-  onSelect: (index, event) => {
-    if (sortedItems.value[index]) {
-      selectItem(sortedItems.value[index], event)
-    }
-  },
-  onActivate: (index) => {
-    if (sortedItems.value[index]) {
-      onItemDblClick(sortedItems.value[index])
-    }
+// Simple keyboard navigation
+const focusedRowIndex = ref(0)
+
+function handleKeyNavigation(event) {
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault()
+      focusedRowIndex.value = Math.min(focusedRowIndex.value + 1, sortedItems.value.length - 1)
+      break
+    case 'ArrowUp':
+      event.preventDefault()
+      focusedRowIndex.value = Math.max(focusedRowIndex.value - 1, 0)
+      break
+    case 'Enter':
+      event.preventDefault()
+      if (sortedItems.value[focusedRowIndex.value]) {
+        onItemDblClick(sortedItems.value[focusedRowIndex.value])
+      }
+      break
+    case ' ':
+      event.preventDefault()
+      if (sortedItems.value[focusedRowIndex.value]) {
+        selectItem(sortedItems.value[focusedRowIndex.value], event)
+      }
+      break
   }
-})
+}
 
 // Selection management
 function isSelected(item) {

@@ -1,9 +1,9 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import Landing from '@/views/Landing.vue';
 import Login from '@/views/auth/Login.vue';
 import { useAuthStore } from '@/stores/auth';
 
-const routes = [
+const routes: RouteRecordRaw[] = [
   { path: '/', component: Landing },
   { path: '/login', component: Login },
   { path: '/register', name: 'Register', component: () => import('@/views/auth/Register.vue') },
@@ -23,7 +23,7 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   try {
     const auth = useAuthStore();
     if (to.meta.requiresAuth && !auth.user) {

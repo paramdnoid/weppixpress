@@ -51,9 +51,9 @@
 <script setup>
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { useFiles } from '@/composables/useFiles'
+import { useFileManager } from '@/composables/useFileManager'
 
-const { getFileIcon, getFileColor, getDateFormatted, getFileSize } = useFiles()
+const { getFileIcon, getFileColor, getDateFormatted, getFileSize } = useFileManager()
 
 const props = defineProps({
   item: { type: Object, required: true },
