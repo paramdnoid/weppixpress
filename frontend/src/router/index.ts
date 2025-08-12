@@ -32,7 +32,7 @@ router.beforeEach((to, _from, next) => {
     next();
   } catch (err) {
     console.error('Navigation guard error:', err);
-    next(err);
+    next(err instanceof Error ? err : new Error(String(err)));
   }
 });
 

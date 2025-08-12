@@ -38,7 +38,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import TreeNode from './TreeNode.vue'
+import TreeNode from './FileTreeNode.vue'
 
 const props = defineProps({
   isCollapsed: { type: Boolean, default: false },

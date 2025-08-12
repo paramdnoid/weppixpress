@@ -1,6 +1,6 @@
+// components/FileManager/FileManagerCore.vue
 <template>
   <div class="card flex-fill files-root">
-    <!-- Toolbar -->
     <FileToolbar
       :is-sidebar-collapsed="isCollapsed"
       :is-loading="fileStore.state.isLoading"
@@ -22,7 +22,6 @@
     />
 
     <div class="d-flex border-top splitter-container flex-fill position-relative">
-      <!-- Sidebar -->
       <FileSidebar
         :is-collapsed="isCollapsed"
         :width="sidebarWidth"
@@ -33,11 +32,8 @@
         @node-toggle="() => {}"
       />
 
-      <!-- Draggable Splitter -->
-      <div v-show="!isCollapsed" class="splitter" @mousedown="startDragging" role="separator"
-        aria-label="Resize sidebar" />
+      <div v-show="!isCollapsed" class="splitter" @mousedown="startDragging" role="separator" />
 
-      <!-- File View -->
       <FileView
         :items="filteredItems"
         :item-key="getItemKey"
@@ -61,46 +57,33 @@
       />
     </div>
 
-    <!-- Modals -->
-    <RenameModal
-      ref="renameModal"
-      :item="itemToRename"
+    <FileManagerModals
+      ref="modalsRef"
+      :item-to-rename="itemToRename"
       :is-loading="fileStore.state.isLoading"
-      @rename="() => {}"
-    />
-
-    <NewFolderModal
-      ref="newFolderModal"
-      :is-loading="fileStore.state.isLoading"
-      @create="() => {}"
+      @rename="handleRename"
+      @create-folder="handleCreateFolder"
     />
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useFileManager } from '@/composables/useFileManager'
 import FileToolbar from './FileToolbar.vue'
 import FileSidebar from './FileSidebar.vue'
 import FileView from './FileView.vue'
-import RenameModal from './RenameModal.vue'
-import NewFolderModal from './NewFolderModal.vue'
-import { useFileManager } from '@/composables/useFileManager'
+import FileManagerModals from './FileManagerModals.vue'
 
-// Composables
 const fileManager = useFileManager()
+const modalsRef = ref()
 
-// Destructure for template usage
 const {
   fileStore,
   viewMode,
   sortKey,
   sortDir,
   search,
-  isLoading,
-  itemToRename,
-  breadcrumbs,
-  filteredItems,
-  emptyStateMessage,
   isUploading,
   uploadProgress,
   sidebarWidth,
@@ -118,10 +101,13 @@ const {
   deleteSelectedFiles,
   navigate,
   handleItemDoubleClick,
-  handleItemClick
+  handleItemClick,
+  breadcrumbs,
+  filteredItems,
+  emptyStateMessage,
+  itemToRename
 } = fileManager
 
-// Tree data for sidebar - create a simple structure from current items
 const treeData = computed(() => [
   {
     title: 'Files',
@@ -131,8 +117,7 @@ const treeData = computed(() => [
   }
 ])
 
-// Function to load tree children
-async function loadChildren(node: any) {
+async function loadChildren(node) {
   try {
     await fileStore.fetchFolderContents(node.path)
   } catch (error) {
@@ -140,32 +125,26 @@ async function loadChildren(node: any) {
   }
 }
 
-const emit = defineEmits<{
-  itemSelect: [selection: any]
-}>()
-
-// Template refs
-const renameModal = ref<InstanceType<typeof RenameModal> | null>(null)
-const newFolderModal = ref<InstanceType<typeof NewFolderModal> | null>(null)
-
-// Modal helpers
 function showCreateFolderModal() {
-  newFolderModal.value?.show()
+  modalsRef.value?.showNewFolderModal()
 }
 
-function handleItemSelection(selection: any) {
-  emit('itemSelect', selection)
+function handleItemSelection(selection) {
+  handleItemClick(selection.item, selection.event || {})
 }
 
-async function handleBreadcrumbNavigation(item: any) {
-  console.log('Breadcrumb navigation clicked:', item)
+async function handleBreadcrumbNavigation(item) {
   await navigate(item)
 }
 
+function handleRename(data) {
+  console.log('Rename:', data)
+}
 
+function handleCreateFolder(name) {
+  console.log('Create folder:', name)
+}
 
-
-// Lifecycle hooks
 onMounted(async () => {
   try {
     await fileStore.fetchItems()
@@ -173,7 +152,6 @@ onMounted(async () => {
     console.error('Error loading files:', error)
   }
 })
-
 </script>
 
 <style scoped>
@@ -182,10 +160,6 @@ onMounted(async () => {
   flex-direction: column;
   min-height: 0;
   height: 100vh;
-}
-
-.files-root .splitter-container {
-  min-height: 0;
 }
 
 .splitter-container {

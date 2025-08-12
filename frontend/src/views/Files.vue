@@ -6,5 +6,5 @@
 
 <script setup>
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
-import FileManager from '@/components/files/Index.vue'
+import FileManager from '@/components/FileManager/FileManagerCore.vue'
 </script>

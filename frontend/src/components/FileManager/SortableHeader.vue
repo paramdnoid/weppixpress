@@ -1,5 +1,5 @@
 <template>
-  <th :scope="scope" :class="thClass">
+  <th :scope="scope" :class="thClass" class="py-0">
     <button 
       class="btn btn-action p-0 d-flex align-items-center"
       :class="buttonClass"
