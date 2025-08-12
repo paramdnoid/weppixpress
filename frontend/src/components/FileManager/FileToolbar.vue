@@ -24,30 +24,6 @@
         New Folder
       </button>
 
-      <!-- File Operations (when files are selected) -->
-      <div v-if="selectedCount > 0" class="d-flex gap-1">
-        <button 
-          type="button" 
-          class="btn btn-sm btn-outline-danger" 
-          @click="$emit('deleteSelected')" 
-          :disabled="isLoading"
-          :aria-label="`Delete ${selectedCount} selected files`"
-        >
-          <Icon icon="mdi:delete" width="16" height="16" />
-          Delete ({{ selectedCount }})
-        </button>
-
-        <button 
-          type="button" 
-          class="btn btn-sm btn-outline-secondary" 
-          @click="$emit('clearSelection')"
-          aria-label="Clear selection"
-        >
-          <Icon icon="mdi:close" width="16" height="16" />
-          Clear
-        </button>
-      </div>
-
       <!-- Upload Button -->
       <label class="btn btn-sm btn-outline-primary position-relative">
         <Icon icon="mdi:upload" width="20" height="20" class="me-1" />
@@ -125,7 +101,6 @@ import { Icon } from '@iconify/vue'
 const props = defineProps({
   isSidebarCollapsed: { type: Boolean, default: false },
   isLoading: { type: Boolean, default: false },
-  selectedCount: { type: Number, default: 0 },
   isUploading: { type: Boolean, default: false },
   uploadProgress: { type: Number, default: 0 },
   sortKey: { type: String, default: 'name' },
@@ -138,8 +113,6 @@ const props = defineProps({
 const emit = defineEmits([
   'toggleSidebar',
   'createFolder', 
-  'deleteSelected',
-  'clearSelection',
   'fileUpload',
   'sort',
   'viewMode'

@@ -15,7 +15,7 @@
       :aria-labelledby="`node-${node.path}`" :style="{ 'border-left': '2px solid #ddd', 'padding-left': '10px' }">
       <template v-for="(child, index) in sortedChildren" :key="child.path">
         <TreeNode :node="child" :selectedPath="selectedPath"
-          :loadChildren="loadChildren" @nodeSelect="(n) => emit('nodeSelect', n)"
+          :loadChildren="loadChildren" 
           @nodeToggle="(e) => emit('nodeToggle', e)" />
         
       </template>
@@ -54,16 +54,16 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['nodeSelect', 'nodeToggle'])
+const emit = defineEmits(['nodeToggle'])
 
 const nodeLink = ref(null)
 
 // State
-const isOpen = ref(false)
+const isOpen = ref(props.node._isOpen || false)
 const loading = ref(false)
 const loadError = ref(false)
-const children = ref(props.node.children || [])
-const hasLoadedChildren = ref(props.node.children !== null && props.node.children !== undefined)
+const children = ref([])
+const hasLoadedChildren = ref(false)
 
 // Computed properties
 const collapseId = computed(() => `collapse-${props.node.path.replace(/[^\w-]/g, '_')}`)
@@ -94,8 +94,6 @@ const handleNodeClick = async () => {
   if (props.node.type === 'folder') {
     await toggleOpen()
   }
-  
-  emit('nodeSelect', props.node)
 }
 
 const toggleOpen = async () => {
@@ -106,11 +104,12 @@ const toggleOpen = async () => {
   // If closing, just toggle
   if (isOpen.value) {
     isOpen.value = false
+    props.node._isOpen = false
     emit('nodeToggle', { node: props.node, isOpen: false })
     return
   }
 
-  // If opening and we need to load children
+  // If opening, always check if we need to load/reload children
   if (!hasLoadedChildren.value && props.loadChildren) {
     loading.value = true
     loadError.value = false
@@ -118,12 +117,24 @@ const toggleOpen = async () => {
     try {
       const loadedChildren = await props.loadChildren(props.node)
       
-      // Update local state with proper reactivity
-      children.value.splice(0, children.value.length, ...(loadedChildren || []))
-      hasLoadedChildren.value = true
-      
-      // Update the node's children to maintain tree structure
-      props.node.children = children.value
+      if (loadedChildren && loadedChildren.length > 0) {
+        // Preserve existing tree states when loading new children
+        const preservedChildren = preserveTreeState(loadedChildren)
+        
+        // Update local state
+        children.value = [...preservedChildren]
+        hasLoadedChildren.value = true
+        
+        // Ensure the original node maintains its structure
+        if (!props.node.children) {
+          props.node.children = []
+        }
+        props.node.children.splice(0, props.node.children.length, ...preservedChildren)
+      } else {
+        children.value = []
+        hasLoadedChildren.value = true
+        props.node.children = []
+      }
     } catch (error) {
       console.error('Failed to load children for node:', props.node.path, error)
       loadError.value = true
@@ -133,10 +144,9 @@ const toggleOpen = async () => {
     }
   }
 
-  // Set isOpen and force reactivity
+  // Open the node and track state
   isOpen.value = true
-  triggerRef(isOpen)
-  triggerRef(children)
+  props.node._isOpen = true
   
   await nextTick()
   emit('nodeToggle', { node: props.node, isOpen: true })
@@ -152,6 +162,45 @@ const expandToPath = async (targetPath) => {
     if (!isOpen.value && props.node.hasSubfolders) {
       await toggleOpen()
     }
+  }
+}
+
+// Method to preserve tree state when reloading
+const preserveTreeState = (newChildren) => {
+  if (!newChildren || !children.value.length) return newChildren
+
+  // Create a map of current expanded states
+  const expandedStates = new Map()
+  children.value.forEach(child => {
+    expandedStates.set(child.path, {
+      isOpen: child._isOpen || false,
+      children: child.children
+    })
+  })
+
+  // Apply preserved state to new children
+  return newChildren.map(newChild => {
+    const preservedState = expandedStates.get(newChild.path)
+    if (preservedState) {
+      return {
+        ...newChild,
+        _isOpen: preservedState.isOpen,
+        children: preservedState.children || newChild.children
+      }
+    }
+    return newChild
+  })
+}
+
+// Method to force refresh children while preserving tree state
+const refreshChildren = async () => {
+  if (props.node.type !== 'folder' || !props.loadChildren) {
+    return
+  }
+
+  hasLoadedChildren.value = false
+  if (isOpen.value) {
+    await toggleOpen()
   }
 }
 
@@ -189,10 +238,15 @@ const handleKeyDown = (event) => {
   }
 }
 
-// Watch for node children changes
+// Initialize children state based on node data
 watch(() => props.node.children, (newChildren) => {
-  children.value = newChildren || []
-  hasLoadedChildren.value = newChildren !== null && newChildren !== undefined
+  if (newChildren && newChildren.length > 0) {
+    children.value = [...newChildren]
+    hasLoadedChildren.value = true
+  } else if (newChildren !== null && newChildren !== undefined) {
+    children.value = []
+    hasLoadedChildren.value = true
+  }
 }, { immediate: true })
 
 // Watch for external path changes
@@ -226,6 +280,13 @@ onUnmounted(() => {
   if (nodeLink.value) {
     nodeLink.value.removeEventListener('keydown', handleKeyDown)
   }
+})
+
+// Expose methods for parent components
+defineExpose({
+  refreshChildren,
+  expandToPath,
+  toggleOpen
 })
 </script>
 
