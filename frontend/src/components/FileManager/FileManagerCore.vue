@@ -1,4 +1,3 @@
-// components/FileManager/FileManagerCore.vue
 <template>
   <div class="card flex-fill files-root">
     <FileToolbar
@@ -28,7 +27,6 @@
         :tree-data="treeData"
         :selected-path="fileStore.state.currentPath"
         :load-children="loadChildren"
-        @node-select="navigate"
         @node-toggle="() => {}"
       />
 
@@ -119,9 +117,13 @@ const treeData = computed(() => [
 
 async function loadChildren(node) {
   try {
-    await fileStore.fetchFolderContents(node.path)
+    const res = await fileStore.fetchFolderContents(node.path)
+    // Normalize to an array: support either Array or { items: Array }
+    const items = Array.isArray(res) ? res : (Array.isArray(res?.items) ? res.items : [])
+    return items
   } catch (error) {
     console.error('Failed to load children for:', node.path, error)
+    return []
   }
 }
 

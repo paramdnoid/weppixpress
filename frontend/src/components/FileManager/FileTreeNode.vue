@@ -1,8 +1,19 @@
 <template>
   <div :data-path="node.path">
-    <a ref="nodeLink" :id="`node-${node.path}`" :class="['nav-link', { active: isActive, selected: isExactActive }]"
-      href="#" :data-path="node.path" @click.prevent="handleNodeClick" :aria-expanded="isOpen"
-      :aria-selected="isExactActive" :aria-label="`${node.type === 'folder' ? 'Folder' : 'File'}: ${node.name}`">
+    <a
+      ref="nodeLink"
+      :id="`node-${node.path}`"
+      :class="['nav-link', { active: isActive, selected: isExactActive }]"
+      href="#"
+      role="treeitem"
+      :aria-controls="collapseId"
+      :data-path="node.path"
+      @click.prevent="handleNodeClick"
+      @keydown="handleKeyDown"
+      :aria-expanded="isOpen"
+      :aria-selected="isExactActive"
+      :aria-label="`${node.type === 'folder' ? 'Folder' : 'File'}: ${node.name}`"
+    >
       <Icon :icon="node.type === 'folder' ? 'mdi:folder' : 'mdi:file-outline'"
         :class="node.type === 'folder' ? 'text-warning me-1' : 'text-muted me-1'" width="18" height="18" />
       {{ node.name }}
@@ -11,12 +22,12 @@
     </a>
 
     
-    <nav v-if="node.hasSubfolders" class="nav nav-vertical ms-3 tree-level" v-show="isOpen" :id="collapseId" role="group"
-      :aria-labelledby="`node-${node.path}`" :style="{ 'border-left': '2px solid #ddd', 'padding-left': '10px' }">
+    <nav v-if="node.hasSubfolders" class="nav nav-vertical ms-3 tree-level tree-children" v-show="isOpen" :id="collapseId" role="group"
+      :aria-labelledby="`node-${node.path}`">
       <template v-for="(child, index) in sortedChildren" :key="child.path">
         <TreeNode :node="child" :selectedPath="selectedPath"
-          :loadChildren="loadChildren" 
-          @nodeToggle="(e) => emit('nodeToggle', e)" />
+          :loadChildren="loadChildren"
+          @nodeToggle="reEmitToggle" />
         
       </template>
       <div v-if="loading" class="ps-3 text-muted small d-flex align-items-center">
@@ -34,7 +45,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick, triggerRef } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import TreeNode from './FileTreeNode.vue'
 import { Icon } from '@iconify/vue'
 
@@ -55,6 +66,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['nodeToggle'])
+
+const reEmitToggle = (e) => emit('nodeToggle', e)
 
 const nodeLink = ref(null)
 
@@ -96,7 +109,7 @@ const handleNodeClick = async () => {
   }
 }
 
-const toggleOpen = async () => {
+const toggleOpen = async (forceReload = false) => {
   if (props.node.type !== 'folder' || !props.node.hasSubfolders) {
     return
   }
@@ -109,27 +122,18 @@ const toggleOpen = async () => {
     return
   }
 
-  // If opening, always check if we need to load/reload children
-  if (!hasLoadedChildren.value && props.loadChildren) {
+  // If opening, load children only when needed
+  if (props.loadChildren && (forceReload || !hasLoadedChildren.value)) {
     loading.value = true
     loadError.value = false
 
     try {
       const loadedChildren = await props.loadChildren(props.node)
-      
-      if (loadedChildren && loadedChildren.length > 0) {
-        // Preserve existing tree states when loading new children
+      if (Array.isArray(loadedChildren) && loadedChildren.length > 0) {
         const preservedChildren = preserveTreeState(loadedChildren)
-        
-        // Update local state
-        children.value = [...preservedChildren]
+        children.value = preservedChildren
         hasLoadedChildren.value = true
-        
-        // Ensure the original node maintains its structure
-        if (!props.node.children) {
-          props.node.children = []
-        }
-        props.node.children.splice(0, props.node.children.length, ...preservedChildren)
+        props.node.children = preservedChildren
       } else {
         children.value = []
         hasLoadedChildren.value = true
@@ -147,7 +151,7 @@ const toggleOpen = async () => {
   // Open the node and track state
   isOpen.value = true
   props.node._isOpen = true
-  
+
   await nextTick()
   emit('nodeToggle', { node: props.node, isOpen: true })
 }
@@ -167,9 +171,9 @@ const expandToPath = async (targetPath) => {
 
 // Method to preserve tree state when reloading
 const preserveTreeState = (newChildren) => {
-  if (!newChildren || !children.value.length) return newChildren
+  if (!Array.isArray(newChildren)) return []
+  if (!children.value.length) return newChildren
 
-  // Create a map of current expanded states
   const expandedStates = new Map()
   children.value.forEach(child => {
     expandedStates.set(child.path, {
@@ -178,7 +182,6 @@ const preserveTreeState = (newChildren) => {
     })
   })
 
-  // Apply preserved state to new children
   return newChildren.map(newChild => {
     const preservedState = expandedStates.get(newChild.path)
     if (preservedState) {
@@ -194,13 +197,21 @@ const preserveTreeState = (newChildren) => {
 
 // Method to force refresh children while preserving tree state
 const refreshChildren = async () => {
-  if (props.node.type !== 'folder' || !props.loadChildren) {
-    return
-  }
+  if (props.node.type !== 'folder' || !props.loadChildren) return
 
-  hasLoadedChildren.value = false
-  if (isOpen.value) {
-    await toggleOpen()
+  loading.value = true
+  loadError.value = false
+  try {
+    const loadedChildren = await props.loadChildren(props.node)
+    const preservedChildren = preserveTreeState(Array.isArray(loadedChildren) ? loadedChildren : [])
+    children.value = preservedChildren
+    props.node.children = preservedChildren
+    hasLoadedChildren.value = true
+  } catch (error) {
+    console.error('Failed to refresh children for node:', props.node.path, error)
+    loadError.value = true
+  } finally {
+    loading.value = false
   }
 }
 
@@ -233,6 +244,8 @@ const handleKeyDown = (event) => {
       if (isOpen.value) {
         event.preventDefault()
         isOpen.value = false
+        props.node._isOpen = false
+        emit('nodeToggle', { node: props.node, isOpen: false })
       }
       break
   }
@@ -264,10 +277,6 @@ onMounted(() => {
   if (treeRoot) {
     treeRoot.addEventListener('tree:openPath', handleOpenPath)
   }
-
-  if (nodeLink.value) {
-    nodeLink.value.addEventListener('keydown', handleKeyDown)
-  }
 })
 
 onUnmounted(() => {
@@ -275,10 +284,6 @@ onUnmounted(() => {
 
   if (treeRoot) {
     treeRoot.removeEventListener('tree:openPath', handleOpenPath)
-  }
-
-  if (nodeLink.value) {
-    nodeLink.value.removeEventListener('keydown', handleKeyDown)
   }
 })
 
@@ -300,9 +305,13 @@ defineExpose({
   padding: 0;
   transition: transform 0.3s;
 }
-</style>
-<style scoped>
+
 .nav-link.selected {
   font-weight: 600;
+}
+
+.tree-children {
+  border-left: 2px solid #ddd;
+  padding-left: 10px;
 }
 </style>
