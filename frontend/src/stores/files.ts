@@ -111,6 +111,15 @@ const filtered = filterAndSortItems(items);
         search: state.value.searchQuery
       });
 
+      // Initialize childItems for folders in the response
+      if (response.items) {
+        response.items.forEach(item => {
+          if (item.type === 'folder' && !('childItems' in item)) {
+            (item as any).childItems = [];
+          }
+        });
+      }
+
       cache.set(cacheKey, response);
       return response;
     } catch (error: any) {
@@ -398,6 +407,10 @@ const filtered = filterAndSortItems(items);
   function updateItemsFromResponse(response: PaginatedResponse<FileItem>) {
     const newItems = new Map<string, FileItem>();
     response.items.forEach(item => {
+      // Initialize childItems for folders if not present
+      if (item.type === 'folder' && !('childItems' in item)) {
+        (item as any).childItems = [];
+      }
       newItems.set(item.path, item);
     });
     // Trigger reactivity by replacing the entire state object

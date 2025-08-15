@@ -12,6 +12,7 @@ export interface FileItem {
   hasSubfolders?: boolean
   isClickable?: boolean
   _parsedUpdatedAt?: number
+  childItems?: FileItem[]
 }
 
 export interface TreeNode {

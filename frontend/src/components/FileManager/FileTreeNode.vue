@@ -118,12 +118,62 @@ const isExactActive = computed(() => {
 
 // Methods
 const handleNodeClick = async () => {
-  // Always emit selectNode with node path
-  emit('selectNode', props.node.path)
-
+  // For folders, always load fresh childItems before emitting selectNode
   if (props.node.type === 'folder') {
+    // Initialize childItems if not already present
+    if (!props.node.childItems) {
+      props.node.childItems = []
+    }
+
+    // Always load childItems when folder is clicked to ensure fresh data
+    if (props.loadChildren) {
+      try {
+        loading.value = true
+        
+        console.log(`Loading childItems for ${props.node.path}...`)
+        
+        // loadChildren function already populates node.childItems with all items
+        const loadedChildren = await props.loadChildren(props.node)
+        
+        // Wait a bit to ensure childItems are fully populated
+        await nextTick()
+        
+        // Verify that childItems were actually populated by the loadChildren function
+        if (!props.node.childItems) {
+          console.warn(`childItems not set for node: ${props.node.path}`)
+          return // Don't emit selection if childItems weren't set
+        }
+        
+        // Handle tree children for expansion (loadedChildren contains only folders)
+        if (Array.isArray(loadedChildren)) {
+          if (loadedChildren.length > 0) {
+            const preservedChildren = preserveTreeState(loadedChildren)
+            children.value = preservedChildren
+            props.node.children = preservedChildren
+          } else {
+            children.value = []
+            props.node.children = []
+          }
+        }
+        
+        hasLoadedChildren.value = true
+        
+        console.log(`childItems updated for ${props.node.path}: ${props.node.childItems.length} items`)
+        
+      } catch (error) {
+        console.error('Failed to load children for node:', props.node.path, error)
+        // Don't emit selection if loading failed
+        return
+      } finally {
+        loading.value = false
+      }
+    }
+
     await toggleOpen()
   }
+
+  // Emit selectNode after ensuring childItems are loaded (or for non-folder nodes)
+  emit('selectNode', props.node.path)
 }
 
 const toggleOpen = async (forceReload = false) => {
@@ -139,8 +189,9 @@ const toggleOpen = async (forceReload = false) => {
     return
   }
 
-  // If opening, load children only when needed
-  if (props.loadChildren && (forceReload || !hasLoadedChildren.value)) {
+  // If opening, load children only when needed AND not already loaded by handleNodeClick
+  // Note: childItems are already loaded in handleNodeClick, this is just for tree expansion
+  if (props.loadChildren && (forceReload || (!hasLoadedChildren.value && !children.value.length))) {
     loading.value = true
     loadError.value = false
 
@@ -151,10 +202,12 @@ const toggleOpen = async (forceReload = false) => {
         children.value = preservedChildren
         hasLoadedChildren.value = true
         props.node.children = preservedChildren
+        // Don't override childItems here - they're already set correctly in handleNodeClick
       } else {
         children.value = []
         hasLoadedChildren.value = true
         props.node.children = []
+        // Don't override childItems here - they might contain files too
       }
     } catch (error) {
       console.error('Failed to load children for node:', props.node.path, error)
@@ -219,10 +272,12 @@ const refreshChildren = async () => {
   loading.value = true
   loadError.value = false
   try {
+    // loadChildren already updates node.childItems with all items
     const loadedChildren = await props.loadChildren(props.node)
     const preservedChildren = preserveTreeState(Array.isArray(loadedChildren) ? loadedChildren : [])
     children.value = preservedChildren
     props.node.children = preservedChildren
+    // Don't override childItems - they're already updated correctly by loadChildren
     hasLoadedChildren.value = true
   } catch (error) {
     console.error('Failed to refresh children for node:', props.node.path, error)
