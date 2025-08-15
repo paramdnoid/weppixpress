@@ -70,7 +70,7 @@ const filtered = filterAndSortItems(items);
   const breadcrumbs = computed(() => {
     const parts = state.value.currentPath.split('/').filter(Boolean);
     return [
-      { name: 'Home', path: '/' },
+      { name: 'Uploads', path: '/' },
       ...parts.map((name, i) => ({
         name,
         path: '/' + parts.slice(0, i + 1).join('/')

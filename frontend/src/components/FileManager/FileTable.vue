@@ -63,6 +63,7 @@
             :is-focused="index === focusedRowIndex"
             :tab-index="index === 0 ? 0 : -1"
             @select="selectItem(item, $event)"
+            @doubleClick="handleItemDoubleClick(item, $event)"
           />
         </tbody>
       </table>
@@ -109,7 +110,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['itemSelect', 'sort'])
+const emit = defineEmits(['itemSelect', 'itemDoubleClick', 'sort'])
 
 // File manager composable
 const { getFileComparator } = useFileManager()
@@ -155,6 +156,10 @@ function isSelected(item) {
 
 function selectItem(item, event) {
   emit('itemSelect', { item, event })
+}
+
+function handleItemDoubleClick(item, event) {
+  emit('itemDoubleClick', { item, event })
 }
 
 function onSort(key) {

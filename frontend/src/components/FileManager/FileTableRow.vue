@@ -1,6 +1,6 @@
 <template>
   <tr 
-    class="file-row"
+    class="file-row cursor-pointer"
     role="row"
     :class="{ 
       'table-active': isSelected,
@@ -8,7 +8,7 @@
     }"
     :tabindex="tabIndex"
     :data-index="index"
-    @dblclick="$emit('select', $event)"
+    @dblclick="handleDoubleClick"
     @keydown.space.prevent="$emit('select', $event)"
     :aria-label="ariaLabel"
     :aria-selected="isSelected"
@@ -61,7 +61,11 @@ const props = defineProps({
   tabIndex: { type: Number, default: -1 }
 })
 
-defineEmits(['select'])
+const emit = defineEmits(['select', 'doubleClick'])
+
+const handleDoubleClick = () => {
+  emit('doubleClick', props.item)
+}
 
 const fileIcon = computed(() => getFileIcon(props.item))
 const fileTypeClass = computed(() => {
