@@ -73,7 +73,6 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { Icon } from '@iconify/vue'
 import SortableHeader from './SortableHeader.vue'
 import FileTableRow from './FileTableRow.vue'
 import { useFileManager } from '@/composables/useFileManager'

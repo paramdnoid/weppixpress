@@ -145,7 +145,6 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { Icon } from '@iconify/vue'
 import FileGrid from './FileGrid.vue'
 import FileTable from './FileTable.vue'
 

@@ -51,7 +51,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import TreeNode from './FileTreeNode.vue'
-import { Icon } from '@iconify/vue'
 
 const props = defineProps({
   node: {

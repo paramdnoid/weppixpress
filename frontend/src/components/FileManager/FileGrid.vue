@@ -35,7 +35,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Icon } from '@iconify/vue'
 import FileGridItem from './FileGridItem.vue'
 import { useFileManager } from '@/composables/useFileManager'
 

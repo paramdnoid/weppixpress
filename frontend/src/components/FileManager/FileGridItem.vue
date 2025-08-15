@@ -20,7 +20,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Icon } from '@iconify/vue'
 import { useFileManager } from '@/composables/useFileManager'
 
 const { getFileIcon, getFileColor, getFileSize } = useFileManager()

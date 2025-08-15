@@ -1,5 +1,4 @@
 <script setup>
-import { Icon } from '@iconify/vue';
 
 const menuItems = [
   { label: 'Files', to: '/files', icon: 'tabler:folders' },
