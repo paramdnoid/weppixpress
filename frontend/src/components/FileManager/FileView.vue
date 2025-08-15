@@ -244,6 +244,7 @@ function clearSearch() {
 }
 
 .breadcrumb-item .btn-link {
+  --tblr-btn-line-height: 1;
   color: var(--tblr-primary);
   text-decoration: none;
   font-size: inherit;
@@ -252,7 +253,8 @@ function clearSearch() {
 }
 
 .breadcrumb-item .btn-link:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  background-color: transparent;
 }
 
 .breadcrumb-item.active {

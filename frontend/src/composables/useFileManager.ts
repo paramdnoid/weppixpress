@@ -95,7 +95,7 @@ const VIEW_MODES = [
 ]
 
 const MIN_SIDEBAR_WIDTH = 200
-const DEFAULT_SIDEBAR_WIDTH = 250
+const DEFAULT_SIDEBAR_WIDTH = 320
 
 export function useFileManager() {
   const fileStore = useFileStore()

@@ -117,6 +117,14 @@ const isExactActive = computed(() => {
   return current === nodePath;
 })
 
+// Watch for selection changes and auto-expand selected nodes
+watch(isExactActive, (newValue) => {
+  if (newValue && props.node.hasSubfolders && !isOpen.value) {
+    isOpen.value = true
+    props.node._isOpen = true
+  }
+})
+
 // Methods
 const handleNodeClick = async () => {
   // For folders, always load fresh childItems before emitting selectNode

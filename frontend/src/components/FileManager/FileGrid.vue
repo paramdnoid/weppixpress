@@ -130,7 +130,6 @@ function handleItemDoubleClick(item, event) {
   gap: 0.75rem;
   padding: 1rem;
   background: transparent;
-  min-height: 200px;
   position: relative;
 }
 

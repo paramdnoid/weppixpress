@@ -302,6 +302,9 @@ async function handleItemDoubleClickOverride(item) {
       treeNode.hasSubfolders = folderItems.length > 0
     }
     
+    // Force reactivity update
+    persistentTreeData.value = [...persistentTreeData.value]
+    
     return
   }
   
@@ -332,6 +335,9 @@ async function handleItemDoubleClickOverride(item) {
     
     // Expand the node
     updatedTreeNode._isOpen = true
+    
+    // Force reactivity update
+    persistentTreeData.value = [...persistentTreeData.value]
   }
 }
 
@@ -348,6 +354,27 @@ function handleTreeUpdate(newPath) {
     }
   }
   selectedTreeNode.value = foundNode
+  
+  // Always expand the selected node if it has subfolders
+  if (foundNode && foundNode.hasSubfolders) {
+    foundNode._isOpen = true
+    
+    // Load children if not already loaded
+    if ((!foundNode.children || foundNode.children.length === 0) && foundNode.childItems) {
+      const folderItems = foundNode.childItems.filter(item => item.type === 'folder')
+      foundNode.children = folderItems.map(folder => ({
+        ...folder,
+        hasSubfolders: true,
+        children: [],
+        childItems: [],
+        _isOpen: false
+      }))
+      foundNode.hasSubfolders = folderItems.length > 0
+    }
+    
+    // Force reactivity update
+    persistentTreeData.value = [...persistentTreeData.value]
+  }
 }
 
 async function handleBreadcrumbNavigation(item) {
