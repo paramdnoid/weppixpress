@@ -153,6 +153,10 @@ function isSelected(item) {
 }
 
 
+function selectItem(item, event) {
+  emit('itemSelect', { item, event })
+}
+
 function onSort(key) {
   emit('sort', key)
 }

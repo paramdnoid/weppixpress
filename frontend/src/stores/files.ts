@@ -269,6 +269,10 @@ const filtered = filterAndSortItems(items);
 
   // Selection management with keyboard support
   function selectItem(item: FileItem, mode: 'single' | 'toggle' | 'range' = 'single') {
+    if (!item || !item.path) {
+      console.warn('selectItem called with invalid item:', item);
+      return;
+    }
     switch (mode) {
       case 'single':
         state.value.selectedIds.clear();

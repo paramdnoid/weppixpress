@@ -28,6 +28,7 @@
         :selected-path="fileStore.state.currentPath"
         :load-children="loadChildren"
         @node-toggle="() => {}"
+        @treeUpdate="(newPath) => { fileStore.state.currentPath = newPath }"
       />
 
       <div v-show="!isCollapsed" class="splitter" @mousedown="startDragging" role="separator" />
@@ -48,7 +49,6 @@
         :empty-message="emptyStateMessage"
         @navigate="handleBreadcrumbNavigation"
         @search="handleSearch"
-        @retry="retryLoadFiles"
         @item-dbl-click="handleItemDoubleClick"
         @item-select="handleItemSelection"
         @sort="handleSort"
@@ -59,14 +59,12 @@
       ref="modalsRef"
       :item-to-rename="itemToRename"
       :is-loading="fileStore.state.isLoading"
-      @rename="handleRename"
-      @create-folder="handleCreateFolder"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useFileManager } from '@/composables/useFileManager'
 import FileToolbar from './FileToolbar.vue'
 import FileSidebar from './FileSidebar.vue'
@@ -95,7 +93,6 @@ const {
   handleFileUpload,
   setViewMode,
   handleSort,
-  retryLoadFiles,
   deleteSelectedFiles,
   navigate,
   handleItemDoubleClick,
@@ -120,7 +117,7 @@ async function loadChildren(node) {
     const res = await fileStore.fetchFolderContents(node.path)
     // Normalize to an array: support either Array or { items: Array }
     const items = Array.isArray(res) ? res : (Array.isArray(res?.items) ? res.items : [])
-    return items
+    return items.filter(item => item.type === 'folder')
   } catch (error) {
     console.error('Failed to load children for:', node.path, error)
     return []
@@ -132,27 +129,22 @@ function showCreateFolderModal() {
 }
 
 function handleItemSelection(selection) {
-  handleItemClick(selection.item, selection.event || {})
+  // Skip if selection is falsy
+  if (!selection) return;
+  if (selection.item && selection.item.type && selection.item.path) {
+    handleItemClick(selection.item, selection.event || {});
+  } else if (selection.type && selection.path) {
+    handleItemClick(selection, {});
+  } else {
+    console.warn('handleItemSelection: Invalid selection object', selection);
+    return;
+  }
 }
 
 async function handleBreadcrumbNavigation(item) {
   await navigate(item)
 }
 
-function handleRename(data) {
-  console.log('Rename:', data)
-}
-
-function handleCreateFolder(name) {
-  console.log('Create folder:', name)
-}
-
-function handleFileViewRefresh(event) {
-  const { path } = event.detail
-  if (path && fileStore.state.currentPath === path) {
-    retryLoadFiles()
-  }
-}
 
 onMounted(async () => {
   try {
@@ -160,14 +152,8 @@ onMounted(async () => {
   } catch (error) {
     console.error('Error loading files:', error)
   }
-  
-  // Listen for file view refresh events from tree nodes
-  document.addEventListener('fileview:refresh', handleFileViewRefresh)
 })
 
-onUnmounted(() => {
-  document.removeEventListener('fileview:refresh', handleFileViewRefresh)
-})
 </script>
 
 <style scoped>

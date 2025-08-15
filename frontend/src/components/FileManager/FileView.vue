@@ -121,7 +121,7 @@
           :selectedItems="selectedItems"
           :loading="isLoading"
           :emptyMessage="emptyMessage"
-          @itemSelect="$emit('itemSelect', $event)"
+          @itemSelect="payload => $emit('itemSelect', payload)"
         />
 
         <!-- Table View -->
@@ -134,7 +134,7 @@
           :selectedItems="selectedItems"
           :loading="isLoading"
           :emptyMessage="emptyMessage"
-          @itemSelect="$emit('itemSelect', $event)"
+          @itemSelect="payload => $emit('itemSelect', payload)"
           @sort="$emit('sort', $event)"
         />
       </div>

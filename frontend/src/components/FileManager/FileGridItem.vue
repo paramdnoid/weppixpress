@@ -4,7 +4,7 @@
     role="gridcell"
     :tabindex="tabIndex"
     :data-index="index"
-    @click="$emit('select', $event)"
+    @dblclick="$emit('select', $event)"
     @keydown.space.prevent="$emit('select', $event)"
     :title="tooltip"
     :aria-label="ariaLabel"

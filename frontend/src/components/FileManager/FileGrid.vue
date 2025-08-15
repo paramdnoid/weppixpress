@@ -14,7 +14,6 @@
       :is-selected="isSelected(item.raw)"
       :tab-index="index === 0 ? 0 : -1"
       @select="handleItemSelection(item, $event)"
-
     />
 
     <!-- Empty State -->

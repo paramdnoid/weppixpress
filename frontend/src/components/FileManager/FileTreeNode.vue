@@ -25,10 +25,13 @@
     <nav v-if="node.hasSubfolders" class="nav nav-vertical ms-3 tree-level tree-children" v-show="isOpen" :id="collapseId" role="group"
       :aria-labelledby="`node-${node.path}`">
       <template v-for="(child, index) in sortedChildren" :key="child.path">
-        <TreeNode :node="child" :selectedPath="selectedPath"
+        <TreeNode
+          :node="child"
+          :selectedPath="selectedPath"
           :loadChildren="loadChildren"
-          @nodeToggle="reEmitToggle" />
-        
+          @nodeToggle="reEmitToggle"
+          @selectNode="emit('selectNode', $event)"
+        />
       </template>
       <div v-if="loading" class="ps-3 text-muted small d-flex align-items-center">
         <div class="spinner-border spinner-border-sm me-2" role="status">
@@ -65,7 +68,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['nodeToggle'])
+const emit = defineEmits(['nodeToggle', 'selectNode'])
 
 const reEmitToggle = (e) => emit('nodeToggle', e)
 
@@ -94,16 +97,30 @@ const sortedChildren = computed(() => {
   })
 })
 
+
+// Normalize a path: remove trailing slashes (except root), ensure empty string returns '/'
+const normalizePath = (path) => {
+  if (!path) return '';
+  return path.replace(/\/+$/, '') || '/';
+}
+
 const isActive = computed(() => {
-  return props.selectedPath === props.node.path ||
-    (props.selectedPath && props.selectedPath.startsWith(props.node.path + '/'))
+  const current = normalizePath(props.selectedPath);
+  const nodePath = normalizePath(props.node.path);
+  return current === nodePath || current.startsWith(nodePath + '/');
 })
 
-const isExactActive = computed(() => props.selectedPath === props.node.path)
-
+const isExactActive = computed(() => {
+  const current = normalizePath(props.selectedPath);
+  const nodePath = normalizePath(props.node.path);
+  return current === nodePath;
+})
 
 // Methods
 const handleNodeClick = async () => {
+  // Always emit selectNode with node path
+  emit('selectNode', props.node.path)
+
   if (props.node.type === 'folder') {
     await toggleOpen()
   }
@@ -227,6 +244,13 @@ const handleOpenPath = async (event) => {
   }
 }
 
+const handleSelectNodeEvent = (event) => {
+  const path = event.detail?.path
+  if (path) {
+    emit('selectNode', path)
+  }
+}
+
 const handleKeyDown = (event) => {
   switch (event.key) {
     case 'Enter':
@@ -276,14 +300,22 @@ onMounted(() => {
 
   if (treeRoot) {
     treeRoot.addEventListener('tree:openPath', handleOpenPath)
+    treeRoot.addEventListener('tree:selectNode', handleSelectNode) // NEU
   }
 })
+
+function handleSelectNode(event) {
+  const targetPath = event.detail?.path
+  if (!targetPath) return
+  emit('selectNode', targetPath) // leitet an Parent weiter
+}
 
 onUnmounted(() => {
   const treeRoot = nodeLink?.value?.closest('#menu') || document.getElementById('menu')
 
   if (treeRoot) {
     treeRoot.removeEventListener('tree:openPath', handleOpenPath)
+    treeRoot.removeEventListener('tree:selectNode', handleSelectNodeEvent)
   }
 })
 
@@ -311,7 +343,7 @@ defineExpose({
 }
 
 .tree-children {
-  border-left: 2px solid #ddd;
-  padding-left: 10px;
+  border-left: 1px solid #ddd;
+  padding-left: 0px;
 }
 </style>

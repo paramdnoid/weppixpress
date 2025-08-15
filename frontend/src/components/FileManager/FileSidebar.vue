@@ -35,9 +35,10 @@
             v-for="node in group.items" 
             :key="node.path" 
             :node="node" 
-            :selectedPath="selectedPath"
+            :selectedPath="localSelectedPath"
             :loadChildren="props.loadChildren" 
             @nodeToggle="(event) => emit('nodeToggle', event)" 
+            @selectNode="(path) => { localSelectedPath = path; emit('treeUpdate', path) }"
           />
         </nav>
       </nav>
@@ -46,7 +47,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import TreeNode from './FileTreeNode.vue'
 
 const props = defineProps({
@@ -57,11 +58,27 @@ const props = defineProps({
   loadChildren: { type: Function, required: true }
 })
 
-const emit = defineEmits(['nodeToggle', 'treeUpdate'])
+const emit = defineEmits(['nodeToggle', 'treeUpdate', 'expandToPath'])
 
 // Refs
 const sidebarElement = ref(null)
 const treeRoot = ref(null)
+
+// Convert selectedPath prop to local mutable ref
+const localSelectedPath = ref(props.selectedPath || '')
+
+// Watch for prop changes and update local ref
+watch(() => props.selectedPath, (newVal) => {
+  localSelectedPath.value = newVal || ''
+})
+
+// Methods
+const handleSelectNode = (path) => {
+  localSelectedPath.value = path
+  emit('treeUpdate', path)
+  // Emit event to expand all parent nodes up to the selected path
+  emit('expandToPath', path)
+}
 
 // Computed
 const sidebarStyle = computed(() => ({

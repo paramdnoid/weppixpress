@@ -319,7 +319,6 @@ export function useFileManager() {
   function handleItemClick(item: any, event: MouseEvent) {
     const isCtrlOrCmd = event.ctrlKey || event.metaKey
     const isShift = event.shiftKey
-    
     if (isCtrlOrCmd) {
       fileStore.selectItem(item, 'toggle')
     } else if (isShift && fileStore.selectedItems.length > 0) {
@@ -327,6 +326,14 @@ export function useFileManager() {
     } else {
       fileStore.clearSelection()
       fileStore.selectItem(item)
+    }
+    // Handle toggling the node in the tree view and setting it as selected
+    if (item.type === 'folder') {
+      const treeRoot = document.getElementById('menu')
+      if (treeRoot) {
+        treeRoot.dispatchEvent(new CustomEvent('tree:openPath', { detail: { path: item.path } }))
+        treeRoot.dispatchEvent(new CustomEvent('tree:selectNode', { detail: { path: item.path } }))
+      }
     }
   }
 
@@ -491,14 +498,6 @@ export function useFileManager() {
     return item.id || item.name
   }
 
-  async function retryLoadFiles() {
-    try {
-      await fileStore.fetchItems(fileStore.state.currentPath, { force: true })
-    } catch (error) {
-      console.error('Retry failed:', error)
-    }
-  }
-
   // Lifecycle
   onMounted(() => {
     document.addEventListener('keydown', handleKeyDown)
@@ -542,7 +541,6 @@ export function useFileManager() {
     getItemKey, getFileIcon, getFileColor, getFileComparator, 
     getDateFormatted, getFileSize, getExtension,
     isImageFile, isVideoFile, isAudioFile, isCodeFile,
-    retryLoadFiles,
     
     // Constants
     SORT_OPTIONS, VIEW_MODES, FILE_TYPES: Object.freeze(FILE_TYPES),
