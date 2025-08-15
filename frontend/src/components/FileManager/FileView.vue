@@ -122,6 +122,7 @@
           :loading="isLoading"
           :emptyMessage="emptyMessage"
           @itemSelect="payload => $emit('itemSelect', payload)"
+          @itemDoubleClick="payload => $emit('item-dbl-click', payload.item)"
         />
 
         <!-- Table View -->
@@ -169,6 +170,7 @@ const emit = defineEmits([
   'search', 
   'retry',
   'itemSelect',
+  'item-dbl-click',
   'sort'
 ])
 

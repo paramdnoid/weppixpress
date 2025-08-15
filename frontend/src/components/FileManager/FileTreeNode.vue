@@ -31,6 +31,7 @@
           :loadChildren="loadChildren"
           @nodeToggle="reEmitToggle"
           @selectNode="emit('selectNode', $event)"
+          @select="emit('select', $event)"
         />
       </template>
       <div v-if="loading" class="ps-3 text-muted small d-flex align-items-center">
@@ -68,7 +69,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['nodeToggle', 'selectNode'])
+const emit = defineEmits(['nodeToggle', 'selectNode', 'select'])
 
 const reEmitToggle = (e) => emit('nodeToggle', e)
 
@@ -128,12 +129,8 @@ const handleNodeClick = async () => {
     // Always load childItems when folder is clicked to ensure fresh data
     if (props.loadChildren) {
       try {
-        loading.value = true
         
-        console.log(`Loading childItems for ${props.node.path}...`)
-        
-        // loadChildren function already populates node.childItems with all items
-        const loadedChildren = await props.loadChildren(props.node)
+        await loadChildrenSafely()
         
         // Wait a bit to ensure childItems are fully populated
         await nextTick()
@@ -144,28 +141,10 @@ const handleNodeClick = async () => {
           return // Don't emit selection if childItems weren't set
         }
         
-        // Handle tree children for expansion (loadedChildren contains only folders)
-        if (Array.isArray(loadedChildren)) {
-          if (loadedChildren.length > 0) {
-            const preservedChildren = preserveTreeState(loadedChildren)
-            children.value = preservedChildren
-            props.node.children = preservedChildren
-          } else {
-            children.value = []
-            props.node.children = []
-          }
-        }
-        
-        hasLoadedChildren.value = true
-        
-        console.log(`childItems updated for ${props.node.path}: ${props.node.childItems.length} items`)
         
       } catch (error) {
-        console.error('Failed to load children for node:', props.node.path, error)
         // Don't emit selection if loading failed
         return
-      } finally {
-        loading.value = false
       }
     }
 
@@ -175,6 +154,7 @@ const handleNodeClick = async () => {
   // Emit selectNode after ensuring childItems are loaded (or for non-folder nodes)
   emit('selectNode', props.node.path)
 }
+
 
 const toggleOpen = async (forceReload = false) => {
   if (props.node.type !== 'folder' || !props.node.hasSubfolders) {
@@ -192,29 +172,10 @@ const toggleOpen = async (forceReload = false) => {
   // If opening, load children only when needed AND not already loaded by handleNodeClick
   // Note: childItems are already loaded in handleNodeClick, this is just for tree expansion
   if (props.loadChildren && (forceReload || (!hasLoadedChildren.value && !children.value.length))) {
-    loading.value = true
-    loadError.value = false
-
     try {
-      const loadedChildren = await props.loadChildren(props.node)
-      if (Array.isArray(loadedChildren) && loadedChildren.length > 0) {
-        const preservedChildren = preserveTreeState(loadedChildren)
-        children.value = preservedChildren
-        hasLoadedChildren.value = true
-        props.node.children = preservedChildren
-        // Don't override childItems here - they're already set correctly in handleNodeClick
-      } else {
-        children.value = []
-        hasLoadedChildren.value = true
-        props.node.children = []
-        // Don't override childItems here - they might contain files too
-      }
+      await loadChildrenSafely()
     } catch (error) {
-      console.error('Failed to load children for node:', props.node.path, error)
-      loadError.value = true
       return
-    } finally {
-      loading.value = false
     }
   }
 
@@ -265,26 +226,36 @@ const preserveTreeState = (newChildren) => {
   })
 }
 
-// Method to force refresh children while preserving tree state
-const refreshChildren = async () => {
-  if (props.node.type !== 'folder' || !props.loadChildren) return
+// Centralized loading function for children
+const loadChildrenSafely = async () => {
+  if (props.node.type !== 'folder' || !props.loadChildren) return null
 
   loading.value = true
   loadError.value = false
   try {
     // loadChildren already updates node.childItems with all items
     const loadedChildren = await props.loadChildren(props.node)
-    const preservedChildren = preserveTreeState(Array.isArray(loadedChildren) ? loadedChildren : [])
-    children.value = preservedChildren
-    props.node.children = preservedChildren
-    // Don't override childItems - they're already updated correctly by loadChildren
-    hasLoadedChildren.value = true
+    
+    if (Array.isArray(loadedChildren)) {
+      const preservedChildren = preserveTreeState(loadedChildren)
+      children.value = preservedChildren
+      props.node.children = preservedChildren
+      hasLoadedChildren.value = true
+    }
+    
+    return loadedChildren
   } catch (error) {
-    console.error('Failed to refresh children for node:', props.node.path, error)
+    console.error('Failed to load children for node:', props.node.path, error)
     loadError.value = true
+    throw error
   } finally {
     loading.value = false
   }
+}
+
+// Method to force refresh children while preserving tree state
+const refreshChildren = async () => {
+  await loadChildrenSafely()
 }
 
 // Event handlers
@@ -296,13 +267,6 @@ const handleOpenPath = async (event) => {
     await expandToPath(targetPath)
   } catch (error) {
     console.error('Failed to expand to path:', targetPath, error)
-  }
-}
-
-const handleSelectNodeEvent = (event) => {
-  const path = event.detail?.path
-  if (path) {
-    emit('selectNode', path)
   }
 }
 
@@ -370,7 +334,7 @@ onUnmounted(() => {
 
   if (treeRoot) {
     treeRoot.removeEventListener('tree:openPath', handleOpenPath)
-    treeRoot.removeEventListener('tree:selectNode', handleSelectNodeEvent)
+    treeRoot.removeEventListener('tree:selectNode', handleSelectNode)
   }
 })
 

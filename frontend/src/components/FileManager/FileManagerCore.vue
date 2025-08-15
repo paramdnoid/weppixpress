@@ -49,8 +49,8 @@
         :empty-message="emptyStateMessage"
         @navigate="handleBreadcrumbNavigation"
         @search="handleSearch"
-        @item-dbl-click="handleItemDoubleClickOverride"
         @item-select="handleItemSelection"
+        @item-dbl-click="handleItemDoubleClickOverride"
         @sort="handleSort"
       />
     </div>
@@ -96,7 +96,6 @@ const {
   handleSort,
   deleteSelectedFiles,
   navigate,
-  handleItemDoubleClick,
   handleItemClick,
   breadcrumbs,
   filteredItems,
@@ -121,14 +120,17 @@ const enhancedFilteredItems = computed(() => {
   return filteredItems.value
 })
 
-const treeData = computed(() => [
+// Persistent tree structure - never flattened
+const persistentTreeData = ref([
   {
     title: 'Files',
-    loading: fileStore.state.isLoading,
-    error: fileStore.state.error,
-    items: filteredItems.value.filter(item => item.type === 'folder')
+    loading: false,
+    error: null,
+    items: []
   }
 ])
+
+const treeData = computed(() => persistentTreeData.value)
 
 // Helper function to find tree node by path
 function findTreeNodeByPath(path, items) {
@@ -144,30 +146,112 @@ function findTreeNodeByPath(path, items) {
   return null
 }
 
-async function loadChildren(node) {
-  try {
-    // Force fresh data by bypassing cache for tree node selection
-    const res = await fileStore.fetchFolderContents(node.path, { force: true })
-    // Normalize to an array: support either Array or { items: Array }
-    const items = Array.isArray(res) ? res : (Array.isArray(res?.items) ? res.items : [])
+// Function to add folders to tree structure incrementally
+function addFoldersToTree(newFolders, targetPath = '/') {
+  const rootGroup = persistentTreeData.value[0]
+  
+  // If we're adding to root level
+  if (targetPath === '/' || targetPath === '') {
+    const existingPaths = new Set(rootGroup.items.map(item => item.path))
     
-    console.log(`loadChildren for ${node.path}: got ${items.length} items`)
-    
-    // Store all items in childItems for the file view
-    if (!node.childItems) {
-      node.childItems = []
-    }
-    node.childItems = items
-    
-    // Initialize childItems for each folder in the list
-    items.forEach(item => {
-      if (item.type === 'folder' && !item.childItems) {
-        item.childItems = []
+    newFolders.forEach(folder => {
+      if (!existingPaths.has(folder.path)) {
+        // Add new folder with tree structure properties
+        rootGroup.items.push({
+          ...folder,
+          hasSubfolders: true, // Always true initially, will be updated when loaded
+          children: folder.children || [],
+          childItems: folder.childItems || [],
+          _isOpen: false
+        })
       }
     })
     
-    // Return only folders for the tree structure
-    const folderItems = items.filter(item => item.type === 'folder')
+    // Sort folders alphabetically
+    rootGroup.items.sort((a, b) => a.name.localeCompare(b.name))
+    return
+  }
+  
+  // Find the target node and add children
+  const targetNode = findTreeNodeByPath(targetPath, rootGroup.items)
+  if (targetNode) {
+    const existingPaths = new Set((targetNode.children || []).map(item => item.path))
+    
+    newFolders.forEach(folder => {
+      if (!existingPaths.has(folder.path)) {
+        if (!targetNode.children) targetNode.children = []
+        targetNode.children.push({
+          ...folder,
+          hasSubfolders: true, // Always true initially, will be updated when loaded
+          children: folder.children || [],
+          childItems: folder.childItems || [],
+          _isOpen: false
+        })
+      }
+    })
+    
+    // Sort children alphabetically
+    if (targetNode.children) {
+      targetNode.children.sort((a, b) => a.name.localeCompare(b.name))
+    }
+    
+    // Update parent's hasSubfolders flag
+    targetNode.hasSubfolders = targetNode.children.length > 0
+  }
+}
+
+async function loadChildren(node) {
+  try {
+    // Load folder contents for tree node selection
+    const res = await fileStore.fetchFolderContents(node.path)
+    // Normalize to an array: support either Array or { items: Array }
+    const items = Array.isArray(res) ? res : (Array.isArray(res?.items) ? res.items : [])
+    
+    // Sort items: folders first, then files, both alphabetically
+    const sortedItems = [...items].sort((a, b) => {
+      // Folders always come first
+      if (a.type === 'folder' && b.type !== 'folder') return -1
+      if (a.type !== 'folder' && b.type === 'folder') return 1
+      
+      // Within same type, sort alphabetically (case-insensitive)
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    })
+
+    // Store all items (files + folders) in childItems for file view
+    node.childItems = sortedItems
+    
+    // Get only folders for tree structure
+    const folderItems = sortedItems.filter(item => item.type === 'folder')
+    
+    // Add new folders to persistent tree structure
+    addFoldersToTree(folderItems, node.path)
+    
+    // Update the node's children directly as well
+    if (!node.children) {
+      node.children = []
+    }
+    
+    // Add new children to the node
+    const existingPaths = new Set(node.children.map(child => child.path))
+    folderItems.forEach(folder => {
+      if (!existingPaths.has(folder.path)) {
+        node.children.push({
+          ...folder,
+          hasSubfolders: folder.hasSubfolders || false,
+          children: folder.children || [],
+          childItems: folder.childItems || [],
+          _isOpen: false
+        })
+      }
+    })
+    
+    // Sort children
+    node.children.sort((a, b) => a.name.localeCompare(b.name))
+    
+    // Set hasSubfolders flag
+    node.hasSubfolders = folderItems.length > 0
+    
+    // Return folders for the tree component
     return folderItems
   } catch (error) {
     console.error('Failed to load children for:', node.path, error)
@@ -192,10 +276,63 @@ function handleItemSelection(selection) {
   }
 }
 
-function handleItemDoubleClickOverride(item) {
-  // Clear the selected tree node when navigating via double-click
-  selectedTreeNode.value = null
-  return handleItemDoubleClick(item)
+async function handleItemDoubleClickOverride(item) {
+  if (item.type !== 'folder') {
+    return navigate(item)
+  }
+  
+  // For folders: Check if we already have the data
+  const treeNode = findTreeNodeByPath(item.path, persistentTreeData.value[0].items)
+  
+  if (treeNode && treeNode.childItems && treeNode.childItems.length > 0) {
+    // Use already loaded data - just expand the tree and update selection
+    handleTreeUpdate(item.path)
+    treeNode._isOpen = true
+    
+    // Make sure tree children are populated from childItems
+    if (!treeNode.children || treeNode.children.length === 0) {
+      const folderItems = treeNode.childItems.filter(item => item.type === 'folder')
+      treeNode.children = folderItems.map(folder => ({
+        ...folder,
+        hasSubfolders: true,
+        children: [],
+        childItems: [],
+        _isOpen: false
+      }))
+      treeNode.hasSubfolders = folderItems.length > 0
+    }
+    
+    return
+  }
+  
+  // Otherwise navigate normally (this loads the data once)
+  await navigate(item)
+  handleTreeUpdate(item.path)
+  
+  // Find the node again after navigation
+  const updatedTreeNode = findTreeNodeByPath(item.path, persistentTreeData.value[0].items)
+  if (updatedTreeNode) {
+    // Use the data from navigate() instead of loading again
+    const currentItems = filteredItems.value
+    updatedTreeNode.childItems = currentItems
+    
+    // Extract folders for tree structure
+    const folderItems = currentItems.filter(item => item.type === 'folder')
+    if (folderItems.length > 0) {
+      addFoldersToTree(folderItems, item.path)
+      updatedTreeNode.children = folderItems.map(folder => ({
+        ...folder,
+        hasSubfolders: true,
+        children: [],
+        childItems: [],
+        _isOpen: false
+      }))
+      updatedTreeNode.hasSubfolders = true
+    }
+    
+    // Expand the node
+    updatedTreeNode._isOpen = true
+  }
 }
 
 function handleTreeUpdate(newPath) {
@@ -223,6 +360,10 @@ async function handleBreadcrumbNavigation(item) {
 onMounted(async () => {
   try {
     await fileStore.fetchItems()
+    
+    // Initialize tree with root folders
+    const rootFolders = filteredItems.value.filter(item => item.type === 'folder')
+    addFoldersToTree(rootFolders, '/')
   } catch (error) {
     console.error('Error loading files:', error)
   }

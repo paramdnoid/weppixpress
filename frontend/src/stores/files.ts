@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { computed, shallowRef } from 'vue';
 import type { FileItem, PaginatedResponse, FileOperation } from '@/types';
 import { fileApi } from '@/api/files';
-import { useCacheManager } from '@/composables/useCacheManager';
 import { useWebSocket } from '@/composables/useWebSocket';
 
 interface FileFilters {
@@ -48,11 +47,6 @@ export const useFileStore = defineStore('files', () => {
     error: null
   });
 
-  // Cache manager for file listings
-  const cache = useCacheManager<PaginatedResponse<FileItem>>({
-    maxAge: 5 * 60 * 1000, // 5 minutes
-    maxSize: 100
-  });
 
   // WebSocket for real-time updates
   const ws = useWebSocket('/ws/files', {
@@ -95,13 +89,6 @@ const filtered = filterAndSortItems(items);
     // This function loads folder contents without changing the current navigation path
     // Used for tree loading and other non-navigation purposes
     const normalizedPath = path === '/' ? '/' : path.replace(/\/+$/, '');
-    const cacheKey = `${normalizedPath}:${JSON.stringify(options)}`;
-    
-    // Check cache first
-    const cached = cache.get(cacheKey);
-    if (cached && !options.force) {
-      return cached;
-    }
 
     try {
       const response = await fileApi.list(normalizedPath, {
@@ -120,7 +107,6 @@ const filtered = filterAndSortItems(items);
         });
       }
 
-      cache.set(cacheKey, response);
       return response;
     } catch (error: any) {
       console.error('Failed to fetch folder contents for:', normalizedPath, error);
@@ -131,15 +117,6 @@ const filtered = filterAndSortItems(items);
   async function fetchItems(path: string = state.value.currentPath, options: any = {}) {
     // Normalize path - ensure root path is exactly '/'
     const normalizedPath = path === '/' ? '/' : path.replace(/\/+$/, '');
-
-    const cacheKey = `${normalizedPath}:${JSON.stringify(options)}`;
-    
-    // Check cache first
-    const cached = cache.get(cacheKey);
-    if (cached && !options.force) {
-      updateItemsFromResponse(cached);
-      return cached;
-    }
 
     state.value.isLoading = true;
     state.value.error = null;
@@ -152,7 +129,6 @@ const filtered = filterAndSortItems(items);
         search: state.value.searchQuery
       });
 
-      cache.set(cacheKey, response);
       updateItemsFromResponse(response);
       state.value.currentPath = normalizedPath;
 
@@ -193,9 +169,8 @@ const filtered = filterAndSortItems(items);
 
       operation.status = 'completed';
       
-      // Invalidate cache and refresh
-      cache.invalidate(state.value.currentPath);
-      await fetchItems(state.value.currentPath, { force: true });
+      // Refresh current items
+      await fetchItems(state.value.currentPath);
 
       return response;
     } catch (error: any) {
@@ -226,16 +201,13 @@ const filtered = filterAndSortItems(items);
 
       operation.status = 'completed';
       
-      // Invalidate cache
-      cache.invalidate(state.value.currentPath);
-      
       return true;
     } catch (error: any) {
       operation.status = 'failed';
       operation.error = error.message;
       
       // Revert optimistic update
-      await fetchItems(state.value.currentPath, { force: true });
+      await fetchItems(state.value.currentPath);
       throw error;
     }
   }
@@ -261,17 +233,13 @@ const filtered = filterAndSortItems(items);
 
       operation.status = 'completed';
       
-      // Invalidate both source and destination cache
-      cache.invalidate(state.value.currentPath);
-      cache.invalidate(destination);
-      
       return true;
     } catch (error: any) {
       operation.status = 'failed';
       operation.error = error.message;
       
       // Revert optimistic update
-      await fetchItems(state.value.currentPath, { force: true });
+      await fetchItems(state.value.currentPath);
       throw error;
     }
   }
@@ -397,7 +365,7 @@ const filtered = filterAndSortItems(items);
       case 'folder_changed':
         if (data.path === state.value.currentPath) {
           // Refresh current folder
-          fetchItems(state.value.currentPath, { force: true });
+          fetchItems(state.value.currentPath);
         }
         break;
     }
@@ -423,7 +391,6 @@ const filtered = filterAndSortItems(items);
   // Cleanup
   function cleanup() {
     ws.close();
-    cache.clear();
     state.value.items.clear();
     state.value.selectedIds.clear();
     state.value.operations = [];

@@ -4,8 +4,8 @@
     role="gridcell"
     :tabindex="tabIndex"
     :data-index="index"
-    @dblclick="$emit('select', $event)"
-    @keydown.space.prevent="$emit('select', $event)"
+    @dblclick="handleDoubleClick"
+    @keydown.space.prevent="handleSelect"
     :title="tooltip"
     :aria-label="ariaLabel"
     :aria-selected="isSelected"
@@ -32,7 +32,15 @@ const props = defineProps({
   tabIndex: { type: Number, default: -1 }
 })
 
-defineEmits(['select'])
+const emit = defineEmits(['select', 'doubleClick'])
+
+const handleSelect = (event) => {
+  emit('select', props.item)
+}
+
+const handleDoubleClick = (event) => {
+  emit('doubleClick', props.item)
+}
 
 const icon = computed(() => getFileIcon(props.item))
 const iconClass = computed(() => getFileColor(props.item))
@@ -91,7 +99,6 @@ const ariaLabel = computed(() => {
   height: 48px;
   display: block;
   transition: transform 0.15s ease;
-  pointer-events: none;
 }
 
 .explorer-item:hover .explorer-icon {
@@ -109,7 +116,6 @@ const ariaLabel = computed(() => {
   overflow: hidden;
   line-height: 1.3;
   user-select: none;
-  pointer-events: none;
 }
 
 /* File type colors */

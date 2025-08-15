@@ -312,9 +312,6 @@ export function useFileManager() {
     }
   }
 
-  async function handleItemDoubleClick(item: any) {
-    await navigate(item)
-  }
 
   function handleItemClick(item: any, event: MouseEvent) {
     const isCtrlOrCmd = event.ctrlKey || event.metaKey
@@ -523,7 +520,7 @@ export function useFileManager() {
     breadcrumbs, filteredItems, emptyStateMessage,
     
     // Navigation
-    navigate, handleItemDoubleClick, handleItemClick, handleContextMenu,
+    navigate, handleItemClick, handleContextMenu,
     
     // File operations
     copy, cut, paste, deleteItem, deleteSelectedFiles,

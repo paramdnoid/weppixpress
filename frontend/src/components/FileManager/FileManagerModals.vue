@@ -31,22 +31,11 @@ defineEmits(['rename', 'createFolder'])
 const renameModal = ref()
 const newFolderModal = ref()
 
-function showRenameModal() {
-  renameModal.value?.show()
-}
-
 function showNewFolderModal() {
   newFolderModal.value?.show()
 }
 
-function hideModals() {
-  renameModal.value?.hide()
-  newFolderModal.value?.hide()
-}
-
 defineExpose({
-  showRenameModal,
-  showNewFolderModal,
-  hideModals
+  showNewFolderModal
 })
 </script>

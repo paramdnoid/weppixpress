@@ -39,6 +39,7 @@
             :loadChildren="props.loadChildren" 
             @nodeToggle="(event) => emit('nodeToggle', event)" 
             @selectNode="(path) => { localSelectedPath = path; emit('treeUpdate', path) }"
+            @select="(node) => { localSelectedPath = node.path; emit('treeUpdate', node.path) }"
           />
         </nav>
       </nav>
