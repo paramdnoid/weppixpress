@@ -76,15 +76,6 @@ const ariaLabel = computed(() => {
   transform: translateY(-1px);
 }
 
-.explorer-item.selected {
-  background-color: var(--tblr-primary-lt);
-  border-color: var(--tblr-primary);
-}
-
-.explorer-item.selected:focus {
-  background-color: var(--tblr-primary-lt);
-}
-
 .icon-wrap {
   display: flex;
   align-items: center;
