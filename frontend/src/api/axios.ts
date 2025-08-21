@@ -32,18 +32,22 @@ api.interceptors.response.use(
       originalRequest._retry = true
       
       try {
-        const refreshResponse = await api.post('/auth/refresh')
-        const { accessToken } = refreshResponse.data
+        // Use auth store for proper refresh handling
+        const { useAuthStore } = await import('@/stores/auth')
+        const authStore = useAuthStore()
         
-        localStorage.setItem('accessToken', accessToken)
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`
+        await authStore.refresh()
         
+        // Retry original request with new token
+        originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
-        // Refresh failed, clear tokens and redirect to login
+        // Refresh failed, logout through auth store
         console.warn('Token refresh failed:', refreshError.response?.data?.message || refreshError.message)
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('user')
+        
+        const { useAuthStore } = await import('@/stores/auth')
+        const authStore = useAuthStore()
+        await authStore.logout()
         
         // If we're not already on login page, redirect
         if (!window.location.pathname.includes('/login')) {

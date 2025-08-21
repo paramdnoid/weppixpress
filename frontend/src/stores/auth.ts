@@ -48,6 +48,7 @@ export const useAuthStore = defineStore('auth', {
           this.user = data.user
           localStorage.setItem('accessToken', data.accessToken)
           localStorage.setItem('user', JSON.stringify(data.user))
+          api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`
           this.pending2FA = null
         }
       } catch (err) {
@@ -67,6 +68,7 @@ export const useAuthStore = defineStore('auth', {
         this.pending2FA = null
         localStorage.removeItem('accessToken')
         localStorage.removeItem('user')
+        delete api.defaults.headers.common['Authorization']
       }
     },
 
@@ -91,6 +93,8 @@ export const useAuthStore = defineStore('auth', {
         });
         this.accessToken = data.accessToken;
         this.user = data.user;
+        localStorage.setItem('accessToken', data.accessToken)
+        localStorage.setItem('user', JSON.stringify(data.user))
         api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
         this.pending2FA = null;
       } catch (err) {
@@ -104,10 +108,23 @@ export const useAuthStore = defineStore('auth', {
         const { data } = await api.post('/auth/refresh');
         this.accessToken = data.accessToken;
         localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Update user if provided
+        if (data.user) {
+          this.user = data.user;
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+        
+        // Set authorization header for future requests
         api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
       } catch (err) {
         console.error('refresh error:', err);
+        // Clear invalid tokens
+        this.accessToken = null;
+        this.user = null;
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        delete api.defaults.headers.common['Authorization'];
         throw err;
       }
     },
@@ -155,33 +172,6 @@ export const useAuthStore = defineStore('auth', {
   },
 });
 
-// ---- AXIOS INTERCEPTOR: 401 → AUTOMATISCHER REFRESH ----
-api.interceptors.response.use(
-  response => response,
-  async error => {
-    const originalRequest = error.config;
-    // Nur bei 401 und wenn noch kein Retry-Versuch
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      try {
-        // Pinia Store dynamisch holen (sonst kein this!)
-        const { useAuthStore } = await import('./auth');
-        const auth = useAuthStore();
-        await auth.refresh();
-        // Authorization-Header mit neuem AccessToken setzen
-        originalRequest.headers['Authorization'] = `Bearer ${auth.accessToken}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        // Refresh fehlgeschlagen → ausloggen!
-        console.warn('Auto-refresh failed:', refreshError.response?.data?.message || refreshError.message);
-        const { useAuthStore } = await import('./auth');
-        const auth = useAuthStore();
-        await auth.logout();
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 // Initialize auth headers and validate existing token
 if (localStorage.getItem('accessToken')) {

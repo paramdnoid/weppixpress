@@ -34,16 +34,6 @@ export default function authenticate(req, res, next) {
       throw err;
     }
 
-    // Check token age (if issued time is present)
-    if (payload.iat) {
-      const tokenAge = Date.now() / 1000 - payload.iat;
-      const maxAge = 24 * 60 * 60; // 24 hours
-      if (tokenAge > maxAge) {
-        const err = new Error('Token too old');
-        err.statusCode = 401;
-        throw err;
-      }
-    }
 
     req.user = payload;
     
