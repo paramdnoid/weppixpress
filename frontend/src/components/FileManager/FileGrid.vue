@@ -1,5 +1,63 @@
 <template>
+  <!-- Navigation Bar -->
+  <div class="nav-scroller bg-body p-1 border-bottom">
+    <nav class="nav me-1" aria-label="Secondary navigation">
+      <!-- Breadcrumbs -->
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb breadcrumb-muted breadcrumb-arrows ps-2">
+          <li v-for="(item, idx) in breadcrumbs" :key="item.path || idx" class="breadcrumb-item"
+            :class="{ active: idx === breadcrumbs.length - 1 }">
+            <button v-if="item.path && idx < breadcrumbs.length - 1" type="button"
+              class="btn btn-link p-0 m-0 border-0" :title="item.name" :aria-label="`Navigate to ${item.name}`"
+              @click.stop.prevent="$emit('navigate', item)">
+              {{ item.name }}
+            </button>
+            <span v-else :title="item.name">{{ item.name }}</span>
+          </li>
+        </ol>
+      </nav>
+    </nav>
+  </div>
+
+  <!-- Virtual Grid Mode -->
+  <div v-if="virtualizationMode === 'virtual'" class="virtual-grid-container" @scroll="onScroll" :style="{ height: containerHeight + 'px' }">
+    <div class="virtual-grid-spacer" :style="{ height: totalHeight + 'px' }">
+      <div class="virtual-grid-content" :style="{ transform: `translateY(${offsetY}px)` }">
+        <FileGridItem
+          v-for="(item, index) in visibleItems"
+          :key="getItemKey(item)"
+          :item="item"
+          :index="startIndex + index"
+          :is-selected="isSelected(item)"
+          @select="$emit('itemSelect', item, $event)"
+          @doubleClick="$emit('itemDoubleClick', item)"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Optimized Grid Mode (RecycleScroller) -->
+  <div v-else-if="virtualizationMode === 'optimized'" class="optimized-grid" :style="{ height: containerHeight + 'px' }">
+    <RecycleScroller
+      class="scroller"
+      :items="items"
+      :item-size="itemSize"
+      key-field="path"
+      v-slot="{ item, index }"
+    >
+      <FileGridItem
+        :item="item"
+        :index="index"
+        :is-selected="isSelected(item)"
+        @select="$emit('itemSelect', item, $event)"
+        @doubleClick="$emit('itemDoubleClick', item)"
+      />
+    </RecycleScroller>
+  </div>
+
+  <!-- Standard Grid Mode -->
   <div 
+    v-else
     ref="gridContainer"
     class="explorer-grid" 
     role="grid" 
@@ -44,8 +102,10 @@
 
 <script setup>
 import { computed, ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { RecycleScroller } from 'vue-virtual-scroller'
 import FileGridItem from './FileGridItem.vue'
 import { useFileManager } from '@/composables/useFileManager'
+import { useVirtualScroll } from '@/composables/useVirtualScroll'
 
 const { getFileIcon, getFileColor } = useFileManager()
 
@@ -65,6 +125,10 @@ const props = defineProps({
   itemKey: { 
     type: Function, 
     default: item => item.id || item.name 
+  },
+  breadcrumbs: { 
+    type: Array, 
+    required: true 
   },
   sortKey: { 
     type: String, 
@@ -87,10 +151,53 @@ const props = defineProps({
   emptyMessage: { 
     type: String, 
     default: null 
+  },
+  // Virtualization props
+  virtualizationMode: {
+    type: String,
+    default: 'standard',
+    validator: (mode) => ['standard', 'optimized', 'virtual'].includes(mode)
+  },
+  itemSize: {
+    type: Number,
+    default: 120
+  },
+  containerHeight: {
+    type: Number,
+    default: 600
+  },
+  itemHeight: {
+    type: Number,
+    default: 120
+  },
+  getItemKey: {
+    type: Function,
+    default: (item) => item.path || item.name
   }
 })
 
-const emit = defineEmits(['itemSelect', 'itemDoubleClick', 'selectionChange'])
+const emit = defineEmits(['itemSelect', 'itemDoubleClick', 'selectionChange', 'navigate'])
+
+// Virtual scroll setup for 'virtual' mode
+const {
+  visibleItems,
+  totalHeight,
+  offsetY,
+  onScroll,
+  startIndex
+} = props.virtualizationMode === 'virtual' 
+  ? useVirtualScroll(props.items, {
+      itemHeight: props.itemHeight,
+      containerHeight: props.containerHeight,
+      overscan: 3
+    })
+  : {
+      visibleItems: ref([]),
+      totalHeight: ref(0),
+      offsetY: ref(0),
+      onScroll: () => {},
+      startIndex: ref(0)
+    }
 
 // Grid display logic
 const displayItems = computed(() => {
@@ -308,6 +415,7 @@ const showEmptyState = computed(() =>
 </script>
 
 <style scoped>
+/* Standard Grid */
 .explorer-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -317,6 +425,40 @@ const showEmptyState = computed(() =>
   position: relative;
 }
 
+/* Virtual Grid */
+.virtual-grid-container {
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.virtual-grid-spacer {
+  position: relative;
+}
+
+.virtual-grid-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+/* Optimized Grid (RecycleScroller) */
+.optimized-grid {
+  width: 100%;
+  overflow: hidden;
+}
+
+.scroller {
+  height: 100%;
+  width: 100%;
+}
+
+/* Common styles */
 .empty-state,
 .loading-state {
   grid-column: 1 / -1;
@@ -339,9 +481,8 @@ const showEmptyState = computed(() =>
   border: 2px solid var(--tblr-primary, #0054a6);
   background: rgba(0, 84, 166, 0.1);
   pointer-events: none;
-  z-index: 1000; /* High z-index to show above other elements */
+  z-index: 1000;
   border-radius: 2px;
-  /* Ensure the box can be visible outside container */
   overflow: visible;
 }
 
@@ -353,9 +494,59 @@ const showEmptyState = computed(() =>
   -ms-user-select: none;
 }
 
+/* Navigation Bar Styles */
+.nav-scroller {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  overflow-y: hidden;
+  gap: 1rem;
+  flex: 0 0 auto;
+  height: 40.5px;
+}
+
+.breadcrumb,
+.breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.breadcrumb-item {
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 300;
+}
+
+.breadcrumb-item .btn-link {
+  --tblr-btn-line-height: 1;
+  color: var(--tblr-primary);
+  text-decoration: none;
+  font-size: inherit;
+  font-weight: inherit;
+  min-width: 0;
+}
+
+.breadcrumb-item .btn-link:hover {
+  text-decoration: none;
+  background-color: transparent;
+}
+
+.breadcrumb-item.active {
+  font-weight: 400;
+  color: var(--tblr-dark);
+}
+
 /* Mobile optimizations */
 @media (max-width: 768px) {
-  .explorer-grid {
+  .explorer-grid,
+  .virtual-grid-content {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 0.5rem;
     padding: 0.5rem;

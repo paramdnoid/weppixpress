@@ -1,26 +1,5 @@
 <template>
   <main class="resizable-grid border-start" tabindex="0" @keydown="handleKeydown">
-    <!-- Navigation Bar -->
-    <div class="nav-scroller bg-body p-1 border-bottom">
-      <nav class="nav me-1" aria-label="Secondary navigation">
-        <!-- Breadcrumbs -->
-        <nav aria-label="Breadcrumb">
-          <ol class="breadcrumb breadcrumb-muted breadcrumb-arrows ps-2">
-            <li v-for="(item, idx) in breadcrumbs" :key="item.path || idx" class="breadcrumb-item"
-              :class="{ active: idx === breadcrumbs.length - 1 }">
-              <button v-if="item.path && idx < breadcrumbs.length - 1" type="button"
-                class="btn btn-link p-0 m-0 border-0" :title="item.name" :aria-label="`Navigate to ${item.name}`"
-                @click.stop.prevent="$emit('navigate', item)">
-                {{ item.name }}
-              </button>
-              <span v-else :title="item.name">{{ item.name }}</span>
-            </li>
-          </ol>
-        </nav>
-      </nav>
-
-    </div>
-
     <!-- File Content Area -->
     <div class="d-flex flex-column position-relative file-view">
       <div class="content-scroll overflow-auto flex-grow-1">
@@ -73,9 +52,9 @@
 
         <!-- Grid View -->
         <FileGrid v-if="viewMode === 'grid' && !isLoading && !error && items.length > 0" :items="items"
-          :itemKey="itemKey" :sortKey="sortKey" :sortDir="sortDir" :selectedItems="selectedItems" :loading="isLoading"
+          :itemKey="itemKey" :breadcrumbs="breadcrumbs" :sortKey="sortKey" :sortDir="sortDir" :selectedItems="selectedItems" :loading="isLoading"
           :emptyMessage="emptyMessage" @itemSelect="(item, event) => $emit('item-select', item, event)"
-          @itemDoubleClick="item => $emit('item-dbl-click', item)" 
+          @itemDoubleClick="item => $emit('item-dbl-click', item)" @navigate="item => $emit('navigate', item)"
           @selectionChange="(items, additive) => $emit('selection-change', items, additive)" />
 
         <!-- Table View -->
@@ -179,53 +158,6 @@ function handleKeydown(event) {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-}
-
-.nav-scroller {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-  z-index: 2;
-  overflow-y: hidden;
-  gap: 1rem;
-  flex: 0 0 auto;
-}
-
-.breadcrumb,
-.breadcrumb-item {
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: 0;
-}
-
-.breadcrumb-item {
-  min-width: 0;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  font-weight: 300;
-}
-
-.breadcrumb-item .btn-link {
-  --tblr-btn-line-height: 1;
-  color: var(--tblr-primary);
-  text-decoration: none;
-  font-size: inherit;
-  font-weight: inherit;
-  min-width: 0;
-}
-
-.breadcrumb-item .btn-link:hover {
-  text-decoration: none;
-  background-color: transparent;
-}
-
-.breadcrumb-item.active {
-  font-weight: 400;
-  color: var(--tblr-dark);
 }
 
 .empty-icon {
