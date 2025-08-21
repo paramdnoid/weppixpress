@@ -1,0 +1,41 @@
+import express from 'express';
+import {
+  register, login, verifyEmail, forgotPassword, resetPassword,
+  setup2FA, enable2FAController, disable2FAController, verify2FA,
+  refreshToken, logout, getProfile
+} from '../controllers/authController.js';
+import authenticate from '../middleware/authenticate.js';
+import validateRequest from '../validation/validateRequest.js';
+import {
+  registerSchema, loginSchema,
+  verify2FASchema, forgotPasswordSchema, resetPasswordSchema,
+  refreshSchema, enable2FASchema
+} from '../validation/schemas/authSchemas.js';
+
+const router = express.Router();
+
+router.post('/register', validateRequest(registerSchema), register);
+router.post('/login', validateRequest(loginSchema), login);
+
+// Email verification
+router.get('/verify-email', verifyEmail);
+
+// 2FA verification
+router.post('/verify-2fa', validateRequest(verify2FASchema), verify2FA);
+
+// Password reset flows
+router.post('/forgot-password', validateRequest(forgotPasswordSchema), forgotPassword);
+router.post('/reset-password', validateRequest(resetPasswordSchema), resetPassword);
+
+// Token management
+router.post('/refresh', validateRequest(refreshSchema), refreshToken);
+router.post('/logout', logout);
+
+// 2FA setup and management (protected)
+router.post('/setup-2fa', authenticate, setup2FA);
+router.post('/enable-2fa', authenticate, validateRequest(enable2FASchema), enable2FAController);
+router.post('/disable-2fa', authenticate, disable2FAController);
+
+router.get('/me', authenticate, getProfile );
+
+export default router;

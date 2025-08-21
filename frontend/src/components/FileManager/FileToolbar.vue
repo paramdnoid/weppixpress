@@ -1,0 +1,251 @@
+<template>
+  <div class="topbar d-flex justify-content-between align-items-center py-1 px-1 bg-body gap-1">
+    <nav class="d-flex align-items-center flex-fill gap-1" role="toolbar">
+      <!-- Sidebar Toggle -->
+      <button type="button" class="btn btn-sm nav-link-sized" @click="$emit('toggleSidebar')"
+        :aria-label="isSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'">
+        <Icon icon="mdi:file-tree" width="20" height="20" />
+        <span class="d-none d-lg-inline ms-1">Toggle Sidebar</span>
+      </button>
+
+      <!-- Hidden File Input for Upload -->
+      <input ref="fileInput" type="file" multiple class="d-none" @change="handleFileUpload"
+        :disabled="isLoading || isUploading" />
+
+      <!-- Menu Dropdown -->
+      <div class="position-relative">
+        <button type="button" class="btn btn-sm nav-link-sized" data-bs-toggle="dropdown" aria-expanded="false"
+          aria-label="Menu">
+          <Icon icon="mdi:menu" width="20" height="20" />
+          <span class="d-none d-lg-inline ms-1">Menu</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li>
+            <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('createFolder')"
+              :disabled="isLoading">
+              <Icon icon="mdi:folder-plus" width="16" height="16" class="me-2" />
+              New Folder
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item d-flex align-items-center position-relative"
+              @click="triggerFileUpload" :disabled="isLoading || isUploading">
+              <Icon :icon="isUploading ? 'mdi:loading' : 'mdi:upload'" width="16" height="16" class="me-2"
+                :class="{ 'spinner': isUploading }" />
+              <span class="flex-fill">
+                {{ isUploading ? `Uploading... ${uploadProgress}%` : 'Upload Files' }}
+              </span>
+              <div v-if="isUploading" class="position-absolute top-0 start-0 h-100 bg-primary opacity-10"
+                :style="`width: ${uploadProgress}%`" />
+            </button>
+          </li>
+          <li v-if="selectedCount > 0">
+            <hr class="dropdown-divider">
+          </li>
+          <li v-if="selectedCount > 0">
+            <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('copySelected')"
+              :disabled="isLoading">
+              <Icon icon="mdi:content-copy" width="16" height="16" class="me-2" />
+              Copy ({{ selectedCount }})
+            </button>
+          </li>
+          <li v-if="selectedCount > 0">
+            <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('cutSelected')"
+              :disabled="isLoading">
+              <Icon icon="mdi:content-cut" width="16" height="16" class="me-2" />
+              Cut ({{ selectedCount }})
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('pasteItems')"
+              :disabled="isLoading || (!clipboardHasItems && clipboardItemCount === 0)">
+              <Icon icon="mdi:content-paste" width="16" height="16" class="me-2" />
+              Paste{{ clipboardItemCount > 0 ? ` (${clipboardItemCount})` : '' }}
+            </button>
+          </li>
+          <li v-if="selectedCount > 0">
+            <hr class="dropdown-divider">
+          </li>
+          <li v-if="selectedCount > 0">
+            <button type="button" class="dropdown-item d-flex align-items-center text-danger"
+              @click="$emit('deleteSelected')" :disabled="isLoading">
+              <Icon icon="mdi:delete" width="16" height="16" class="me-2" />
+              Delete ({{ selectedCount }})
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Search Input -->
+      <div class="input-icon position-relative flex-fill">
+        <input ref="searchInput" v-model="searchQuery" type="text" class="form-control form-control-sm shadow-none"
+          placeholder="Search in files…" @input="handleSearchInput" @keydown.escape="clearSearch"
+          aria-label="Search files and folders" />
+        <span class="input-icon-addon" aria-hidden="true">
+          <Icon v-if="!searchQuery" icon="mdi:magnify" width="20" height="20" />
+          <button v-else type="button" class="btn btn-sm p-0 border-0 bg-transparent" @click="clearSearch"
+            aria-label="Clear search">
+            <Icon icon="mdi:close" width="16" height="16" />
+          </button>
+        </span>
+      </div>
+
+      <!-- Sort Options -->
+      <div class="position-relative">
+        <button type="button" class="btn btn-sm nav-link-sized" data-bs-toggle="dropdown" aria-expanded="false"
+          aria-label="Sort options">
+          <Icon icon="mdi:sort-variant" width="20" height="20" />
+          <span class="d-none d-lg-inline ms-1">Sort By</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li v-for="option in sortOptions" :key="option.value">
+            <button type="button" class="dropdown-item d-flex align-items-center justify-content-between"
+              @click="$emit('sort', option.value)">
+              {{ option.label }}
+              <Icon v-if="sortKey === option.value" :icon="sortDir === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
+                width="16" height="16" />
+            </button>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- View Mode Selector -->
+    <nav class="nav nav-segmented nav-sm" role="tablist">
+      <button v-for="mode in viewModes" :key="mode.key" type="button" class="nav-link"
+        :class="{ active: viewMode === mode.key }" :aria-selected="viewMode === mode.key"
+        @click="$emit('viewMode', mode.key)" :title="mode.title">
+        <Icon :icon="mode.icon" width="20" height="20" />
+        <span class="d-none d-lg-inline ms-1">{{ mode.label }}</span>
+      </button>
+    </nav>
+  </div>
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+
+const props = defineProps({
+  isSidebarCollapsed: { type: Boolean, default: false },
+  isLoading: { type: Boolean, default: false },
+  isUploading: { type: Boolean, default: false },
+  uploadProgress: { type: Number, default: 0 },
+  selectedCount: { type: Number, default: 0 },
+  clipboardHasItems: { type: Boolean, default: false },
+  clipboardItemCount: { type: Number, default: 0 },
+  searchValue: { type: String, default: '' },
+  sortKey: { type: String, default: 'name' },
+  sortDir: { type: String, default: 'asc' },
+  sortOptions: { type: Array, required: true },
+  viewMode: { type: String, default: 'grid' },
+  viewModes: { type: Array, required: true }
+})
+
+const emit = defineEmits([
+  'toggleSidebar',
+  'createFolder',
+  'deleteSelected',
+  'clearSelection',
+  'copySelected',
+  'cutSelected',
+  'pasteItems',
+  'fileUpload',
+  'search',
+  'sort',
+  'viewMode'
+])
+
+const fileInput = ref(null)
+const searchInput = ref(null)
+const searchQuery = ref(props.searchValue)
+
+// Watch for prop changes
+watch(() => props.searchValue, (newValue) => {
+  searchQuery.value = newValue
+})
+
+function handleFileUpload(event) {
+  emit('fileUpload', event)
+}
+
+function triggerFileUpload() {
+  // Trigger the hidden file input
+  fileInput.value?.click()
+}
+
+function handleSearchInput() {
+  emit('search', searchQuery.value)
+}
+
+function clearSearch() {
+  searchQuery.value = ''
+  emit('search', '')
+  searchInput.value?.focus()
+}
+</script>
+
+<style>
+/* Make sort button match the height of view mode selector */
+.nav-link-sized {
+  /* Match the height and padding of nav-segmented nav-sm buttons */
+  height: 1.8rem;
+  /* Same as nav-sm */
+  min-height: 1.8rem;
+  padding: 0.370rem 0.75rem;
+  /* Same padding as nav-link in nav-sm */
+  border-radius: 4px;
+  /* Match border radius */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+}
+
+.form-control-sm {
+  min-height: calc(1.25rem + 0.625rem + calc(var(--tblr-border-width) 1px * 2));
+  padding: 0.22rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: var(--tblr-border-radius-sm);
+}
+
+/* Ensure proper alignment */
+.nav-link-sized:focus,
+.nav-link-sized:hover {
+  box-shadow: none;
+}
+
+/* Style for delete action in dropdown */
+.dropdown-item.text-danger:hover {
+  background-color: var(--tblr-red-lt, #fdf2f2);
+  color: var(--tblr-red, #d63384);
+}
+
+/* Ensure dropdown divider has proper spacing */
+.dropdown-divider {
+  margin: 0.5rem 0;
+}
+
+/* Upload spinner animation */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Upload progress bar in dropdown */
+.dropdown-item.position-relative {
+  overflow: hidden;
+}
+
+.dropdown-item .bg-primary {
+  border-radius: inherit;
+}
+</style>

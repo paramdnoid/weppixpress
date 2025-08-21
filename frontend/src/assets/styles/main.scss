@@ -1,0 +1,89 @@
+@use "sass:math";
+@use "@tabler/core/scss/tabler";
+@use "./components.scss";
+
+:root {
+    /* Replace the color value with your desired hue */
+    --tblr-primary: hsl(192, 98%, 35%);
+    --tblr-gutter-x: calc(var(--tblr-page-padding) * 2);
+    --tblr-border-color-translucent: var(--tblr-gray-100);
+    --text-lighter: var(--tblr-gray-600);
+}
+
+.table,
+.markdown>table {
+    --tblr-table-hover-bg: var(--tblr-gray-50);
+}
+
+.navbar[data-bs-theme=dark] {
+    color-scheme: dark;
+    --tblr-bg-surface: var(--tblr-primary);
+    --tblr-navbar-border-color: transparent;
+
+    z-index: 999;
+}
+
+body {
+    font-family: 'Nunito', sans-serif;
+    position: relative;
+
+    #app,
+    .page {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
+
+    .body-bg {
+        inset: 0;
+        background-image: url('@/assets/images/bg-3.jpg');
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+
+        @media (min-width: 768px) {
+            &.clip {
+                clip-path: polygon(15% 0, 100% 0, 100% 100%, 0 100%);
+            }
+        }
+    }
+
+    .body-bg::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-color: var(--tblr-primary);
+        opacity: 0.85;
+    }
+
+    aside {
+        width: 0;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow-y: auto;
+        height: 100%;
+        transition: min-width 0.3s ease, width 0.3s ease;
+        min-width: 0px;
+        width: 100%;
+
+        &.open {
+            min-width: 100%;
+            width: 350px;
+
+            @media (min-width: 576px) {
+                min-width: 350px;
+            }
+        }
+    }
+
+    main {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        background-color: white;
+        overflow-y: auto;
+    }
+}

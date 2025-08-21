@@ -1,0 +1,147 @@
+// Component-specific styles
+
+// Button variants and states
+.btn {
+  &.btn-loading {
+    pointer-events: none;
+    opacity: 0.65;
+  }
+  
+  &:focus-visible {
+    box-shadow: 0 0 0 0.25rem rgba(var(--tblr-primary-rgb), 0.25);
+  }
+}
+
+// Modal enhancements
+.modal {
+  &.modal-blur .modal-content {
+    backdrop-filter: blur(4px);
+  }
+}
+
+// Loading states
+.loading-overlay {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(2px);
+  transition: opacity 0.15s ease-in-out;
+}
+
+// Empty states
+.empty-state {
+  padding: 3rem 1rem;
+  
+  .empty-icon {
+    opacity: 0.4;
+    margin-bottom: 1.5rem;
+  }
+  
+  .empty-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--tblr-gray-700);
+    margin-bottom: 0.5rem;
+  }
+  
+  .empty-message {
+    color: var(--tblr-gray-600);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    max-width: 24rem;
+    margin: 0 auto;
+  }
+}
+
+// File manager specific styles
+.files-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+  
+  .splitter-container {
+    display: flex;
+    position: relative;
+    overflow: hidden;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  
+  .splitter {
+    width: 5px;
+    cursor: col-resize;
+    background: var(--tblr-border-color);
+    transition: background-color 0.2s ease;
+    z-index: 10;
+    user-select: none;
+    flex-shrink: 0;
+    
+    &:hover,
+    &:focus {
+      background-color: var(--tblr-primary);
+    }
+  }
+}
+
+// Toast notifications
+.toast {
+  max-width: 400px;
+  
+  &.toast-success {
+    border-left: 4px solid var(--tblr-success);
+  }
+  
+  &.toast-error {
+    border-left: 4px solid var(--tblr-danger);
+  }
+  
+  &.toast-warning {
+    border-left: 4px solid var(--tblr-warning);
+  }
+  
+  &.toast-info {
+    border-left: 4px solid var(--tblr-info);
+  }
+}
+
+// Focus management
+.focus-visible {
+  outline: 2px solid var(--tblr-primary);
+  outline-offset: 2px;
+}
+
+// Transitions
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.15s ease;
+}
+
+.slide-enter-from {
+  transform: translateX(-100%);
+}
+
+.slide-leave-to {
+  transform: translateX(100%);
+}
+
+// Responsive utilities
+@media (max-width: 768px) {
+  .files-root {
+    .splitter {
+      display: none;
+    }
+  }
+  
+  .modal-dialog {
+    margin: 0.5rem;
+  }
+}
