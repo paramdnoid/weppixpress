@@ -95,8 +95,8 @@ const FILE_TYPES: Record<string, FileTypeConfig> = {
   },
   VIDEO: {
     extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', 'm4v'],
-    icon: 'bxs:file-video',
-    color: 'purple'
+    icon: 'bxs:file',
+    color: 'primary'
   },
   ARCHIVES: {
     extensions: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'],

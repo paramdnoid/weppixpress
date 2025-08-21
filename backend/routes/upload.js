@@ -13,18 +13,7 @@ const router = express.Router();
 // Custom middleware to handle upload with dynamic path
 const handleUploadWithPath = (req, res, next) => {
   let uploadPath = '/'; // Default path
-  let filesProcessed = 0;
   let uploadedFiles = [];
-  
-  // Create storage that will be used once we have the path
-  const createStorage = (targetDir) => multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, targetDir);
-    },
-    filename: (req, file, cb) => {
-      cb(null, file.originalname);
-    }
-  });
 
   const fileFilter = (req, file, cb) => {
     const blockedTypes = [
@@ -50,10 +39,7 @@ const handleUploadWithPath = (req, res, next) => {
   // Parse form data manually
   const form = multer({
     storage: multer.memoryStorage(),
-    fileFilter,
-    limits: {
-      fileSize: 10 * 1024 * 1024 // 10MB limit
-    }
+    fileFilter
   });
 
   form.any()(req, res, (err) => {
@@ -128,7 +114,7 @@ const handleUploadWithPath = (req, res, next) => {
         }));
 
         next();
-      } catch (error) {
+      } catch {
         res.status(500).json({ error: 'Failed to process files' });
       }
     };

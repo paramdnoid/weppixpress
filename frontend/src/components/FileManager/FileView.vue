@@ -90,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import FileGrid from './FileGrid.vue'
 import FileTable from './FileTable.vue'
 
@@ -120,6 +120,12 @@ const emit = defineEmits([
   'delete-selected',
   'selection-change'
 ])
+
+const searchQuery = computed(() => props.searchValue)
+
+function clearSearch() {
+  emit('search', '')
+}
 
 
 function handleKeydown(event) {

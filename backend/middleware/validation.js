@@ -29,11 +29,6 @@ export function sanitizePath(inputPath) {
 export function validateFile(file) {
   const errors = [];
   
-  // Check file size (max 100MB)
-  const maxSize = 100 * 1024 * 1024;
-  if (file.size > maxSize) {
-    errors.push('File size exceeds 100MB limit');
-  }
   
   // Check file extension
   const allowedExtensions = [

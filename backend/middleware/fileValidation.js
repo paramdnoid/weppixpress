@@ -9,15 +9,6 @@ export function validateFileUpload(req, res, next) {
   }
 
   const errors = []
-  const maxSize = parseInt(process.env.MAX_FILE_SIZE) || 104857600 // 100MB
-  const maxFiles = parseInt(process.env.MAX_FILES_PER_REQUEST) || 10
-
-  // Check file count
-  if (req.files.length > maxFiles) {
-    return res.status(400).json({ 
-      error: `Too many files. Maximum ${maxFiles} files allowed` 
-    })
-  }
 
   // Dangerous file extensions - expanded list
   const dangerousExtensions = [
@@ -38,10 +29,6 @@ export function validateFileUpload(req, res, next) {
     const ext = path.extname(file.originalname).toLowerCase()
     const mimeType = file.mimetype
 
-    // Check file size
-    if (file.size > maxSize) {
-      errors.push(`File ${index + 1}: Size exceeds ${maxSize} bytes`)
-    }
 
     // Check dangerous extensions
     if (dangerousExtensions.includes(ext)) {
@@ -167,14 +154,3 @@ export const fileOperationLimiter = rateLimit({
   }
 })
 
-// Updated upload controller with security
-import { validateFileUpload, fileUploadLimiter } from '../middleware/fileValidation.js'
-
-// backend/routes/upload.js - Add security middleware
-router.post('/', 
-  authenticate, 
-  fileUploadLimiter,
-  upload.array('files'), 
-  validateFileUpload,
-  uploadFile
-)
