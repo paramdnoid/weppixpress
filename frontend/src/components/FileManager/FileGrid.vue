@@ -29,7 +29,6 @@
           :item="item"
           :index="startIndex + index"
           :is-selected="isSelected(item)"
-          @select="$emit('itemSelect', item, $event)"
           @doubleClick="$emit('itemDoubleClick', item)"
         />
       </div>
@@ -49,7 +48,6 @@
         :item="item"
         :index="index"
         :is-selected="isSelected(item)"
-        @select="$emit('itemSelect', item, $event)"
         @doubleClick="$emit('itemDoubleClick', item)"
       />
     </RecycleScroller>
@@ -73,7 +71,6 @@
       :index="index"
       :is-selected="isSelected(item.raw)"
       :tab-index="index === 0 ? 0 : -1"
-      @select="$emit('itemSelect', item.raw, $event)"
       @doubleClick="$emit('itemDoubleClick', item.raw)"
     />
 
@@ -176,7 +173,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['itemSelect', 'itemDoubleClick', 'selectionChange', 'navigate'])
+const emit = defineEmits(['itemDoubleClick', 'selectionChange', 'navigate'])
 
 // Virtual scroll setup for 'virtual' mode
 const {

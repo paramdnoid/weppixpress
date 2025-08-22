@@ -54,7 +54,6 @@
         :upload-progress="uploadProgress" 
         :empty-message="emptyStateMessage" 
         @navigate="handleBreadcrumbNavigate"
-        @item-select="handleItemClick" 
         @item-dbl-click="handleItemDoubleClickLocal"
         @sort="fileStore.setSorting"
         @retry="handleRetry"

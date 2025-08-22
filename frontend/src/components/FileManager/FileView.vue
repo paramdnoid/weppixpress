@@ -53,7 +53,7 @@
         <!-- Grid View -->
         <FileGrid v-if="viewMode === 'grid' && !isLoading && !error && items.length > 0" :items="items"
           :itemKey="itemKey" :breadcrumbs="breadcrumbs" :sortKey="sortKey" :sortDir="sortDir" :selectedItems="selectedItems" :loading="isLoading"
-          :emptyMessage="emptyMessage" @itemSelect="(item, event) => $emit('item-select', item, event)"
+          :emptyMessage="emptyMessage"
           @itemDoubleClick="item => $emit('item-dbl-click', item)" @navigate="item => $emit('navigate', item)"
           @selectionChange="(items, additive) => $emit('selection-change', items, additive)" />
 
@@ -61,7 +61,6 @@
         <FileTable v-else-if="(viewMode === 'list' || viewMode === 'table') && !isLoading && !error && items.length > 0"
           :items="items" :itemKey="itemKey" :sortKey="sortKey" :sortDir="sortDir" :selectedItems="selectedItems"
           :loading="isLoading" :emptyMessage="emptyMessage"
-          @itemSelect="(item, event) => $emit('item-select', item, event)"
           @itemDoubleClick="item => $emit('item-dbl-click', item)" @sort="$emit('sort', $event)" />
       </div>
     </div>
@@ -93,7 +92,6 @@ const emit = defineEmits([
   'navigate',
   'search',
   'retry',
-  'item-select',
   'item-dbl-click',
   'sort',
   'delete-selected',

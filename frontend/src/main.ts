@@ -4,6 +4,12 @@ import { Icon } from '@iconify/vue';
 import App from './App.vue';
 import router from './router';
 
+// Suppress iconify fetch logs in development
+if ((import.meta as any).env?.DEV) {
+  // Disable iconify console logging
+  (window as any).__ICONIFY_LOG__ = false;
+}
+
 import '@tabler/core/js/tabler.js'
 import './assets/styles/main.scss'
 

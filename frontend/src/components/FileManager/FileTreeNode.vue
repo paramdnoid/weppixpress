@@ -1,8 +1,10 @@
 <template>
   <div :data-path="node.path">
-    <a ref="nodeLink" :id="`node-${node.path}`" :class="['nav-link', { active: isActive, selected: isExactActive }]"
+    <a ref="nodeLink" :id="`node-${node.path}`" :class="['nav-link', { active: isActive, selected: isExactActive, 'long-pressing': isLongPressing && longPressItem === node }]"
       href="#" role="treeitem" :aria-controls="collapseId" :data-path="node.path" @click.prevent="handleNodeClick"
-      @keydown="handleKeyDown" :aria-expanded="isOpen" :aria-selected="isExactActive"
+      @keydown="handleKeyDown" @mousedown="(event) => handleMouseDown(node, event)" @mouseup="(event) => handleMouseUp(node, event)" @mouseleave="() => handleMouseLeave(node)"
+      @touchstart.passive="(event) => handleTouchStart(node, event)" @touchend="() => handleTouchEnd(node)" @touchmove.passive="() => handleTouchMove(node)"
+      :aria-expanded="isOpen" :aria-selected="isExactActive"
       :aria-label="`${node.type === 'folder' ? 'Folder' : 'File'}: ${node.name}`">
       <Icon :icon="nodeIcon" :class="nodeIconClass" width="18" height="18" />
       {{ node.name }}
@@ -60,7 +62,18 @@ interface Props {
 type ExpandEvent = CustomEvent<{ path?: string }>
 
 // Use file manager utilities
-const { getFileIcon, getFileColor } = useFileManager()
+const { 
+  getFileIcon, 
+  getFileColor,
+  handleMouseDown,
+  handleMouseUp,
+  handleMouseLeave,
+  handleTouchStart,
+  handleTouchEnd,
+  handleTouchMove,
+  isLongPressing,
+  longPressItem
+} = useFileManager()
 
 const props = defineProps<Props>()
 
@@ -490,6 +503,14 @@ defineExpose({
 
 .nav-link.selected {
   font-weight: 600;
+}
+
+.nav-link.long-pressing {
+  background-color: var(--tblr-primary-lt);
+  border-color: var(--tblr-primary);
+  transform: scale(0.98);
+  box-shadow: 0 0 0 2px rgba(0, 84, 166, 0.2);
+  border-radius: 4px;
 }
 
 .tree-children {

@@ -5,11 +5,19 @@
     :tabindex="tabIndex"
     :data-index="index"
     @dblclick="handleDoubleClick"
-    @keydown.space.prevent="handleSelect"
+    @mousedown="(event) => handleMouseDown(props.item, event)"
+    @mouseup="(event) => handleMouseUp(props.item, event)"
+    @mouseleave="() => handleMouseLeave(props.item)"
+    @touchstart.passive="(event) => handleTouchStart(props.item, event)"
+    @touchend="() => handleTouchEnd(props.item)"
+    @touchmove.passive="() => handleTouchMove(props.item)"
     :title="tooltip"
     :aria-label="ariaLabel"
     :aria-selected="isSelected"
-    :class="{ selected: isSelected }"
+    :class="{ 
+      selected: isSelected,
+      'long-pressing': isLongPressing && longPressItem === props.item
+    }"
   >
     <div class="icon-wrap">
       <Icon :icon="icon" class="explorer-icon" :class="`text-${iconClass}`" />
@@ -22,7 +30,19 @@
 import { computed } from 'vue'
 import { useFileManager } from '@/composables/useFileManager'
 
-const { getFileIcon, getFileColor, getFileSize } = useFileManager()
+const { 
+  getFileIcon, 
+  getFileColor, 
+  getFileSize,
+  handleMouseDown,
+  handleMouseUp,
+  handleMouseLeave,
+  handleTouchStart,
+  handleTouchEnd,
+  handleTouchMove,
+  isLongPressing,
+  longPressItem
+} = useFileManager()
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -31,14 +51,10 @@ const props = defineProps({
   tabIndex: { type: Number, default: -1 }
 })
 
-const emit = defineEmits(['select', 'doubleClick'])
-
-const handleSelect = (event) => {
-  emit('select', props.item)
-}
+const emit = defineEmits(['doubleClick'])
 
 const handleDoubleClick = (event) => {
-  emit('doubleClick', props.item)
+  emit('doubleClick', props.item, event)
 }
 
 const icon = computed(() => getFileIcon(props.item))
@@ -81,6 +97,13 @@ const ariaLabel = computed(() => {
 .explorer-item.selected {
   background: var(--tblr-gray-100);
   border-color: var(--tblr-gray-200);
+}
+
+.explorer-item.long-pressing {
+  background: var(--tblr-primary-lt);
+  border-color: var(--tblr-primary);
+  transform: scale(0.98);
+  box-shadow: 0 0 0 2px rgba(0, 84, 166, 0.2);
 }
 
 .explorer-item:hover {
