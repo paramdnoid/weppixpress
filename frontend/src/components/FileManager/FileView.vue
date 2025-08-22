@@ -4,6 +4,26 @@
     <div class="d-flex flex-column position-relative file-view">
       <div class="content-scroll overflow-auto flex-grow-1">
 
+        <!-- Navigation Bar (moved from FileGrid) -->
+        <div class="nav-scroller bg-body p-1 border-bottom">
+          <nav class="nav me-1" aria-label="Secondary navigation">
+            <!-- Breadcrumbs -->
+            <nav aria-label="Breadcrumb">
+              <ol class="breadcrumb breadcrumb-muted breadcrumb-arrows ps-2">
+                <li v-for="(item, idx) in breadcrumbs" :key="item.path || idx" class="breadcrumb-item"
+                    :class="{ active: idx === breadcrumbs.length - 1 }">
+                  <button v-if="item.path && idx < breadcrumbs.length - 1" type="button"
+                          class="btn btn-link p-0 m-0 border-0" :title="item.name" :aria-label="`Navigate to ${item.name}`"
+                          @click.stop.prevent="$emit('navigate', item)">
+                    {{ item.name }}
+                  </button>
+                  <span v-else :title="item.name">{{ item.name }}</span>
+                </li>
+              </ol>
+            </nav>
+          </nav>
+        </div>
+
         <!-- Loading State -->
         <div v-if="isLoading" class="text-center text-muted py-6">
           <div class="spinner-border spinner-border-sm mb-2" role="status">
@@ -187,5 +207,51 @@ function handleKeydown(event) {
 
 .content-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--tblr-gray-400);
+}
+
+/* Breadcrumb / Navigation bar (moved from FileGrid) */
+.nav-scroller {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  overflow-y: hidden;
+  gap: 1rem;
+  flex: 0 0 auto;
+  height: 40.5px;
+  background: var(--tblr-body-bg, #fff);
+}
+.breadcrumb,
+.breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0;
+}
+.breadcrumb-item {
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 300;
+}
+.breadcrumb-item .btn-link {
+  --tblr-btn-line-height: 1;
+  color: var(--tblr-primary);
+  text-decoration: none;
+  font-size: inherit;
+  font-weight: inherit;
+  min-width: 0;
+}
+.breadcrumb-item .btn-link:hover {
+  text-decoration: none;
+  background-color: transparent;
+}
+.breadcrumb-item.active {
+  font-weight: 400;
+  color: var(--tblr-dark);
 }
 </style>

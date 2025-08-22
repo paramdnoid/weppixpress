@@ -1,24 +1,4 @@
 <template>
-  <!-- Navigation Bar -->
-  <div class="nav-scroller bg-body p-1 border-bottom">
-    <nav class="nav me-1" aria-label="Secondary navigation">
-      <!-- Breadcrumbs -->
-      <nav aria-label="Breadcrumb">
-        <ol class="breadcrumb breadcrumb-muted breadcrumb-arrows ps-2">
-          <li v-for="(item, idx) in breadcrumbs" :key="item.path || idx" class="breadcrumb-item"
-            :class="{ active: idx === breadcrumbs.length - 1 }">
-            <button v-if="item.path && idx < breadcrumbs.length - 1" type="button"
-              class="btn btn-link p-0 m-0 border-0" :title="item.name" :aria-label="`Navigate to ${item.name}`"
-              @click.stop.prevent="$emit('navigate', item)">
-              {{ item.name }}
-            </button>
-            <span v-else :title="item.name">{{ item.name }}</span>
-          </li>
-        </ol>
-      </nav>
-    </nav>
-  </div>
-
   <!-- Virtual Grid Mode -->
   <div v-if="virtualizationMode === 'virtual'" class="virtual-grid-container" @scroll="onScroll" :style="{ height: containerHeight + 'px' }">
     <div class="virtual-grid-spacer" :style="{ height: totalHeight + 'px' }">
@@ -489,55 +469,6 @@ const showEmptyState = computed(() =>
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-}
-
-/* Navigation Bar Styles */
-.nav-scroller {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-  z-index: 2;
-  overflow-y: hidden;
-  gap: 1rem;
-  flex: 0 0 auto;
-  height: 40.5px;
-}
-
-.breadcrumb,
-.breadcrumb-item {
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: 0;
-}
-
-.breadcrumb-item {
-  min-width: 0;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  font-weight: 300;
-}
-
-.breadcrumb-item .btn-link {
-  --tblr-btn-line-height: 1;
-  color: var(--tblr-primary);
-  text-decoration: none;
-  font-size: inherit;
-  font-weight: inherit;
-  min-width: 0;
-}
-
-.breadcrumb-item .btn-link:hover {
-  text-decoration: none;
-  background-color: transparent;
-}
-
-.breadcrumb-item.active {
-  font-weight: 400;
-  color: var(--tblr-dark);
 }
 
 /* Mobile optimizations */
