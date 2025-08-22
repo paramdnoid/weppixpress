@@ -130,10 +130,6 @@ export const useFileStore = defineStore('files', () => {
   }
 
   function handleWebSocketClose(event: CloseEvent) {
-    console.log('WebSocket disconnected from file service:', { 
-      code: event.code, 
-      reason: event.reason 
-    })
     state.value.wsConnected = false
     state.value = { ...state.value }
   }
@@ -230,8 +226,6 @@ export const useFileStore = defineStore('files', () => {
       
       // Clear tree cache for affected path
       state.value.treeCache.delete(parentPath)
-      
-      console.log('File created and state updated:', file.name)
     }
   }
 
@@ -250,7 +244,6 @@ export const useFileStore = defineStore('files', () => {
     // Invalidate cache
     invalidateCache(parentPath)
     
-    console.log('File updated:', file.name)
   }
 
   function handleFileDeleted(data: any) {
@@ -286,7 +279,6 @@ export const useFileStore = defineStore('files', () => {
       }
     }, 100)
     
-    console.log('File deleted:', filePath)
   }
 
   function handleFolderChanged(data: any) {
@@ -298,19 +290,16 @@ export const useFileStore = defineStore('files', () => {
     // Ignore changes that happened too soon after navigation (avoid refresh loops)
     const timeSinceNavigation = Date.now() - state.value.lastNavigationAt
     if (timeSinceNavigation < 1000) {
-      console.log('Ignoring folder change too soon after navigation:', normalizedPath)
       return
     }
 
     // Ignore if currently loading or navigating
     if (state.value.isLoading || state.value.isNavigating) {
-      console.log('Ignoring folder change during loading/navigation:', normalizedPath)
       return
     }
 
     // Refresh if it's the current path
     if (normalizedPath === state.value.currentPath) {
-      console.log('Refreshing current path due to folder change:', normalizedPath)
       refreshCurrentPath()
     }
 

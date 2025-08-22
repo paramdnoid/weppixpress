@@ -1,6 +1,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useFileStore } from '@/stores/files'
-import type { FileItem } from '@/types'
+import type { FileItem, SortDirection, SelectionMode } from '@/types'
 
 // ===== TYPES =====
 interface FileTypeConfig {
@@ -18,9 +18,7 @@ interface FolderPattern {
 }
 
 type SortKey = 'name' | 'size' | 'modified' | 'extension' | 'type'
-type SortDirection = 'asc' | 'desc'
 type ViewMode = 'grid' | 'list'
-type SelectionMode = 'single' | 'toggle' | 'range'
 
 // ===== CONSTANTS =====
 
