@@ -49,7 +49,7 @@ const fileFilter = (req, file, cb) => {
     'application/x-sh'
   ];
 
-  const blockedExtensions = ['.exe', '.bat', '.cmd', '.com', '.scr', '.vbs', '.js', '.jar'];
+  const blockedExtensions = ['.exe', '.bat', '.cmd', '.vbs'];
   const fileExtension = file.originalname.toLowerCase().split('.').pop();
 
   if (blockedTypes.includes(file.mimetype) || 
@@ -75,7 +75,7 @@ export const handleUploadWithPath = (req, res, next) => {
       'application/x-sh'
     ];
 
-    const blockedExtensions = ['.exe', '.bat', '.cmd', '.com', '.scr', '.vbs', '.js', '.jar'];
+    const blockedExtensions = ['.exe', '.bat', '.cmd', '.vbs'];
     const fileExtension = file.originalname.toLowerCase().split('.').pop();
 
     if (blockedTypes.includes(file.mimetype) || 

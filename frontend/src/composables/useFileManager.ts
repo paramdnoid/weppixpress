@@ -734,16 +734,6 @@ export function useFileManager() {
         return
       }
       
-      // Validate file sizes and types if needed
-      const maxFileSize = 100 * 1024 * 1024 // 100MB
-      const invalidFiles = files.filter(file => file.size > maxFileSize)
-      
-      if (invalidFiles.length > 0) {
-        console.error(`Files too large: ${invalidFiles.map(f => f.name).join(', ')}`)
-        alert(`Some files are too large (max 100MB): ${invalidFiles.map(f => f.name).join(', ')}`)
-        return
-      }
-      
       isUploading.value = true
       uploadProgress.value = 0
       
