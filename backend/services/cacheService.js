@@ -1,17 +1,17 @@
-import { createClient } from 'redis';
 import logger from '../utils/logger.js';
+import { createClient } from 'redis';
 
 /**
  * Enhanced caching service with Redis support, compression, and monitoring
  */
-export class CacheService {
+class CacheService {
   constructor() {
+    /** @type {import('redis').RedisClientType | null} */
     this.client = null;
     this.isConnected = false;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 1000; // Start with 1 second
-    
+    this.maxReconnectAttempts = 50;
+
     this.stats = {
       hits: 0,
       misses: 0,
@@ -28,13 +28,17 @@ export class CacheService {
     try {
       this.client = createClient({
         url: process.env.REDIS_URL || 'redis://localhost:6379',
-        retry_delay_on_failover: 100,
-        retry_delay_on_cluster_down: 300,
-        max_attempts: this.maxReconnectAttempts
+        socket: {
+          reconnectStrategy: (retries) => {
+            this.reconnectAttempts = retries;
+            // Exponential backoff with cap (ms)
+            return Math.min(100 + retries * 50, 1000);
+          }
+        }
       });
 
       this.setupEventHandlers();
-      
+
       await this.client.connect();
       logger.info('Cache service initialized successfully');
     } catch (error) {
@@ -47,6 +51,8 @@ export class CacheService {
    * Setup Redis event handlers
    */
   setupEventHandlers() {
+    if (!this.client) return;
+
     this.client.on('connect', () => {
       logger.info('Redis client connected');
       this.isConnected = true;
@@ -78,13 +84,13 @@ export class CacheService {
    * Check if cache is available
    */
   isAvailable() {
-    return this.client && this.isConnected;
+    return !!this.client && this.isConnected;
   }
 
   /**
    * Get value from cache
    * @param {string} key - Cache key
-   * @param {Object} options - Options
+   * @param {Object} options - Options (reserved for future use)
    */
   async get(key, options = {}) {
     if (!this.isAvailable()) {
@@ -97,11 +103,11 @@ export class CacheService {
       const startTime = Date.now();
       const value = await this.client.get(this.prefixKey(key));
       const duration = Date.now() - startTime;
-      
+
       if (value !== null) {
         this.stats.hits++;
         logger.debug('Cache hit', { key, duration });
-        
+
         try {
           return JSON.parse(value);
         } catch {
@@ -124,7 +130,7 @@ export class CacheService {
    * @param {string} key - Cache key
    * @param {*} value - Value to cache
    * @param {number} ttl - Time to live in seconds
-   * @param {Object} options - Options
+   * @param {Object} options - Options (reserved for future use)
    */
   async set(key, value, ttl = 3600, options = {}) {
     if (!this.isAvailable()) {
@@ -135,16 +141,16 @@ export class CacheService {
     try {
       const startTime = Date.now();
       const serializedValue = typeof value === 'string' ? value : JSON.stringify(value);
-      
+
       const result = await this.client.setEx(
         this.prefixKey(key),
         ttl,
         serializedValue
       );
-      
+
       const duration = Date.now() - startTime;
       this.stats.sets++;
-      
+
       logger.debug('Cache set', { key, ttl, duration, size: serializedValue.length });
       return result === 'OK';
     } catch (error) {
@@ -187,10 +193,10 @@ export class CacheService {
     try {
       const keys = await this.client.keys(this.prefixKey(pattern));
       if (keys.length === 0) return 0;
-      
+
       const result = await this.client.del(keys);
       this.stats.deletes += result;
-      
+
       logger.debug('Cache pattern delete', { pattern, deleted: result });
       return result;
     } catch (error) {
@@ -283,11 +289,11 @@ export class CacheService {
    */
   async getOrSet(key, refreshFunction, ttl = 3600) {
     const cached = await this.get(key);
-    
+
     if (cached !== null) {
       return cached;
     }
-    
+
     try {
       const fresh = await refreshFunction();
       await this.set(key, fresh, ttl);
@@ -307,10 +313,10 @@ export class CacheService {
     }
 
     try {
-      const prefixedKeys = keys.map(key => this.prefixKey(key));
+      const prefixedKeys = keys.map((key) => this.prefixKey(key));
       const values = await this.client.mGet(prefixedKeys);
-      
-      return values.map(value => {
+
+      return values.map((value) => {
         if (value === null) return null;
         try {
           return JSON.parse(value);
@@ -331,12 +337,12 @@ export class CacheService {
 
     try {
       const multi = this.client.multi();
-      
+
       for (const [key, value] of keyValuePairs) {
         const serializedValue = typeof value === 'string' ? value : JSON.stringify(value);
         multi.setEx(this.prefixKey(key), ttl, serializedValue);
       }
-      
+
       await multi.exec();
       this.stats.sets += keyValuePairs.length;
       return true;
@@ -350,7 +356,7 @@ export class CacheService {
    * Get cache statistics
    */
   getStats() {
-    const hitRate = this.stats.hits + this.stats.misses > 0 
+    const hitRate = this.stats.hits + this.stats.misses > 0
       ? (this.stats.hits / (this.stats.hits + this.stats.misses) * 100).toFixed(2)
       : 0;
 
@@ -387,10 +393,10 @@ export class CacheService {
       const start = Date.now();
       await this.client.ping();
       const responseTime = Date.now() - start;
-      
+
       const info = await this.client.info('memory');
       const usedMemory = info.match(/used_memory:(\d+)/)?.[1] || 'unknown';
-      
+
       return {
         status: 'healthy',
         responseTime,

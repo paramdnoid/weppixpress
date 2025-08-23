@@ -5,7 +5,7 @@ import logger from './logger.js';
  * Circuit breaker pattern implementation to prevent cascading failures
  * when external services are unavailable
  */
-export class CircuitBreaker {
+class CircuitBreaker {
   constructor(options = {}) {
     this.failureThreshold = options.failureThreshold || 5;
     this.recoveryTimeout = options.recoveryTimeout || 60000; // 1 minute
@@ -163,7 +163,7 @@ export class CircuitBreaker {
 /**
  * Circuit breaker registry for managing multiple service breakers
  */
-export class CircuitBreakerRegistry {
+class CircuitBreakerRegistry {
   constructor() {
     this.breakers = new Map();
   }
@@ -173,10 +173,13 @@ export class CircuitBreakerRegistry {
    */
   getBreaker(serviceName, options = {}) {
     if (!this.breakers.has(serviceName)) {
-      this.breakers.set(serviceName, new CircuitBreaker({
-        ...options,
-        serviceName
-      }));
+      this.breakers.set(
+        serviceName,
+        new CircuitBreaker({
+          ...options,
+          serviceName
+        })
+      );
     }
     return this.breakers.get(serviceName);
   }

@@ -4,9 +4,12 @@ import logger from '../utils/logger.js';
 /**
  * Enhanced database service with connection pooling, transactions, and monitoring
  */
-export class DatabaseService {
+class DatabaseService {
   constructor() {
     this.pool = pool;
+    if (!this.pool) {
+      throw new Error('Database pool is not initialized');
+    }
     this.setupPoolEvents();
   }
 
@@ -14,15 +17,22 @@ export class DatabaseService {
    * Setup database pool event listeners for monitoring
    */
   setupPoolEvents() {
+    if (!this.pool?.on) return;
+
     this.pool.on('connection', (connection) => {
-      logger.debug(`New database connection established: ${connection.threadId}`);
+      try {
+        const id = connection.threadId || connection.processID || 'unknown';
+        logger.debug(`New database connection established: ${id}`);
+      } catch (_) {
+        logger.debug('New database connection established');
+      }
     });
 
-    this.pool.on('enqueue', () => {
+    this.pool.on?.('enqueue', () => {
       logger.debug('Database connection request queued');
     });
 
-    this.pool.on('error', (error) => {
+    this.pool.on?.('error', (error) => {
       logger.error('Database pool error:', error);
     });
   }
@@ -31,24 +41,30 @@ export class DatabaseService {
    * Execute query with connection management
    * @param {string} query - SQL query
    * @param {Array} params - Query parameters
-   * @returns {Promise} Query result
+   * @returns {Promise<any>} Query result
    */
   async query(query, params = []) {
     const startTime = Date.now();
     let connection;
-    
+
     try {
       connection = await this.pool.getConnection();
-      const result = await connection.query(query, params);
-      
+
+      // mysql2/promise returns [rows, fields]
+      const [rows] = await connection.query(query, params);
+
       const duration = Date.now() - startTime;
+      const rowsAffected = Array.isArray(rows)
+        ? rows.length
+        : (rows?.affectedRows ?? 0);
+
       logger.debug('Query executed', {
         query: query.substring(0, 100),
         duration,
-        rowsAffected: result.affectedRows || result.length || 0
+        rowsAffected
       });
-      
-      return result;
+
+      return rows;
     } catch (error) {
       const duration = Date.now() - startTime;
       logger.error('Query failed', {
@@ -66,26 +82,26 @@ export class DatabaseService {
 
   /**
    * Execute multiple queries in a transaction
-   * @param {Function} callback - Function containing transaction logic
-   * @returns {Promise} Transaction result
+   * @param {Function} callback - Function containing transaction logic (receives a connection)
+   * @returns {Promise<any>} Transaction result
    */
   async transaction(callback) {
     const connection = await this.pool.getConnection();
     const startTime = Date.now();
-    
+
     try {
       await connection.beginTransaction();
       logger.debug('Transaction started');
-      
+
       const result = await callback(connection);
-      
+
       await connection.commit();
       const duration = Date.now() - startTime;
       logger.debug('Transaction committed', { duration });
-      
+
       return result;
     } catch (error) {
-      await connection.rollback();
+      try { await connection.rollback(); } catch (_) {}
       const duration = Date.now() - startTime;
       logger.error('Transaction rolled back', {
         error: error.message,
@@ -100,7 +116,7 @@ export class DatabaseService {
   /**
    * Batch insert with transaction support
    * @param {string} tableName - Target table
-   * @param {Array} records - Array of record objects
+   * @param {Array<object>} records - Array of record objects
    * @param {Object} options - Insert options
    */
   async batchInsert(tableName, records, options = {}) {
@@ -114,27 +130,27 @@ export class DatabaseService {
     // Process in batches
     for (let i = 0; i < records.length; i += batchSize) {
       const batch = records.slice(i, i + batchSize);
-      
+
       await this.transaction(async (connection) => {
         const columns = Object.keys(batch[0]);
         const placeholders = columns.map(() => '?').join(', ');
-        const values = batch.flatMap(record => columns.map(col => record[col]));
-        
-        let query = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES `;
-        query += batch.map(() => `(${placeholders})`).join(', ');
-        
+        const values = batch.flatMap((record) => columns.map((col) => record[col]));
+
+        let q = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES `;
+        q += batch.map(() => `(${placeholders})`).join(', ');
+
         if (onDuplicateKeyUpdate) {
-          const updateClause = columns.map(col => `${col} = VALUES(${col})`).join(', ');
-          query += ` ON DUPLICATE KEY UPDATE ${updateClause}`;
+          const updateClause = columns.map((col) => `${col} = VALUES(${col})`).join(', ');
+          q += ` ON DUPLICATE KEY UPDATE ${updateClause}`;
         }
-        
-        const result = await connection.query(query, values);
+
+        const [result] = await connection.query(q, values);
         results.push(result);
       });
     }
 
     return {
-      affectedRows: results.reduce((sum, r) => sum + (r.affectedRows || 0), 0),
+      affectedRows: results.reduce((sum, r) => sum + (r?.affectedRows || 0), 0),
       insertId: results[0]?.insertId || null
     };
   }
@@ -147,14 +163,14 @@ export class DatabaseService {
       const startTime = Date.now();
       await this.query('SELECT 1 as health_check');
       const responseTime = Date.now() - startTime;
-      
+
       const poolStatus = {
-        totalConnections: this.pool.totalConnections(),
-        activeConnections: this.pool.activeConnections(),
-        idleConnections: this.pool.idleConnections(),
-        taskQueueSize: this.pool.taskQueueSize()
+        totalConnections: this.pool.totalConnections?.() ?? 'n/a',
+        activeConnections: this.pool.activeConnections?.() ?? 'n/a',
+        idleConnections: this.pool.idleConnections?.() ?? 'n/a',
+        taskQueueSize: this.pool.taskQueueSize?.() ?? 'n/a'
       };
-      
+
       return {
         status: 'healthy',
         responseTime,
@@ -174,19 +190,17 @@ export class DatabaseService {
    */
   async getStats() {
     try {
-      const [variables, status] = await Promise.all([
-        this.query('SHOW GLOBAL VARIABLES LIKE "max_connections"'),
-        this.query('SHOW GLOBAL STATUS LIKE "Threads_connected"')
-      ]);
-      
+      const variables = await this.query('SHOW GLOBAL VARIABLES LIKE "max_connections"');
+      const status = await this.query('SHOW GLOBAL STATUS LIKE "Threads_connected"');
+
       return {
-        maxConnections: variables[0]?.Value || 'unknown',
-        currentConnections: status[0]?.Value || 'unknown',
+        maxConnections: variables?.[0]?.Value || variables?.[0]?.Value || variables?.[0]?.Value || variables?.[0]?.value || 'unknown',
+        currentConnections: status?.[0]?.Value || status?.[0]?.value || 'unknown',
         poolStats: {
-          total: this.pool.totalConnections(),
-          active: this.pool.activeConnections(),
-          idle: this.pool.idleConnections(),
-          queue: this.pool.taskQueueSize()
+          total: this.pool.totalConnections?.() ?? 'n/a',
+          active: this.pool.activeConnections?.() ?? 'n/a',
+          idle: this.pool.idleConnections?.() ?? 'n/a',
+          queue: this.pool.taskQueueSize?.() ?? 'n/a'
         }
       };
     } catch (error) {

@@ -1,6 +1,8 @@
-// swagger/swagger.js
 import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import path from 'path';
+
+// swagger/swagger.js
 
 const options = {
   definition: {
@@ -12,7 +14,7 @@ const options = {
     },
     servers: [
       {
-        url: process.env.API_URL || 'http://localhost:3001',
+        url: process.env.API_URL || 'http://localhost:3000',
         description: 'Development server'
       }
     ],
@@ -26,12 +28,30 @@ const options = {
       }
     }
   },
-  apis: ['./routes/*.js', './controllers/*.js']
+  // Use broad globs so it works regardless of cwd
+  apis: [
+    path.join(process.cwd(), '**/routes/*.js'),
+    path.join(process.cwd(), '**/controllers/*.js')
+  ]
 };
 
-const specs = swaggerJSDoc(options);
+function setupSwagger(app) {
+  const swaggerSpec = swaggerJSDoc(options);
 
-export function setupSwagger(app) {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-  console.log('📚 API Documentation available at /api-docs');
+  // Serve the Swagger UI at /api-docs
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    swaggerOptions: {
+      persistAuthorization: true
+    }
+  }));
+
+  // Also expose the raw JSON at /api-docs.json for tooling
+  app.get('/api-docs.json', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).send(swaggerSpec);
+  });
 }
+
+export { setupSwagger };
+export default setupSwagger;

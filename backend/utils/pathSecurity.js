@@ -1,4 +1,4 @@
-import { resolve, relative, join, dirname } from 'path';
+import { dirname, join, relative, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,21 +15,16 @@ const __dirname = dirname(__filename);
  * @returns {string} Sicherer absoluter Pfad
  * @throws {Error} Bei unsicherem Pfad
  */
-export function secureResolve(basePath, userPath) {
-  // Normalisiere Eingabe-Pfade
-  const normalizedUserPath = userPath.replace(/^\/+/, '').replace(/\/+/g, '/');
-  
-  // Resolve absoluten Pfad
-  const resolvedPath = resolve(basePath, normalizedUserPath);
-  
-  // Sicherheitsprüfung: Path muss innerhalb basePath bleiben
-  const relativePath = relative(basePath, resolvedPath);
-  
-  if (relativePath.startsWith('..') || relativePath.includes('../')) {
-    throw new Error(`Path traversal detected: ${userPath}`);
+function secureResolve(basePath, userPath) {
+  if (!basePath) throw new Error('Base path is required');
+  const base = resolve(basePath);
+  const target = resolve(base, userPath || '');
+
+  const rel = relative(base, target);
+  if (rel.startsWith('..') || rel.includes('..') || target.includes('\x00')) {
+    throw new Error('Path traversal detected');
   }
-  
-  return resolvedPath;
+  return target;
 }
 
 /**
@@ -38,18 +33,19 @@ export function secureResolve(basePath, userPath) {
  * @param {string} uploadBaseDir - Base upload directory 
  * @returns {string} Sicherer User-Directory-Pfad
  */
-export function getUserDirectory(userId, uploadBaseDir) {
+function getUserDirectory(userId, uploadBaseDir) {
   if (!userId || (typeof userId !== 'string' && typeof userId !== 'number')) {
     throw new Error('Invalid user ID provided');
   }
-  
+  if (!uploadBaseDir) throw new Error('Upload base directory required');
+
   // Sanitize user ID (nur alphanumerisch erlaubt)
   const sanitizedUserId = String(userId).replace(/[^a-zA-Z0-9_-]/g, '');
-  
+
   if (!sanitizedUserId || sanitizedUserId !== String(userId)) {
     throw new Error('Invalid characters in user ID');
   }
-  
+
   return join(uploadBaseDir, sanitizedUserId);
 }
 
@@ -58,21 +54,21 @@ export function getUserDirectory(userId, uploadBaseDir) {
  * @param {string} filename - Dateiname
  * @returns {boolean} True wenn sicher
  */
-export function isSecureFilename(filename) {
-  if (!filename || typeof filename !== 'string') {
+function isSafeFilename(filename) {
+  if (typeof filename !== 'string' || filename.length === 0 || filename.length > 255) {
     return false;
   }
-  
+
   // Gefährliche Zeichen und Patterns
   const dangerousPatterns = [
     /[<>:"|?*\x00-\x1F]/,  // Windows-gefährliche Zeichen
     /^\./,                  // Versteckte Dateien
     /\.$/,                  // Endender Punkt
-    /\.\./,                 // Directory Traversal
+    /\.{2}/,                 // Directory Traversal
     /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i, // Windows reserved names
     /^\s|\s$/,             // Leading/trailing whitespace
   ];
-  
+
   return !dangerousPatterns.some(pattern => pattern.test(filename));
 }
 
@@ -82,14 +78,13 @@ export function isSecureFilename(filename) {
  * @param {string} fullPath - Vollständiger Pfad
  * @returns {string} Sicherer relativer Pfad mit führendem /
  */
-export function createSafeRelativePath(basePath, fullPath) {
-  const relativePath = relative(basePath, fullPath);
-  
-  // Sicherheitsprüfung
+function toClientRelativePath(basePath, fullPath) {
+  const base = resolve(basePath);
+  const target = resolve(fullPath);
+  const relativePath = relative(base, target);
   if (relativePath.startsWith('..')) {
-    throw new Error('Path outside base directory');
+    throw new Error('Path outside of base directory');
   }
-  
   // Normalisiere zu Unix-Style Pfad mit führendem /
   return '/' + relativePath.replace(/\\/g, '/');
 }
@@ -99,32 +94,31 @@ export function createSafeRelativePath(basePath, fullPath) {
  * @param {string} path - Upload-Pfad vom Client
  * @returns {string} Bereinigter Pfad
  */
-export function sanitizeUploadPath(path) {
+function sanitizeUploadPath(path) {
   if (!path || typeof path !== 'string') {
     return '';
   }
-  
+
   // Entferne führende/nachfolgende Slashes und normalisiere
   return path
     .replace(/^\/+|\/+$/g, '')
-    .replace(/\/+/g, '/')
+    .replace(/\/+\/+/g, '/')
     .replace(/[<>:"|?*\x00-\x1F]/g, '') // Gefährliche Zeichen entfernen
     .trim();
 }
 
 /**
- * Prüft ob ein Pfad ein Upload-Directory ist
- * @param {string} path - Zu prüfender Pfad
+ * Prüft ob ein Pfad im Upload-Directory liegt
+ * @param {string} p - Zu prüfender Pfad
  * @param {string} uploadBaseDir - Base upload directory
  * @returns {boolean}
  */
-export function isWithinUploadDirectory(path, uploadBaseDir) {
+function isWithinUploadDir(p, uploadBaseDir) {
   try {
-    const resolvedPath = resolve(path);
-    const resolvedBase = resolve(uploadBaseDir);
-    const relativePath = relative(resolvedBase, resolvedPath);
-    
-    return !relativePath.startsWith('..');
+    const base = resolve(uploadBaseDir);
+    const target = resolve(p);
+    const rel = relative(base, target);
+    return rel && !rel.startsWith('..') && !target.includes('\x00');
   } catch {
     return false;
   }
@@ -133,21 +127,46 @@ export function isWithinUploadDirectory(path, uploadBaseDir) {
 /**
  * Middleware für Express Route-Parameter Validation
  */
-export function validatePathParam(paramName = 'path') {
+function validatePathParam(paramName = 'path', uploadBaseDir) {
   return (req, res, next) => {
-    const path = req.params[paramName] || req.query[paramName];
-    
-    if (path) {
-      try {
-        req.sanitizedPath = sanitizeUploadPath(path);
-      } catch (error) {
-        return res.status(400).json({ 
-          error: 'Invalid path parameter',
-          details: error.message 
-        });
+    try {
+      const raw = req.params?.[paramName] ?? req.query?.[paramName] ?? '';
+      const sanitized = sanitizeUploadPath(raw);
+
+      if (sanitized) {
+        const absolute = secureResolve(uploadBaseDir, sanitized);
+        if (!isWithinUploadDir(absolute, uploadBaseDir)) {
+          throw new Error('Path outside upload directory');
+        }
       }
+
+      req.validatedPath = sanitized; // attach sanitized value
+      next();
+    } catch (error) {
+      return res.status(400).json({
+        error: 'Invalid path parameter',
+        details: error.message
+      });
     }
-    
-    next();
   };
 }
+
+export {
+  secureResolve,
+  getUserDirectory,
+  isSafeFilename,
+  toClientRelativePath,
+  sanitizeUploadPath,
+  isWithinUploadDir,
+  validatePathParam
+};
+
+export default {
+  secureResolve,
+  getUserDirectory,
+  isSafeFilename,
+  toClientRelativePath,
+  sanitizeUploadPath,
+  isWithinUploadDir,
+  validatePathParam
+};

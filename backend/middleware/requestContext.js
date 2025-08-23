@@ -1,30 +1,28 @@
-import crypto from 'crypto';
 import logger from '../utils/logger.js';
+import crypto from 'crypto';
 
 /**
  * Request context middleware for tracking and logging
  */
-export const requestContext = (req, res, next) => {
-  // Generate unique request ID (or use existing from client)
-  const requestId = req.get('X-Request-ID') || 
-                    req.get('X-Correlation-ID') || 
-                    crypto.randomUUID();
-  
+function requestContext(req, res, next) {
+  // Generate a stable request id
+  const requestId = req.get('X-Request-ID') || crypto.randomUUID();
+
   // Generate correlation ID for distributed tracing
   const correlationId = req.get('X-Correlation-ID') || requestId;
-  
+
   // Store in response locals for access in other middleware/controllers
   res.locals.requestId = requestId;
   res.locals.correlationId = correlationId;
-  
+
   // Add IDs to response headers
   res.setHeader('X-Request-ID', requestId);
   res.setHeader('X-Correlation-ID', correlationId);
-  
+
   // Add to request for easy access
   req.requestId = requestId;
   req.correlationId = correlationId;
-  
+
   // Log request start
   const startTime = Date.now();
   logger.info('Request started', {
@@ -38,66 +36,70 @@ export const requestContext = (req, res, next) => {
     contentLength: req.get('Content-Length'),
     timestamp: new Date().toISOString()
   });
-  
+
   // Override res.end to log request completion
   const originalEnd = res.end;
-  res.end = function(chunk, encoding) {
+  res.end = function (chunk, encoding, cb) {
     const duration = Date.now() - startTime;
-    
-    logger.info('Request completed', {
-      requestId,
-      correlationId,
-      method: req.method,
-      url: req.url,
-      statusCode: res.statusCode,
-      duration,
-      contentLength: res.get('Content-Length'),
-      timestamp: new Date().toISOString()
-    });
-    
-    originalEnd.call(this, chunk, encoding);
+
+    try {
+      logger.info('Request completed', {
+        requestId,
+        correlationId,
+        method: req.method,
+        url: req.url,
+        statusCode: res.statusCode,
+        duration,
+        contentLength: res.get('Content-Length'),
+        timestamp: new Date().toISOString()
+      });
+    } catch (_) {
+      // logging should never break response
+    }
+
+    return originalEnd.call(this, chunk, encoding, cb);
   };
-  
+
   next();
-};
+}
 
 /**
  * Request size limiter middleware (disabled for unlimited uploads)
+ * If the header `X-Unlimited-Upload: true` is present, the check is skipped.
  */
-export const requestSizeLimiter = (maxSize = 'unlimited') => {
+function requestSizeLimiter(maxSize = '50mb', { honorUnlimitedHeader = true, header = 'X-Unlimited-Upload' } = {}) {
   return (req, res, next) => {
-    // Skip size checking for unlimited uploads
-    if (maxSize === 'unlimited') {
+    if (honorUnlimitedHeader && String(req.get(header)).toLowerCase() === 'true') {
       return next();
     }
-    
-    const contentLength = parseInt(req.get('Content-Length') || '0');
+
+    const contentLength = parseInt(req.get('Content-Length') || '0', 10);
     const maxSizeBytes = parseSize(maxSize);
-    
-    if (contentLength > maxSizeBytes) {
+
+    if (Number.isFinite(contentLength) && contentLength > maxSizeBytes) {
       logger.warn('Request size exceeded', {
         requestId: res.locals.requestId,
         contentLength,
         maxSize: maxSizeBytes,
         ip: req.ip
       });
-      
+
       return res.status(413).json({
         success: false,
         message: 'Request entity too large',
         code: 'REQUEST_TOO_LARGE',
-        maxSize: maxSize
+        maxSize
       });
     }
-    
+
     next();
   };
-};
+}
 
 /**
  * Request timeout middleware
  */
-export const requestTimeout = (timeout = 30000) => {
+function requestTimeout(timeout = 30000) {
   return (req, res, next) => {
     const timer = setTimeout(() => {
       if (!res.headersSent) {
@@ -108,7 +110,7 @@ export const requestTimeout = (timeout = 30000) => {
           timeout,
           ip: req.ip
         });
-        
+
         res.status(408).json({
           success: false,
           message: 'Request timeout',
@@ -116,62 +118,62 @@ export const requestTimeout = (timeout = 30000) => {
         });
       }
     }, timeout);
-    
+
     // Clear timeout when response is sent
     const originalEnd = res.end;
-    res.end = function(chunk, encoding) {
+    res.end = function (chunk, encoding, cb) {
       clearTimeout(timer);
-      originalEnd.call(this, chunk, encoding);
+      return originalEnd.call(this, chunk, encoding, cb);
     };
-    
+
     next();
   };
-};
+}
 
 /**
  * CORS preflight handler with caching
  */
-export const corsPreflightHandler = (req, res, next) => {
+function corsPreflightHandler(req, res, next) {
   if (req.method === 'OPTIONS') {
     // Cache preflight response for 24 hours
     res.setHeader('Access-Control-Max-Age', '86400');
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    
+
     logger.debug('CORS preflight handled', {
       requestId: res.locals.requestId,
       origin: req.get('Origin'),
       method: req.get('Access-Control-Request-Method'),
       headers: req.get('Access-Control-Request-Headers')
     });
-    
+
     return res.status(200).end();
   }
-  
+
   next();
-};
+}
 
 /**
  * API versioning middleware
  */
-export const apiVersioning = (req, res, next) => {
+function apiVersioning(req, res, next) {
   // Extract version from URL path or header
   const urlVersion = req.url.match(/^\/api\/v(\d+)\//)?.[1];
   const headerVersion = req.get('API-Version');
   const acceptVersion = req.get('Accept-Version');
-  
+
   const version = urlVersion || headerVersion || acceptVersion || '1';
-  
+
   req.apiVersion = version;
   res.setHeader('API-Version', version);
-  
+
   logger.debug('API version detected', {
     requestId: res.locals.requestId,
     version,
     source: urlVersion ? 'url' : headerVersion ? 'header' : acceptVersion ? 'accept' : 'default'
   });
-  
+
   next();
-};
+}
 
 /**
  * Request body size parser helper
@@ -183,10 +185,21 @@ function parseSize(size) {
     mb: 1024 * 1024,
     gb: 1024 * 1024 * 1024
   };
-  
+
   const match = size.toString().toLowerCase().match(/^(\d+(?:\.\d+)?)(b|kb|mb|gb)?$/);
   if (!match) throw new Error(`Invalid size format: ${size}`);
-  
+
   const [, value, unit = 'b'] = match;
   return Math.floor(parseFloat(value) * units[unit]);
 }
+
+export {
+  requestContext,
+  requestSizeLimiter,
+  requestTimeout,
+  corsPreflightHandler,
+  apiVersioning,
+  parseSize
+};
+
+export default requestContext;

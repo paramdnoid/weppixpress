@@ -1,9 +1,9 @@
+import * as cheerio from 'cheerio';
+import { URL } from 'node:url';
+
 // services/websiteInfoService.js (ESM)
 // Minimal dependency approach: Node 18+ global fetch + cheerio for parsing
 // Install: npm i cheerio
-
-import * as cheerio from 'cheerio';
-import { URL } from 'node:url';
 
 const DEFAULT_UA =
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36';
@@ -138,7 +138,6 @@ export async function getWebsiteInfo(rawUrl, opts = {}) {
     return { ok: false, status, error: `Unsupported content-type: ${contentType}`, url: finalUrl || urlStr };
   }
 
-  const $ = cheerio.load(text);
   const meta = extractMeta($, finalUrl || urlStr);
   const jsonLd = extractJsonLd($);
 

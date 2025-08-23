@@ -1,8 +1,8 @@
-import xss from 'xss-clean';
+import logger from '../utils/logger.js';
 import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import validator from 'validator';
-import logger from '../utils/logger.js';
+import xss from 'xss-clean';
 
 /**
  * Enhanced Input Sanitization Middleware
@@ -174,13 +174,20 @@ function sanitizeEmail(email) {
     return null;
   }
 
-  const sanitized = validator.normalizeEmail(email.trim().toLowerCase());
-  
-  if (!validator.isEmail(sanitized)) {
+  const trimmed = email.trim();
+  if (!validator.isEmail(trimmed)) {
     return null;
   }
 
-  return sanitized;
+  // Normalize the email. Keep dots in Gmail but strip subaddresses; normalize googlemail.com
+  const normalized = validator.normalizeEmail(trimmed, {
+    gmail_remove_dots: false,
+    gmail_remove_subaddress: true,
+    gmail_convert_googlemaildotcom: true,
+    all_lowercase: true
+  });
+
+  return normalized || trimmed.toLowerCase();
 }
 
 /**
@@ -252,7 +259,7 @@ function sanitizeObject(obj, options = {}) {
 /**
  * Express Middleware for enhanced input sanitization
  */
-export const enhancedSanitization = (options = {}) => {
+const enhancedSanitization =  (options = {}) => {
   const config = {
     strict: options.strict || false,
     logThreats: options.logThreats !== false,
@@ -306,22 +313,14 @@ export const enhancedSanitization = (options = {}) => {
 /**
  * Standard Security Middleware Stack
  */
-export const securityMiddlewareStack = [
-  // XSS Protection
-  xss(),
-  
-  // NoSQL Injection Protection
-  mongoSanitize({
-    replaceWith: '_',
-    onSanitize: ({ key, req }) => {
-      logger.warn(`NoSQL injection attempt blocked: ${key}`, {
-        ip: req.ip,
-        userAgent: req.get('User-Agent')
-      });
-    }
-  }),
+export const standardSecurityMiddleware = [
+  // Prevent NoSQL operator injection in req bodies
+  mongoSanitize(),
 
-  // HTTP Parameter Pollution Protection
+  // Basic XSS cleaning for input strings in body/query
+  xss(),
+
+  // HTTP Parameter Pollution Protection (allow listed keys to repeat)
   hpp({
     whitelist: ['sort', 'filter', 'page', 'limit', 'fields', 'tags']
   }),
@@ -334,40 +333,42 @@ export const securityMiddlewareStack = [
  * Strict Security Middleware for critical endpoints
  */
 export const strictSecurityMiddleware = [
-  xss(),
   mongoSanitize({ replaceWith: '_' }),
-  hpp(),
+  xss(),
+  hpp({ whitelist: [] }),
   enhancedSanitization({ strict: true, logThreats: true })
 ];
 
 /**
  * Utility functions for manual validation
  */
-export const InputValidator = {
-  sanitizeString,
-  sanitizeEmail,
-  sanitizeUrl,
-  sanitizeObject,
-  detectMaliciousPatterns,
-  
-  // Special validators
+export const validators = {
   isValidFilename: (filename) => {
     if (!filename || typeof filename !== 'string') return false;
     const check = detectMaliciousPatterns(filename, 'filename');
-    return check.isSafe && !/[<>:"|?*\x00-\x1F]/g.test(filename);
+    // Disallow reserved/unsafe characters and path separators
+    const invalidChars = /[<>:"|?*\x00-\x1F/\\]/;
+    return check.isSafe && !invalidChars.test(filename) && filename.trim().length > 0;
   },
 
-  isValidPath: (path) => {
-    if (!path || typeof path !== 'string') return false;
-    const check = detectMaliciousPatterns(path, 'path');
-    return check.isSafe && !path.includes('..');
+  isValidPath: (pathStr) => {
+    if (!pathStr || typeof pathStr !== 'string') return false;
+    const check = detectMaliciousPatterns(pathStr, 'path');
+    // Basic traversal checks; allow single dots but not parent traversals or nulls
+    if (!check.isSafe) return false;
+    if (pathStr.includes('..') || /\x00/.test(pathStr)) return false;
+    return true;
   },
 
   isValidUserId: (userId) => {
     if (!userId) return false;
     const str = String(userId);
-    return validator.isAlphanumeric(str) && str.length <= 50;
+    return validator.isAlphanumeric(str, 'en-US') && str.length <= 50;
   }
 };
 
-export { SECURITY_PATTERNS };
+// Re-export useful helpers for external modules
+
+export { detectMaliciousPatterns, sanitizeString, sanitizeObject, sanitizeUrl, sanitizeEmail, enhancedSanitization };
+
+export const securityMiddlewareStack = standardSecurityMiddleware;

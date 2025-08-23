@@ -1,15 +1,29 @@
-import express from 'express';
-import {
-  register, login, verifyEmail, forgotPassword, resetPassword,
-  setup2FA, enable2FAController, disable2FAController, verify2FA,
-  refreshToken, logout, getProfile
-} from '../controllers/authController.js';
 import authenticate from '../middleware/authenticate.js';
 import validateRequest from '../validation/validateRequest.js';
+import express from 'express';
+
 import {
-  registerSchema, loginSchema,
-  verify2FASchema, forgotPasswordSchema, resetPasswordSchema,
-  refreshSchema, enable2FASchema
+  register,
+  login,
+  verifyEmail,
+  forgotPassword,
+  resetPassword,
+  setup2FA,
+  enable2FAController,
+  disable2FAController,
+  verify2FA,
+  refreshToken,
+  logout,
+  getProfile
+} from '../controllers/authController.js';
+
+import {
+  registerSchema,
+  loginSchema,
+  verify2FASchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  enable2FASchema
 } from '../validation/schemas/authSchemas.js';
 
 const router = express.Router();
@@ -24,7 +38,7 @@ router.post('/verify-2fa', validateRequest(verify2FASchema), verify2FA);
 router.post('/forgot-password', validateRequest(forgotPasswordSchema), forgotPassword);
 router.post('/reset-password', validateRequest(resetPasswordSchema), resetPassword);
 
-router.post('/refresh', validateRequest(refreshSchema), refreshToken);
+router.post('/refresh', refreshToken);
 router.post('/logout', logout);
 
 router.post('/setup-2fa', authenticate, setup2FA);

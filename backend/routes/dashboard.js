@@ -1,7 +1,7 @@
-import express from 'express';
-import monitoringService from '../services/monitoringService.js';
-import errorMetricsService from '../services/errorMetricsService.js';
 import { authenticateToken, requireAdmin } from '../middleware/authenticate.js';
+import errorMetricsService from '../services/errorMetricsService.js';
+import monitoringService from '../services/monitoringService.js';
+import express from 'express';
 
 const router = express.Router();
 

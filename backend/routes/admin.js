@@ -1,6 +1,6 @@
 import express from 'express';
 import { getUsers, updateUserRoleController, makeAdmin, removeAdmin } from '../controllers/adminController.js';
-import { authenticateToken, requireAdmin } from '../middleware/authenticate.js';
+import authenticateToken, { requireAdmin } from '../middleware/authenticate.js';
 import validateRequest from '../validation/validateRequest.js';
 import { body } from 'express-validator';
 

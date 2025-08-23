@@ -151,7 +151,7 @@ function createSecureLogData(message, data = {}) {
 /**
  * Secure Logger Klasse
  */
-export class SecureLogger {
+class SecureLogger {
   static info(message, data) {
     const secureData = createSecureLogData(message, data);
     logger.info(secureData.message, secureData.data);
@@ -222,14 +222,7 @@ export class SecureLogger {
 /**
  * Express Middleware für sicheres Request-Logging
  */
-export function secureRequestLogger(options = {}) {
-  const config = {
-    logRequests: options.logRequests !== false,
-    logResponses: options.logResponses !== false,
-    logErrors: options.logErrors !== false,
-    ...options
-  };
-
+function secureRequestLogger(config = { logRequests: true, logResponses: false }) {
   return (req, res, next) => {
     const startTime = Date.now();
 
@@ -241,9 +234,9 @@ export function secureRequestLogger(options = {}) {
     // Response-Logging
     if (config.logResponses) {
       const originalSend = res.send;
-      res.send = function(data) {
+      res.send = function (data) {
         const duration = Date.now() - startTime;
-        
+
         SecureLogger.info('API Response', {
           method: req.method,
           path: req.path,
@@ -260,5 +253,5 @@ export function secureRequestLogger(options = {}) {
   };
 }
 
-export { sanitizeObject, sanitizeText, SENSITIVE_FIELDS };
+export { sanitizeObject, secureRequestLogger };
 export default SecureLogger;

@@ -14,7 +14,7 @@ const ALLOWED_EXTENSIONS = [];
  * @param {Function} callback - Multer callback (error, boolean)
  * @param {Object} options - Validation options
  */
-export function validateFile(file, callback, options = {}) {
+function validateFile(file, callback, options = {}) {
   const {
     useWhitelist = false,
     allowedTypes = ALLOWED_EXTENSIONS,
@@ -54,28 +54,32 @@ export function validateFile(file, callback, options = {}) {
     }
 
     callback(null, true);
-  } catch (error) {
+  } catch {
     callback(new ValidationError('File validation failed'), false);
   }
 }
 
 /**
- * Express middleware compatible file filter
+ * Express/Multer-compatible file filter (configurable)
  */
-export const fileFilter = (req, file, cb) => { // eslint-disable-line no-unused-vars
-  validateFile(file, cb, {
-    useWhitelist: process.env.NODE_ENV === 'production'
-  });
-};
+function fileFilter(options = {}) {
+  return (req, file, cb) => validateFile(file, cb, options);
+}
 
 /**
- * Strict file filter for critical areas
+ * Strict file filter for critical areas (whitelist only)
  */
-export const strictFileFilter = (req, file, cb) => { // eslint-disable-line no-unused-vars
-  validateFile(file, cb, {
-    useWhitelist: true,
-    allowedTypes: ['.jpg', '.jpeg', '.png', '.pdf', '.txt']
-  });
+function strictFileFilter(req, file, cb) {
+  return validateFile(file, cb, { useWhitelist: true });
+}
+
+export {
+  validateFile,
+  fileFilter,
+  strictFileFilter,
+  ALLOWED_EXTENSIONS,
+  BLOCKED_EXTENSIONS,
+  BLOCKED_MIME_TYPES
 };
 
-export { BLOCKED_MIME_TYPES, BLOCKED_EXTENSIONS, ALLOWED_EXTENSIONS };
+export default fileFilter;

@@ -1,37 +1,34 @@
-import express from 'express';
-import cors from 'cors';
+import { runMigrations } from './database/migrate.js';
+import { errorHandler, notFound } from './middleware/errorHandler.js';
+import { securityMiddlewareStack } from './middleware/inputSanitization.js';
+import { errorMonitoring, requestMonitoring } from './middleware/monitoring.js';
+import { apiVersioning, corsPreflightHandler, requestContext, requestTimeout } from './middleware/requestContext.js';
+import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth.js';
+import dashboardRoutes from './routes/dashboard.js';
+import fileRoutes from './routes/files.js';
+import healthRoutes from './routes/health.js';
+import uploadRoutes from './routes/upload.js';
+import websiteInfoRoutes from './routes/websiteInfo.js';
+import cacheService from './services/cacheService.js';
+import databaseService from './services/databaseService.js';
+import errorMetricsService from './services/errorMetricsService.js';
+import monitoringService from './services/monitoringService.js';
+import { setupSwagger } from './swagger/swagger.js';
+import circuitBreakerRegistry from './utils/circuitBreaker.js';
+import logger from './utils/logger.js';
+import { WebSocketManager } from './websocketHandler.js';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import dotenv from 'dotenv';
+import express from 'express';
+import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import RedisStore from 'rate-limit-redis';
 import { createClient } from 'redis';
-import rateLimit from 'express-rate-limit';
-
-import authRoutes from './routes/auth.js';
-import fileRoutes from './routes/files.js';
-import uploadRoutes from './routes/upload.js';
-import healthRoutes from './routes/health.js';
-import dashboardRoutes from './routes/dashboard.js';
-import adminRoutes from './routes/admin.js';
-import websiteInfoRoutes from './routes/websiteInfo.js';
-
-import { errorHandler, notFound } from './middleware/errorHandler.js';
-import { setupSwagger } from './swagger/swagger.js';
-import { runMigrations } from './database/migrate.js';
-
-import { WebSocketManager } from './websocketHandler.js';
-
-import cacheService from './services/cacheService.js';
-import databaseService from './services/databaseService.js';
-import logger from './utils/logger.js';
-import { requestContext, requestTimeout, corsPreflightHandler, apiVersioning } from './middleware/requestContext.js';
-import { requestMonitoring, errorMonitoring } from './middleware/monitoring.js';
-import monitoringService from './services/monitoringService.js';
-import errorMetricsService from './services/errorMetricsService.js';
-import circuitBreakerRegistry from './utils/circuitBreaker.js';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
@@ -84,7 +81,6 @@ app.use(helmet({
   }
 }));
 
-import { securityMiddlewareStack } from './middleware/inputSanitization.js';
 app.use(securityMiddlewareStack);
 
 const rateLimitRedisClient = createClient({
@@ -204,19 +200,15 @@ const wsManager = new WebSocketManager(server);
 
 global.wsManager = wsManager;
 
-export function broadcastFileUpdate(file) {
-  wsManager.broadcastFileUpdated(file);
-}
-
-export function broadcastFileCreated(file) {
+function broadcastFileCreated(file) {
   wsManager.broadcastFileCreated(file);
 }
 
-export function broadcastFileDeleted(filePath) {
+function broadcastFileDeleted(filePath) {
   wsManager.broadcastFileDeleted(filePath);
 }
 
-export function broadcastFolderChanged(folderPath) {
+function broadcastFolderChanged(folderPath) {
   wsManager.broadcastFolderChanged(folderPath);
 }
 
@@ -246,8 +238,7 @@ app.get('/api/system/metrics', async (req, res) => {
 });
 
 app.get('/api/system/errors', async (req, res) => {
-  const timeWindow = parseInt(req.query.timeWindow) || 3600000; // Default 1 hour
-  const metrics = errorMetricsService.getMetrics(timeWindow);
+
   res.json(metrics);
 });
 
@@ -299,7 +290,6 @@ process.on('uncaughtException', (error) => {
   gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
-// Graceful shutdown function
 async function gracefulShutdown(signal) {
   console.log(`${signal} received. Shutting down gracefully...`);
   

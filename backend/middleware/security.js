@@ -1,64 +1,50 @@
-import helmet from 'helmet';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import hpp from 'hpp';
 import RedisStore from 'rate-limit-redis';
 import { createClient } from 'redis';
-import mongoSanitize from 'express-mongo-sanitize';
 import xss from 'xss-clean';
-import hpp from 'hpp';
-import compression from 'compression';
+import helmet from 'helmet';
+import cors from 'cors';
 
-// Redis client für Rate Limiting und Session Store
-export const redisClient = createClient({
+// ---- Redis client for Rate Limiting ----
+const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
-  socket: {
-    reconnectStrategy: (retries) => Math.min(retries * 50, 1000)
-  }
+  socket: { reconnectStrategy: (retries) => Math.min(retries * 50, 1000) }
 });
+redisClient.on('error', (err) => {
+  // Avoid crashing on transient redis errors
+  console.warn('Redis client error (rate limiting will fallback):', err?.message);
+});
+(async () => {
+  try { if (!redisClient.isOpen) await redisClient.connect(); } catch (_) { /* no-op */ }
+})();
 
-// Enhanced security headers
+// ---- Security Headers (Helmet) ----
 export const securityHeaders = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'"],
-      frameAncestors: ["'none'"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null
-    }
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  },
-  noSniff: true,
-  xssFilter: true,
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  crossOriginEmbedderPolicy: true,
-  crossOriginOpenerPolicy: { policy: 'same-origin' },
-  crossOriginResourcePolicy: { policy: 'same-origin' },
-  originAgentCluster: true,
-  dnsPrefetchControl: { allow: false },
+  // Keep defaults, but allow our API and frontends to work without strict CSP by default.
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  referrerPolicy: { policy: 'no-referrer' },
   frameguard: { action: 'deny' },
-  permittedCrossDomainPolicies: false
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
 });
 
-// Advanced Rate Limiting configurations
-export const createRateLimiter = (options = {}) => {
+// ---- Advanced Rate Limiter factory ----
+export function createRateLimiter(options = {}) {
   const defaults = {
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 60 * 1000, // 1 min
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
-    handler: (req, res) => {
-      res.status(429).json({
-        error: 'Too many requests',
-        message: 'Please wait before making more requests',
-        retryAfter: Math.ceil(options.windowMs / 1000)
+    keyGenerator: (req) => `${req.ip}:${req.headers['x-forwarded-for'] || ''}`,
+    handler: (req, res /*, next */) => {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many requests, please try again later.',
+        code: 'RATE_LIMITED'
       });
     }
   };
@@ -67,49 +53,45 @@ export const createRateLimiter = (options = {}) => {
     ...defaults,
     ...options,
     store: new RedisStore({
+      // `rate-limit-redis` v4 supports a `sendCommand` fn; most setups also accept a `client`
+      // We pass the redis client for compatibility
       client: redisClient,
       prefix: options.prefix || 'rl:'
     }),
     skip: (req) => {
-      // Skip rate limiting for health checks
-      return req.path === '/health';
+      // Always allow health checks
+      if (req.path === '/health') return true;
+      return typeof options.skip === 'function' ? options.skip(req) : false;
     }
   });
-};
+}
 
-// Specific rate limiters for different endpoints
-export const authLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  prefix: 'rl:auth:',
-  skipSuccessfulRequests: true
-});
-
-export const apiLimiter = createRateLimiter({
-  windowMs: 1 * 60 * 1000,
-  max: 60,
-  prefix: 'rl:api:'
-});
-
+// ---- Specific limiters ----
 export const uploadLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
   prefix: 'rl:upload:'
 });
 
-// CORS configuration with dynamic origin validation
+export const authLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  prefix: 'rl:auth:'
+});
+
+// ---- CORS configuration with dynamic origin validation ----
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 export const corsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'];
-    
-    // Allow requests with no origin (mobile apps, Postman, etc.)
+    // Allow requests with no origin (mobile apps, Postman, curl)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    if (allowedOrigins.length === 0) return callback(null, true); // permissive if unset
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -118,92 +100,94 @@ export const corsOptions = {
   maxAge: 86400 // 24 hours
 };
 
-// Input sanitization middleware
-export const sanitizeInput = [
-  mongoSanitize({
-    replaceWith: '_',
-    onSanitize: ({ key }) => {
-      console.warn(`Sanitized prohibited character in ${key}`);
-    }
-  }),
+export const corsMiddleware = cors(corsOptions);
+
+// ---- Input sanitization middleware ----
+export const inputSanitizers = [
   xss(),
-  hpp({
-    whitelist: ['sort', 'filter', 'page', 'limit']
-  })
+  hpp({ whitelist: ['sort', 'filter', 'page', 'limit', 'fields', 'tags'] })
 ];
 
-// Compression middleware
+// ---- Compression middleware ----
 export const compressionMiddleware = compression({
   filter: (req, res) => {
-    if (req.headers['x-no-compression']) {
-      return false;
-    }
+    // Allow disabling compression for specific requests
+    if (req.headers['x-no-compress']) return false;
     return compression.filter(req, res);
   },
   level: 6,
   threshold: 1024
 });
 
-// Additional security middleware
-export const blockSuspiciousRequests = (req, res, next) => {
-  const suspiciousPatterns = [
-    /\.\.\//, // Path traversal
-    /<script/i, // XSS attempts
-    /union\s+select/i, // SQL injection
-    /exec\s*\(/i, // Code execution
-    /eval\s*\(/i, // Code evaluation
-    /\$\{.*\}/, // Template injection
-    /<%.*%>/, // Server-side template injection
-    /javascript:/i, // JS protocol
-    /vbscript:/i, // VBS protocol
-    /data:text\/html/i, // Data URLs
-    /\x00/, // Null bytes
-  ];
+// ---- Suspicious request guard ----
+const suspiciousPatterns = [
+  /\b(select\s+\*|union\s+select|drop\s+table)\b/i,
+  /<script\b[^>]*>/i,
+  /\.{2}\//, // path traversal
+  /\b(eval|Function\()\b/,
+  /%3C\s*script/i
+];
 
-  const userAgent = req.get('User-Agent') || '';
-  const requestUrl = req.url;
-  const requestBody = JSON.stringify(req.body);
+export function suspiciousRequestGuard(req, res, next) {
+  try {
+    const userAgent = req.get('User-Agent') || '';
+    const requestUrl = req.url || '';
+    const requestBody = JSON.stringify(req.body || {});
 
-  // Check for suspicious patterns in request
-  const isSuspicious = suspiciousPatterns.some(pattern => 
-    pattern.test(requestUrl) || 
-    pattern.test(requestBody) || 
-    pattern.test(userAgent)
-  );
+    const isSuspicious = suspiciousPatterns.some((p) =>
+      p.test(requestUrl) || p.test(requestBody) || p.test(userAgent)
+    );
 
-  if (isSuspicious) {
-    console.warn(`Blocked suspicious request from ${req.ip}: ${requestUrl}`);
-    return res.status(400).json({ error: 'Invalid request format' });
+    if (isSuspicious) {
+      console.warn(`Blocked suspicious request from ${req.ip}: ${requestUrl}`);
+      return res.status(400).json({ success: false, error: 'Invalid request format' });
+    }
+
+    return next();
+  } catch (_) {
+    // Never break the pipeline from this guard
+    return next();
   }
+}
 
-  next();
-};
-
-// Request logging for security monitoring
-export const securityLogger = (req, res, next) => {
+// ---- Security logger ----
+export function securityLogger(req, res, next) {
   const start = Date.now();
   const originalSend = res.send;
 
-  res.send = function(body) {
+  res.send = function sendPatched(body) {
     const duration = Date.now() - start;
     const logData = {
       timestamp: new Date().toISOString(),
       ip: req.ip,
       method: req.method,
-      url: req.url,
+      url: req.originalUrl || req.url,
       userAgent: req.get('User-Agent'),
       statusCode: res.statusCode,
       duration: `${duration}ms`,
       contentLength: res.get('Content-Length') || 0
     };
 
-    // Log suspicious activity
     if (res.statusCode >= 400) {
       console.warn('Security Log:', logData);
     }
 
-    originalSend.call(this, body);
+    return originalSend.call(this, body);
   };
 
   next();
+}
+
+export default {
+  redisClient,
+  securityHeaders,
+  createRateLimiter,
+  uploadLimiter,
+  authLimiter,
+  corsOptions,
+  corsMiddleware,
+  inputSanitizers,
+  compressionMiddleware,
+  suspiciousRequestGuard,
+  securityLogger
 };

@@ -1,69 +1,68 @@
+import errorMetricsService from '../services/errorMetricsService.js';
 import { AppError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
-import errorMetricsService from '../services/errorMetricsService.js';
 
-export function errorHandler(err, req, res, _next) {
-  let error = { ...err };
-  error.message = err.message;
+function errorHandler(err, req, res, _next) {
+  // Ensure we always have a status code
+  const statusCode = typeof err.statusCode === 'number' ? err.statusCode : 500;
+  const isAppError = err instanceof AppError || err.isOperational === true;
+  const env = process.env.NODE_ENV || 'development';
 
-  // Record error metrics
-  errorMetricsService.recordError(error, {
-    userId: req.user?.id,
-    requestId: res.locals?.requestId,
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    url: req.originalUrl,
-    method: req.method,
-    body: req.method !== 'GET' ? req.body : undefined,
-    query: req.query
-  });
-
-  logger.error({
-    message: error.message,
-    stack: error.stack,
-    url: req.originalUrl,
-    method: req.method,
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    requestId: res.locals?.requestId
-  });
-
-  if (err.name === 'CastError') {
-    const message = 'Resource not found';
-    error = new AppError(message, 404);
-  }
-
-  if (err.code === 11000) {
-    const message = 'Duplicate field value entered';
-    error = new AppError(message, 400);
-  }
-
-  if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message);
-    error = new AppError(message, 400);
-  }
-
-  if (err.name === 'JsonWebTokenError') {
-    const message = 'Invalid token';
-    error = new AppError(message, 401);
-  }
-
-  if (err.name === 'TokenExpiredError') {
-    const message = 'Token expired';
-    error = new AppError(message, 401);
-  }
-
-  res.status(error.statusCode || 500).json({
+  // Build a safe payload
+  const payload = {
     success: false,
     error: {
-      message: error.message || 'Server Error',
-      code: error.code || 'INTERNAL_SERVER_ERROR',
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+      message: isAppError ? err.message : (env === 'development' ? err.message : 'Internal Server Error'),
+      code: isAppError && err.code ? err.code : 'INTERNAL_SERVER_ERROR'
     }
-  });
+  };
+
+  // In development, include stack for easier debugging
+  if (env === 'development') {
+    payload.error.stack = err.stack;
+  }
+
+  // Log the error
+  try {
+    logger[statusCode >= 500 ? 'error' : 'warn'](
+      `${req.method} ${req.originalUrl} -> ${statusCode}: ${err.message}`,
+      {
+        ip: req.ip,
+        userId: req.user?.id,
+        statusCode,
+        headers: req.headers,
+        params: req.params,
+        query: req.query,
+        bodyKeys: Object.keys(req.body || {}),
+        stack: err.stack
+      }
+    );
+  } catch (_) {
+    // no-op if logger fails
+  }
+
+  // Record metrics (best-effort)
+  try {
+    errorMetricsService.capture({
+      name: err.name || 'Error',
+      message: err.message,
+      statusCode,
+      path: req.originalUrl,
+      method: req.method,
+      userId: req.user?.id,
+      isOperational: !!isAppError
+    });
+  } catch (_) {
+    // ignore metrics errors
+  }
+
+  res.status(statusCode).json(payload);
 }
 
-export function notFound(req, res, next) {
+function notFound(req, res, next) {
   const error = new AppError(`Not found - ${req.originalUrl}`, 404);
   next(error);
 }
+
+export { errorHandler, notFound };
+export default errorHandler;

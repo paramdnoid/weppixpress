@@ -1,6 +1,6 @@
-import express from 'express';
-import { getFolderFiles, deleteFiles, moveFiles, copyFiles, createFolder, renameItem } from '../controllers/fileController.js';
+import { copyFiles, createFolder, deleteFiles, getFolderFiles, moveFiles, renameItem } from '../controllers/fileController.js';
 import authenticate from '../middleware/authenticate.js';
+import express from 'express';
 
 const router = express.Router();
 

@@ -1,10 +1,10 @@
+import { CacheError, DatabaseError, ExternalServiceError } from './errors.js';
 import logger from './logger.js';
-import { ExternalServiceError, DatabaseError, CacheError } from './errors.js';
 
 /**
  * Enhanced retry handler with exponential backoff and intelligent retry strategies
  */
-export class RetryHandler {
+class RetryHandler {
   constructor(options = {}) {
     this.maxAttempts = options.maxAttempts || 3;
     this.baseDelay = options.baseDelay || 1000;
@@ -211,7 +211,7 @@ export class RetryHandler {
 /**
  * Predefined retry configurations for common scenarios
  */
-export const RetryConfigs = {
+const RetryConfigs =  {
   // Fast retry for cache operations
   cache: {
     maxAttempts: 2,
@@ -265,18 +265,17 @@ export function createRetryHandler(configName = 'database', overrides = {}) {
 /**
  * Decorator function for adding retry behavior to methods
  */
-export function withRetry(configName = 'database', context = {}) {
-  return function(target, propertyKey, descriptor) {
+export function withRetry(configName = 'database', overrides = {}) {
+  const retryHandler = createRetryHandler(configName, overrides);
+  return (target, propertyKey, descriptor) => {
     const originalMethod = descriptor.value;
-    const retryHandler = createRetryHandler(configName);
+    if (typeof originalMethod !== 'function') return descriptor;
 
-    descriptor.value = async function(...args) {
+    descriptor.value = async function (...args) {
       const methodContext = {
-        ...context,
-        class: target.constructor.name,
+        class: this?.constructor?.name || target?.constructor?.name || 'UnknownClass',
         method: propertyKey
       };
-
       return retryHandler.execute(() => originalMethod.apply(this, args), methodContext);
     };
 

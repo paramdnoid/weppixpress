@@ -1,5 +1,5 @@
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 /**
  * Central JWT Token Utilities
@@ -21,7 +21,7 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
  * @param {Object} options - Additional token options
  * @returns {string} JWT Access Token
  */
-export function generateAccessToken(user, options = {}) {
+function generateAccessToken(user, options = {}) {
   const payload = {
     userId: user.id,
     type: 'access',
@@ -43,12 +43,12 @@ export function generateAccessToken(user, options = {}) {
 }
 
 /**
- * Generiert Refresh Token
+ * Generates Refresh Token
  * @param {Object} user - User object with id  
  * @param {Object} options - Additional token options
  * @returns {string} JWT Refresh Token
  */
-export function generateRefreshToken(user, options = {}) {
+function generateRefreshToken(user, options = {}) {
   const payload = {
     userId: user.id,
     type: 'refresh',
@@ -65,26 +65,26 @@ export function generateRefreshToken(user, options = {}) {
 }
 
 /**
- * Generiert Token-Pair (Access + Refresh)
+ * Generates Token Pair (Access + Refresh)
  * @param {Object} user - User object
  * @param {Object} options - Token options
  * @returns {Object} Token pair
  */
-export function generateTokenPair(user, options = {}) {
+function generateTokenPair(user, options = {}) {
   return {
-    accessToken: generateAccessToken(user, options.access),
-    refreshToken: generateRefreshToken(user, options.refresh),
+    accessToken: generateAccessToken(user, options.access || {}),
+    refreshToken: generateRefreshToken(user, options.refresh || {}),
     expiresIn: ACCESS_TOKEN_EXPIRES,
     tokenType: 'Bearer'
   };
 }
 
 /**
- * Verifiziert Access Token
+ * Verify Access Token
  * @param {string} token - JWT Token
  * @returns {Object} Decoded payload
  */
-export function verifyAccessToken(token) {
+function verifyAccessToken(token) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: process.env.JWT_ISSUER || 'weppixpress',
@@ -102,11 +102,11 @@ export function verifyAccessToken(token) {
 }
 
 /**
- * Verifiziert Refresh Token
+ * Verify Refresh Token
  * @param {string} token - JWT Refresh Token
  * @returns {Object} Decoded payload
  */
-export function verifyRefreshToken(token) {
+function verifyRefreshToken(token) {
   try {
     const decoded = jwt.verify(token, JWT_REFRESH_SECRET, {
       issuer: process.env.JWT_ISSUER || 'weppixpress',
@@ -124,11 +124,11 @@ export function verifyRefreshToken(token) {
 }
 
 /**
- * Dekodiert Token ohne Verifikation (für Debug/Logging)
+ * Decode token without verification (for debug/logging)
  * @param {string} token - JWT Token
  * @returns {Object} Decoded payload
  */
-export function decodeToken(token) {
+function decodeToken(token) {
   try {
     return jwt.decode(token);
   } catch {
@@ -137,23 +137,24 @@ export function decodeToken(token) {
 }
 
 /**
- * Prüft ob Token abgelaufen ist
+ * Check if token is expired
  * @param {string} token - JWT Token
- * @returns {boolean} True wenn abgelaufen
+ * @returns {boolean} True if expired
  */
-export function isTokenExpired(token) {
-  const decoded = decodeToken(token);
-  if (!decoded || !decoded.exp) {
+function isTokenExpired(token) {
+  try {
+    const decoded = decodeToken(token);
+    if (!decoded || !decoded.exp) return true;
+    return Date.now() >= decoded.exp * 1000;
+  } catch {
     return true;
   }
-  
-  return Date.now() >= decoded.exp * 1000;
 }
 
 /**
- * Cookie-Konfiguration für Refresh Token
+ * Cookie configuration for Refresh Token
  */
-export const REFRESH_TOKEN_COOKIE_CONFIG = {
+const REFRESH_TOKEN_COOKIE_CONFIG =  {
   httpOnly: true,
   sameSite: 'strict',
   secure: process.env.NODE_ENV === 'production',
@@ -162,21 +163,47 @@ export const REFRESH_TOKEN_COOKIE_CONFIG = {
 };
 
 /**
- * Setzt Refresh Token Cookie
+ * Set Refresh Token Cookie
  * @param {Object} res - Express response
  * @param {string} refreshToken - Refresh token
  */
-export function setRefreshTokenCookie(res, refreshToken) {
+function setRefreshTokenCookie(res, refreshToken) {
   res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_CONFIG);
 }
 
 /**
- * Löscht Refresh Token Cookie
+ * Clear Refresh Token Cookie
  * @param {Object} res - Express response
  */
-export function clearRefreshTokenCookie(res) {
+function clearRefreshTokenCookie(res) {
   res.clearCookie('refreshToken', {
     ...REFRESH_TOKEN_COOKIE_CONFIG,
     maxAge: 0
   });
 }
+
+export {
+  generateAccessToken,
+  generateRefreshToken,
+  generateTokenPair,
+  verifyAccessToken,
+  verifyRefreshToken,
+  decodeToken,
+  isTokenExpired,
+  setRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  REFRESH_TOKEN_COOKIE_CONFIG
+};
+
+export default {
+  generateAccessToken,
+  generateRefreshToken,
+  generateTokenPair,
+  verifyAccessToken,
+  verifyRefreshToken,
+  decodeToken,
+  isTokenExpired,
+  setRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  REFRESH_TOKEN_COOKIE_CONFIG
+};

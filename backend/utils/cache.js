@@ -1,5 +1,5 @@
-import { createClient } from 'redis';
 import logger from './logger.js';
+import { createClient } from 'redis';
 
 /**
  * Zentrale Cache-Verwaltung mit Redis
@@ -9,30 +9,28 @@ let redisClient = null;
 let isConnected = false;
 
 // Cache-Konfiguration
-const CACHE_CONFIG = {
-  defaultTTL: parseInt(process.env.CACHE_DEFAULT_TTL) || 300, // 5 minutes
-  userSessionTTL: parseInt(process.env.CACHE_USER_SESSION_TTL) || 3600, // 1 hour  
-  fileListTTL: parseInt(process.env.CACHE_FILE_LIST_TTL) || 10, // 10 seconds - temporary fix for cache issues
-  staticContentTTL: parseInt(process.env.CACHE_STATIC_CONTENT_TTL) || 86400, // 24 hours
+export const CACHE_CONFIG = {
+  defaultTTL: parseInt(process.env.CACHE_DEFAULT_TTL || '300', 10), // 5 minutes
+  userSessionTTL: parseInt(process.env.CACHE_USER_SESSION_TTL || '3600', 10), // 1 hour
+  fileListTTL: parseInt(process.env.CACHE_FILE_LIST_TTL || '10', 10), // 10 seconds
+  staticContentTTL: parseInt(process.env.CACHE_STATIC_CONTENT_TTL || '86400', 10), // 24 hours
   keyPrefix: process.env.CACHE_KEY_PREFIX || 'wpx:'
 };
 
 /**
  * Initialisiert Redis-Client
  */
-export async function initializeCache() {
-  if (redisClient && isConnected) {
-    return redisClient;
-  }
-
+export async function initCache() {
   try {
+    if (redisClient && isConnected) return redisClient;
+
     redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
       socket: {
         reconnectStrategy: (retries) => Math.min(retries * 50, 1000),
         connectTimeout: 5000
       },
-      database: parseInt(process.env.REDIS_CACHE_DB) || 1 // Separate DB für Cache
+      database: parseInt(process.env.REDIS_CACHE_DB || '1', 10) // Separate DB für Cache
     });
 
     redisClient.on('error', (err) => {
@@ -45,7 +43,7 @@ export async function initializeCache() {
       isConnected = true;
     });
 
-    redisClient.on('disconnect', () => {
+    redisClient.on('end', () => {
       logger.warn('Redis Cache disconnected');
       isConnected = false;
     });
@@ -61,25 +59,22 @@ export async function initializeCache() {
 /**
  * Generiert Cache-Key
  */
-function generateKey(namespace, identifier) {
+export function generateKey(namespace, identifier) {
   return `${CACHE_CONFIG.keyPrefix}${namespace}:${identifier}`;
 }
 
 /**
  * Cache-Operations
  */
-
 export class CacheManager {
   static async set(namespace, key, value, ttl = CACHE_CONFIG.defaultTTL) {
     if (!redisClient || !isConnected) {
       logger.debug('Cache not available, skipping set operation');
       return false;
     }
-
     try {
       const cacheKey = generateKey(namespace, key);
       const serializedValue = JSON.stringify(value);
-      
       await redisClient.setEx(cacheKey, ttl, serializedValue);
       logger.debug(`Cache SET: ${cacheKey} (TTL: ${ttl}s)`);
       return true;
@@ -94,14 +89,12 @@ export class CacheManager {
       logger.debug('Cache not available, skipping get operation');
       return null;
     }
-
     try {
       const cacheKey = generateKey(namespace, key);
       const value = await redisClient.get(cacheKey);
-      
       if (value) {
         logger.debug(`Cache HIT: ${cacheKey}`);
-        return JSON.parse(value);
+        try { return JSON.parse(value); } catch { return value; }
       } else {
         logger.debug(`Cache MISS: ${cacheKey}`);
         return null;
@@ -116,7 +109,6 @@ export class CacheManager {
     if (!redisClient || !isConnected) {
       return false;
     }
-
     try {
       const cacheKey = generateKey(namespace, key);
       const result = await redisClient.del(cacheKey);
@@ -132,16 +124,14 @@ export class CacheManager {
     if (!redisClient || !isConnected) {
       return false;
     }
-
     try {
       const fullPattern = `${CACHE_CONFIG.keyPrefix}${pattern}`;
+      // Note: For large keyspaces, consider SCAN instead of KEYS
       const keys = await redisClient.keys(fullPattern);
-      
       if (keys.length > 0) {
         await redisClient.del(keys);
         logger.info(`Cache invalidated ${keys.length} keys matching pattern: ${fullPattern}`);
       }
-      
       return true;
     } catch (error) {
       logger.error(`Cache pattern invalidation failed for ${pattern}:`, error);
@@ -153,7 +143,6 @@ export class CacheManager {
     if (!redisClient || !isConnected) {
       return false;
     }
-
     try {
       await redisClient.flushDb();
       logger.info('Cache completely flushed');
@@ -168,85 +157,79 @@ export class CacheManager {
 /**
  * Specialized Cache Functions
  */
-
-// User Session Cache
 export const UserCache = {
   async getUser(userId) {
-    return await CacheManager.get('user', userId);
+    return CacheManager.get('user', userId);
   },
-
   async setUser(userId, userData) {
-    return await CacheManager.set('user', userId, userData, CACHE_CONFIG.userSessionTTL);
+    return CacheManager.set('user', userId, userData, CACHE_CONFIG.userSessionTTL);
   },
-
   async invalidateUser(userId) {
-    return await CacheManager.del('user', userId);
+    return CacheManager.del('user', userId);
   }
 };
 
-// File Listing Cache  
 export const FileCache = {
-  async getFileList(userId, path = '/') {
-    const key = `${userId}:${path.replace(/\//g, '_')}`;
-    return await CacheManager.get('files', key);
+  async getFileList(userId, path) {
+    const key = `${userId}:${(path || '/').replace(/\//g, '_')}`;
+    return CacheManager.get('files', key);
   },
-
   async setFileList(userId, path, fileList) {
-    const key = `${userId}:${path.replace(/\//g, '_')}`;
-    return await CacheManager.set('files', key, fileList, CACHE_CONFIG.fileListTTL);
+    const key = `${userId}:${(path || '/').replace(/\//g, '_')}`;
+    return CacheManager.set('files', key, fileList, CACHE_CONFIG.fileListTTL);
   },
-
   async invalidateUserFiles(userId) {
-    return await CacheManager.invalidatePattern(`files:${userId}:*`);
+    return CacheManager.invalidatePattern(`files:${userId}:*`);
   },
-
   async invalidateFilePath(userId, path) {
-    const key = `${userId}:${path.replace(/\//g, '_')}`;
-    return await CacheManager.del('files', key);
+    const key = `${userId}:${(path || '/').replace(/\//g, '_')}`;
+    return CacheManager.del('files', key);
   }
 };
 
-// General Application Cache
 export const AppCache = {
   async getStats() {
-    return await CacheManager.get('app', 'stats');
+    return CacheManager.get('app', 'stats');
   },
-
   async setStats(stats) {
-    return await CacheManager.set('app', 'stats', stats, 60); // 1 minute
+    return CacheManager.set('app', 'stats', stats, 60); // 1 minute
   },
-
   async getConfig(key) {
-    return await CacheManager.get('config', key);
+    return CacheManager.get('config', key);
   },
-
   async setConfig(key, value) {
-    return await CacheManager.set('config', key, value, CACHE_CONFIG.staticContentTTL);
+    return CacheManager.set('config', key, value, CACHE_CONFIG.staticContentTTL);
   }
 };
 
 /**
  * Cache Middleware für Express
  */
-export function cacheMiddleware(namespace, keyGenerator, ttl = CACHE_CONFIG.defaultTTL) {
+export function cacheMiddleware(namespace, keyBuilder, ttl = CACHE_CONFIG.defaultTTL) {
   return async (req, res, next) => {
     try {
-      const key = keyGenerator(req);
+      if (!redisClient || !isConnected) return next();
+
+      const key = typeof keyBuilder === 'function' ? keyBuilder(req) : String(keyBuilder);
+      if (!key) return next();
+
       const cached = await CacheManager.get(namespace, key);
-      
       if (cached) {
-        logger.debug(`Serving from cache: ${namespace}:${key}`);
+        logger.debug(`Cache middleware HIT: ${namespace}:${key}`);
         return res.json(cached);
       }
 
-      // Override res.json to cache response
+      // Override res.json to cache successful responses
       const originalJson = res.json;
-      res.json = function(data) {
-        // Only cache successful responses
-        if (res.statusCode < 400) {
-          CacheManager.set(namespace, key, data, ttl).catch(err => {
-            logger.error('Cache middleware set failed:', err);
-          });
+      res.json = function (data) {
+        try {
+          if (res.statusCode < 400) {
+            CacheManager.set(namespace, key, data, ttl).catch(err => {
+              logger.error('Cache middleware set failed:', err);
+            });
+          }
+        } catch (err) {
+          logger.error('Cache middleware error during set:', err);
         }
         return originalJson.call(this, data);
       };
@@ -262,15 +245,13 @@ export function cacheMiddleware(namespace, keyGenerator, ttl = CACHE_CONFIG.defa
 /**
  * Cache Health Check
  */
-export async function getCacheHealth() {
+export async function cacheHealth() {
   if (!redisClient) {
-    return { status: 'disabled', connected: false };
+    return { status: 'uninitialized', connected: false };
   }
-
   try {
     await redisClient.ping();
     const info = await redisClient.info('memory');
-    
     return {
       status: 'healthy',
       connected: isConnected,
@@ -289,12 +270,27 @@ export async function getCacheHealth() {
  * Graceful Shutdown
  */
 export async function closeCache() {
-  if (redisClient && isConnected) {
+  if (redisClient) {
     try {
       await redisClient.quit();
-      logger.info('Cache connection closed');
+      isConnected = false;
+      logger.info('Redis Cache connection closed');
     } catch (error) {
       logger.error('Error closing cache connection:', error);
     }
   }
 }
+
+// Default export for convenience
+export default {
+  initCache,
+  CacheManager,
+  UserCache,
+  FileCache,
+  AppCache,
+  cacheMiddleware,
+  cacheHealth,
+  closeCache,
+  generateKey,
+  CACHE_CONFIG
+};

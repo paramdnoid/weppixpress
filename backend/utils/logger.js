@@ -1,4 +1,4 @@
-import { createLogger, transports, format } from 'winston';
+import { createLogger, format, transports } from 'winston';
 
 // Central logger configuration
 const logger = createLogger({
@@ -49,43 +49,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Security Logger für sensible Ereignisse
-export const securityLogger = createLogger({
-  level: 'warn',
-  format: format.combine(
-    format.timestamp(),
-    format.json()
-  ),
-  transports: [
-    new transports.File({ 
-      filename: 'logs/security.log',
-      maxsize: 5242880,
-      maxFiles: 10,
-      tailable: true
-    }),
-    new transports.Console({
-      format: format.combine(
-        format.colorize(),
-        format.simple()
-      )
-    })
-  ]
-});
 
 // Performance Logger
-export const performanceLogger = createLogger({
-  level: 'info',
-  format: format.combine(
-    format.timestamp(),
-    format.json()
-  ),
-  transports: [
-    new transports.File({ 
-      filename: 'logs/performance.log',
-      maxsize: 5242880,
-      maxFiles: 3,
-      tailable: true
-    })
-  ]
-});
 
 export default logger;

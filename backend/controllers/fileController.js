@@ -1,14 +1,14 @@
+import { FileCache } from '../utils/cache.js';
+import logger from '../utils/logger.js';
+import { getUserDirectory, sanitizeUploadPath, secureResolve } from '../utils/pathSecurity.js';
+import dotenv from 'dotenv';
+import { filesize } from 'filesize';
 import { promises as fsp } from 'fs';
-import { dirname, resolve as _resolve, join, relative, basename } from 'path';
+import { resolve as _resolve, basename, dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-import { filesize } from 'filesize';
-import dotenv from 'dotenv';
-import logger from '../utils/logger.js';
-import { secureResolve, getUserDirectory, sanitizeUploadPath } from '../utils/pathSecurity.js';
-import { FileCache } from '../utils/cache.js';
 
 dotenv.config();
 
@@ -711,7 +711,6 @@ export async function copyFiles(req, res, next) {
   }
 }
 
-// Helper function to copy directories recursively with limits and excludePaths
 async function copyDirectoryRecursive(source, destination, options = {}) {
   const config = {
     maxDepth: options.maxDepth || 50,

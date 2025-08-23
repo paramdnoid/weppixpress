@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import { sendMail } from '../utils/mail.js';
+import sendMail from '../utils/mail.js';
 import { validationResult } from 'express-validator';
 import {
   findUserByEmail, createUser, setVerificationToken, verifyUserByToken,
@@ -200,13 +200,13 @@ export async function resetPassword(req, res, next) {
 }
 
 export async function refreshToken(req, res) {
-  const { refreshToken } = req.cookies;
-  if (!refreshToken) {
+  const { refreshToken: refreshTokenCookie } = req.cookies;
+  if (!refreshTokenCookie) {
     return res.status(401).json({ message: 'No refresh token provided' });
   }
   
   try {
-    const payload = verifyRefreshToken(refreshToken);
+    const payload = verifyRefreshToken(refreshTokenCookie);
     const user = await getUserById(payload.userId);
     if (!user) {
       return res.status(401).json({ message: 'User not found' });

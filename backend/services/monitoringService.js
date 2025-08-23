@@ -1,14 +1,13 @@
-import os from 'os';
-import process from 'process';
 import logger from '../utils/logger.js';
 import cacheService from './cacheService.js';
 import databaseService from './databaseService.js';
-import errorMetricsService from './errorMetricsService.js';
+import os from 'os';
+import process from 'process';
 
 /**
  * System monitoring and health check service
  */
-export class MonitoringService {
+class MonitoringService {
   constructor() {
     this.metrics = {
       requests: { total: 0, errors: 0, lastReset: Date.now() },
@@ -19,7 +18,7 @@ export class MonitoringService {
       database_queries: { total: 0, errors: 0, slow_queries: 0 },
       cache_operations: { hits: 0, misses: 0, errors: 0 }
     };
-    
+
     this.thresholds = {
       memory_usage_critical: 0.9,
       memory_usage_warning: 0.7,
@@ -30,12 +29,12 @@ export class MonitoringService {
       error_rate_critical: 0.1,
       error_rate_warning: 0.05
     };
-    
+
     this.alerts = [];
     this.isMonitoring = false;
     this.monitoringInterval = null;
-    
-    // Start monitoring
+
+    // Start monitoring on construct
     this.startMonitoring();
   }
 
@@ -44,14 +43,13 @@ export class MonitoringService {
    */
   startMonitoring() {
     if (this.isMonitoring) return;
-    
     this.isMonitoring = true;
-    
+
     // Collect system metrics every 30 seconds
     this.monitoringInterval = setInterval(() => {
       this.collectSystemMetrics();
-    }, 30000);
-    
+    }, 30_000);
+
     logger.info('Monitoring service started');
   }
 
@@ -63,7 +61,7 @@ export class MonitoringService {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;
     }
-    
+
     this.isMonitoring = false;
     logger.info('Monitoring service stopped');
   }
@@ -77,7 +75,7 @@ export class MonitoringService {
       const totalMemory = os.totalmem();
       const freeMemory = os.freemem();
       const usedMemory = totalMemory - freeMemory;
-      
+
       // Memory metrics
       const memoryUsagePercent = usedMemory / totalMemory;
       this.metrics.memory_usage.push({
@@ -90,30 +88,31 @@ export class MonitoringService {
         heap_total: memoryUsage.heapTotal,
         rss: memoryUsage.rss
       });
-      
+
       // Keep only last 100 entries
       if (this.metrics.memory_usage.length > 100) {
         this.metrics.memory_usage = this.metrics.memory_usage.slice(-100);
       }
-      
+
       // CPU metrics
-      const cpuUsage = os.loadavg()[0] / os.cpus().length;
+      const cpuUsage = os.loadavg()[0] / Math.max(os.cpus().length, 1);
       this.metrics.cpu_usage.push({
         timestamp: Date.now(),
         usage: cpuUsage,
         loadavg: os.loadavg(),
         cores: os.cpus().length
       });
-      
+
       if (this.metrics.cpu_usage.length > 100) {
         this.metrics.cpu_usage = this.metrics.cpu_usage.slice(-100);
       }
-      
+
       // Check for alerts
       this.checkAlerts(memoryUsagePercent, cpuUsage);
-      
-      // Log metrics periodically
-      if (Date.now() % 300000 < 30000) { // Every 5 minutes
+
+      // Log metrics every ~5 minutes (best-effort)
+      const now = Date.now();
+      if (now % 300_000 < 30_000) {
         logger.info('System metrics', {
           memory_usage: `${(memoryUsagePercent * 100).toFixed(1)}%`,
           cpu_usage: `${(cpuUsage * 100).toFixed(1)}%`,
@@ -131,22 +130,20 @@ export class MonitoringService {
    * Check for system alerts
    */
   checkAlerts(memoryUsage, cpuUsage) {
-    const now = Date.now();
-    
     // Memory alerts
     if (memoryUsage > this.thresholds.memory_usage_critical) {
       this.addAlert('memory_critical', `Memory usage critical: ${(memoryUsage * 100).toFixed(1)}%`, 'critical');
     } else if (memoryUsage > this.thresholds.memory_usage_warning) {
       this.addAlert('memory_warning', `Memory usage high: ${(memoryUsage * 100).toFixed(1)}%`, 'warning');
     }
-    
+
     // CPU alerts
     if (cpuUsage > this.thresholds.cpu_usage_critical) {
       this.addAlert('cpu_critical', `CPU usage critical: ${(cpuUsage * 100).toFixed(1)}%`, 'critical');
     } else if (cpuUsage > this.thresholds.cpu_usage_warning) {
       this.addAlert('cpu_warning', `CPU usage high: ${(cpuUsage * 100).toFixed(1)}%`, 'warning');
     }
-    
+
     // Error rate alerts
     const errorRate = this.getErrorRate();
     if (errorRate > this.thresholds.error_rate_critical) {
@@ -154,7 +151,7 @@ export class MonitoringService {
     } else if (errorRate > this.thresholds.error_rate_warning) {
       this.addAlert('error_rate_warning', `Error rate high: ${(errorRate * 100).toFixed(1)}%`, 'warning');
     }
-    
+
     // Response time alerts
     const avgResponseTime = this.getAverageResponseTime();
     if (avgResponseTime > this.thresholds.response_time_critical) {
@@ -170,40 +167,32 @@ export class MonitoringService {
   addAlert(type, message, level) {
     const now = Date.now();
     const lastAlert = this.alerts.find(a => a.type === type && a.level === level);
-    
-    // Don't spam alerts - only add if last alert of same type was more than 5 minutes ago
-    if (!lastAlert || (now - lastAlert.timestamp) > 300000) {
-      const alert = {
-        type,
-        message,
-        level,
-        timestamp: now
-      };
-      
+
+    // Don't spam alerts - only add if last alert of same type was > 5 minutes ago
+    if (!lastAlert || (now - lastAlert.timestamp) > 300_000) {
+      const alert = { type, message, level, timestamp: now };
       this.alerts.push(alert);
-      
+
       // Keep only last 50 alerts
       if (this.alerts.length > 50) {
         this.alerts = this.alerts.slice(-50);
       }
-      
+
       logger.warn('System alert', alert);
-      
-      // Here you could integrate with external alerting systems
+      // Hook for external alerting system
       // this.sendToExternalAlerting(alert);
     }
   }
 
   /**
-   * Record request metrics
+   * Record request metrics (used by middleware)
    */
   recordRequest(method, path, statusCode, responseTime, error = null) {
     this.metrics.requests.total++;
-    
     if (error || statusCode >= 400) {
       this.metrics.requests.errors++;
     }
-    
+
     this.metrics.response_times.push({
       timestamp: Date.now(),
       method,
@@ -212,7 +201,7 @@ export class MonitoringService {
       responseTime,
       error: error ? error.message : null
     });
-    
+
     // Keep only last 1000 requests
     if (this.metrics.response_times.length > 1000) {
       this.metrics.response_times = this.metrics.response_times.slice(-1000);
@@ -220,26 +209,26 @@ export class MonitoringService {
   }
 
   /**
-   * Record database operation
+   * Record database operation (used by wrappers)
    */
   recordDatabaseOperation(operation, duration, error = null) {
     this.metrics.database_queries.total++;
-    
+
     if (error) {
       this.metrics.database_queries.errors++;
     }
-    
-    if (duration > 1000) { // Slow query threshold: 1 second
+
+    if (duration > 1000) { // Slow query threshold: 1s
       this.metrics.database_queries.slow_queries++;
       logger.warn('Slow database query detected', {
-        operation: operation.substring(0, 100),
+        operation: String(operation || '').substring(0, 100),
         duration
       });
     }
   }
 
   /**
-   * Record cache operation
+   * Record cache operation (used by wrappers)
    */
   recordCacheOperation(operation, hit = false, error = null) {
     if (hit) {
@@ -247,7 +236,7 @@ export class MonitoringService {
     } else {
       this.metrics.cache_operations.misses++;
     }
-    
+
     if (error) {
       this.metrics.cache_operations.errors++;
     }
@@ -259,34 +248,34 @@ export class MonitoringService {
   async getHealthStatus() {
     const now = Date.now();
     const uptime = process.uptime();
-    
-    // Get external service health
+
+    // External service health
     const [cacheHealth, dbHealth] = await Promise.all([
       this.getServiceHealth('cache', () => cacheService.healthCheck()),
       this.getServiceHealth('database', () => databaseService.healthCheck())
     ]);
-    
-    // Calculate metrics
+
+    // Calculated metrics
     const memoryUsage = this.getLatestMemoryUsage();
     const cpuUsage = this.getLatestCpuUsage();
     const errorRate = this.getErrorRate();
     const avgResponseTime = this.getAverageResponseTime();
     const requestsPerMinute = this.getRequestsPerMinute();
-    
-    // Determine overall health status
+
+    // Overall status
     let overallStatus = 'healthy';
-    
     if (cacheHealth.status !== 'healthy' || dbHealth.status !== 'healthy') {
       overallStatus = 'degraded';
     }
-    
-    if (memoryUsage > this.thresholds.memory_usage_critical ||
-        cpuUsage > this.thresholds.cpu_usage_critical ||
-        errorRate > this.thresholds.error_rate_critical ||
-        avgResponseTime > this.thresholds.response_time_critical) {
+    if (
+      memoryUsage > this.thresholds.memory_usage_critical ||
+      cpuUsage > this.thresholds.cpu_usage_critical ||
+      errorRate > this.thresholds.error_rate_critical ||
+      avgResponseTime > this.thresholds.response_time_critical
+    ) {
       overallStatus = 'unhealthy';
     }
-    
+
     return {
       status: overallStatus,
       timestamp: now,
@@ -295,13 +284,21 @@ export class MonitoringService {
       metrics: {
         memory: {
           usage_percent: (memoryUsage * 100).toFixed(1),
-          status: memoryUsage > this.thresholds.memory_usage_critical ? 'critical' :
-                  memoryUsage > this.thresholds.memory_usage_warning ? 'warning' : 'normal'
+          status:
+            memoryUsage > this.thresholds.memory_usage_critical
+              ? 'critical'
+              : memoryUsage > this.thresholds.memory_usage_warning
+              ? 'warning'
+              : 'normal'
         },
         cpu: {
           usage_percent: (cpuUsage * 100).toFixed(1),
-          status: cpuUsage > this.thresholds.cpu_usage_critical ? 'critical' :
-                  cpuUsage > this.thresholds.cpu_usage_warning ? 'warning' : 'normal'
+          status:
+            cpuUsage > this.thresholds.cpu_usage_critical
+              ? 'critical'
+              : cpuUsage > this.thresholds.cpu_usage_warning
+              ? 'warning'
+              : 'normal'
         },
         requests: {
           total: this.metrics.requests.total,
@@ -323,7 +320,7 @@ export class MonitoringService {
           hit_rate: this.getCacheHitRate()
         }
       },
-      alerts: this.alerts.slice(-10), // Last 10 alerts
+      alerts: this.alerts.slice(-10),
       thresholds: this.thresholds
     };
   }
@@ -348,12 +345,12 @@ export class MonitoringService {
 
   getAverageResponseTime() {
     if (this.metrics.response_times.length === 0) return 0;
-    const recent = this.metrics.response_times.slice(-100); // Last 100 requests
-    return recent.reduce((sum, r) => sum + r.responseTime, 0) / recent.length;
+    const sum = this.metrics.response_times.reduce((acc, r) => acc + (Number(r.responseTime) || 0), 0);
+    return Math.round(sum / this.metrics.response_times.length);
   }
 
   getRequestsPerMinute() {
-    const oneMinuteAgo = Date.now() - 60000;
+    const oneMinuteAgo = Date.now() - 60_000;
     const recentRequests = this.metrics.response_times.filter(r => r.timestamp > oneMinuteAgo);
     return recentRequests.length;
   }
@@ -361,7 +358,7 @@ export class MonitoringService {
   getCacheHitRate() {
     const total = this.metrics.cache_operations.hits + this.metrics.cache_operations.misses;
     if (total === 0) return 0;
-    return ((this.metrics.cache_operations.hits / total) * 100).toFixed(2);
+    return Number(((this.metrics.cache_operations.hits / total) * 100).toFixed(2));
   }
 
   /**
@@ -387,25 +384,25 @@ export class MonitoringService {
   getPerformanceReport(timeRange = 'last_hour') {
     const now = Date.now();
     let startTime;
-    
+
     switch (timeRange) {
       case 'last_minute':
-        startTime = now - 60000;
+        startTime = now - 60_000;
         break;
       case 'last_hour':
-        startTime = now - 3600000;
+        startTime = now - 3_600_000;
         break;
       case 'last_day':
-        startTime = now - 86400000;
+        startTime = now - 86_400_000;
         break;
       default:
-        startTime = now - 3600000;
+        startTime = now - 3_600_000;
     }
-    
+
     const filteredResponses = this.metrics.response_times.filter(r => r.timestamp > startTime);
     const filteredMemory = this.metrics.memory_usage.filter(m => m.timestamp > startTime);
     const filteredCpu = this.metrics.cpu_usage.filter(c => c.timestamp > startTime);
-    
+
     return {
       timeRange,
       period: {
@@ -415,30 +412,27 @@ export class MonitoringService {
       requests: {
         total: filteredResponses.length,
         errors: filteredResponses.filter(r => r.error || r.statusCode >= 400).length,
-        avg_response_time: filteredResponses.length > 0 
-          ? filteredResponses.reduce((sum, r) => sum + r.responseTime, 0) / filteredResponses.length 
-          : 0,
-        slowest: filteredResponses.length > 0 
-          ? Math.max(...filteredResponses.map(r => r.responseTime)) 
-          : 0,
-        fastest: filteredResponses.length > 0 
-          ? Math.min(...filteredResponses.map(r => r.responseTime)) 
-          : 0
+        avg_response_time:
+          filteredResponses.length > 0
+            ? filteredResponses.reduce((sum, r) => sum + r.responseTime, 0) / filteredResponses.length
+            : 0,
+        slowest: filteredResponses.length > 0 ? Math.max(...filteredResponses.map(r => r.responseTime)) : 0,
+        fastest: filteredResponses.length > 0 ? Math.min(...filteredResponses.map(r => r.responseTime)) : 0
       },
       memory: {
-        avg_usage: filteredMemory.length > 0 
-          ? filteredMemory.reduce((sum, m) => sum + m.percentage, 0) / filteredMemory.length 
+        avg_usage: filteredMemory.length > 0
+          ? filteredMemory.reduce((sum, m) => sum + m.percentage, 0) / filteredMemory.length
           : 0,
-        peak_usage: filteredMemory.length > 0 
-          ? Math.max(...filteredMemory.map(m => m.percentage)) 
+        peak_usage: filteredMemory.length > 0
+          ? Math.max(...filteredMemory.map(m => m.percentage))
           : 0
       },
       cpu: {
-        avg_usage: filteredCpu.length > 0 
-          ? filteredCpu.reduce((sum, c) => sum + c.usage, 0) / filteredCpu.length 
+        avg_usage: filteredCpu.length > 0
+          ? filteredCpu.reduce((sum, c) => sum + c.usage, 0) / filteredCpu.length
           : 0,
-        peak_usage: filteredCpu.length > 0 
-          ? Math.max(...filteredCpu.map(c => c.usage)) 
+        peak_usage: filteredCpu.length > 0
+          ? Math.max(...filteredCpu.map(c => c.usage))
           : 0
       }
     };
@@ -456,9 +450,9 @@ export class MonitoringService {
         service: serviceName,
         stack: error.stack
       });
-      return { 
-        status: 'error', 
-        error: error.message, 
+      return {
+        status: 'error',
+        error: error.message,
         service: serviceName,
         timestamp: new Date().toISOString()
       };

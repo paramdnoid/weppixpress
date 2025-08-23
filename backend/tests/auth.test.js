@@ -1,7 +1,8 @@
-// tests/auth.test.js
-import request from 'supertest';
-import { expect } from 'chai';
 import app from '../server.js';
+import { expect } from 'chai';
+import request from 'supertest';
+
+// tests/auth.test.js
 
 describe('Authentication', () => {
   describe('POST /api/auth/register', () => {

@@ -1,7 +1,8 @@
-// routes/upload.js
-import express from 'express';
-import { uploadFile, handleUploadWithPath } from '../controllers/uploadController.js';
+import { uploadMiddleware, uploadFile } from '../controllers/uploadController.js';
 import authenticate from '../middleware/authenticate.js';
+import express from 'express';
+
+// routes/upload.js
 
 const router = express.Router();
 
@@ -26,6 +27,6 @@ const router = express.Router();
  *       201:
  *         description: File uploaded successfully
  */
-router.post('/', authenticate, handleUploadWithPath, uploadFile);
+router.post('/', authenticate, uploadMiddleware, uploadFile);
 
 export default router;

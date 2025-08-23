@@ -1,7 +1,8 @@
-// backend/websocketHandler.js
-import { WebSocketServer } from 'ws';
-import crypto from 'crypto';
 import logger from './utils/logger.js';
+import crypto from 'crypto';
+import { WebSocketServer } from 'ws';
+
+// backend/websocketHandler.js
 
 class WebSocketManager {
   constructor(server) {
@@ -136,7 +137,6 @@ class WebSocketManager {
     }
     this.pathSubscriptions.get(normalizedPath).add(ws);
 
-    //logger.info(`Client ${clientInfo.id} subscribed to path: ${normalizedPath}`);
     
     // Confirm subscription
     this.sendToClient(ws, {
@@ -164,7 +164,6 @@ class WebSocketManager {
       }
     }
 
-    //logger.info(`Client ${clientInfo.id} unsubscribed from path: ${normalizedPath}`);
     
     // Confirm unsubscription
     this.sendToClient(ws, {
@@ -383,4 +382,4 @@ class WebSocketManager {
   }
 }
 
-export { WebSocketManager };
+export { WebSocketManager }
