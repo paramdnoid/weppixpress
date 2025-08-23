@@ -288,8 +288,9 @@ export const useFileStore = defineStore('files', () => {
     const normalizedPath = normalizePath(folderPath)
     
     // Ignore changes that happened too soon after navigation (avoid refresh loops)
+    // Reduced from 1000ms to 200ms to allow quicker updates while preventing loops
     const timeSinceNavigation = Date.now() - state.value.lastNavigationAt
-    if (timeSinceNavigation < 1000) {
+    if (timeSinceNavigation < 200) {
       return
     }
 
@@ -425,7 +426,7 @@ export const useFileStore = defineStore('files', () => {
       state.value.lastNavigationAt = Date.now()
 
       // Load new path
-      const response = await loadPage(normalizedPath, 1, false)
+      const response = await loadPage(normalizedPath, 1, false, forceRefresh)
 
       // Update navigation state
       state.value.currentPath = normalizedPath
@@ -478,15 +479,15 @@ export const useFileStore = defineStore('files', () => {
   }
 
   // ===== PAGINATED LOADING =====
-  async function loadPage(path: string, page: number, append = false) {
+  async function loadPage(path: string, page: number, append = false, forceRefresh = false) {
     const normalizedPath = normalizePath(path)
     const cacheKey = `${normalizedPath}::${page}`
     const metrics = state.value.performanceMetrics
     metrics.totalRequests++
     const startTime = performance.now()
 
-    // Check cache
-    if (state.value.cache.has(cacheKey)) {
+    // Check cache (unless force refresh is requested)
+    if (!forceRefresh && state.value.cache.has(cacheKey)) {
       metrics.cacheHits++
       const cached = state.value.cache.get(cacheKey)!
       
@@ -515,7 +516,8 @@ export const useFileStore = defineStore('files', () => {
           limit: 100,
           sortBy: state.value.sorting.key,
           sortOrder: state.value.sorting.order,
-          search: state.value.filters.search
+          search: state.value.filters.search,
+          forceRefresh: forceRefresh ? 'true' : undefined
         })
 
         const totalCount = typeof response.total === 'number'
@@ -680,7 +682,8 @@ export const useFileStore = defineStore('files', () => {
       const response = await fileApi.list(normalizedPath, {
         sortBy: 'name',
         sortOrder: 'asc',
-        limit: 1000
+        limit: 1000,
+        forceRefresh: !useCache ? 'true' : undefined
       })
 
       state.value.treeCache.set(normalizedPath, response.items)
@@ -826,12 +829,16 @@ export const useFileStore = defineStore('files', () => {
       }
 
       fileOperation.status = 'completed'
-      await refreshCurrentPath()
+      
+      // Invalidate cache for all affected paths
       invalidateCache(targetPath)
       items.forEach(item => {
         const parentPath = getParentPath(item.path)
         invalidateCache(parentPath)
       })
+      
+      // Force refresh to show the pasted items
+      await refreshCurrentPath()
 
     } catch (error: any) {
       fileOperation.status = 'failed'
@@ -871,6 +878,8 @@ export const useFileStore = defineStore('files', () => {
       })
 
       operation.status = 'completed'
+      
+      // Invalidate cache and force refresh to show uploaded files
       invalidateCache(state.value.currentPath)
       await refreshCurrentPath()
 
@@ -916,6 +925,9 @@ export const useFileStore = defineStore('files', () => {
 
       operation.status = 'completed'
       state.value = { ...state.value }
+      
+      // Force refresh to ensure UI reflects actual server state
+      await refreshCurrentPath()
       return true
     } catch (error: any) {
       operation.status = 'failed'
@@ -965,6 +977,8 @@ export const useFileStore = defineStore('files', () => {
     try {
       await fileApi.createFolder(name, targetPath)
       operation.status = 'completed'
+      
+      // Invalidate cache and force refresh to show new folder
       invalidateCache(targetPath)
       await refreshCurrentPath()
     } catch (error: any) {

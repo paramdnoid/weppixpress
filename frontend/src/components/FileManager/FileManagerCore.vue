@@ -173,12 +173,68 @@ function handleBreadcrumbNavigate(breadcrumb) {
 // Handle item double click (Grid/Table navigation)
 function handleItemDoubleClickLocal(item) {
   if (item.type === 'folder') {
-    // Use toggleNode with fromBreadcrumb to ensure tree synchronization
-    // This will update fileStore.state.currentPath AND trigger tree reorganization
-    toggleNode(item.path, { fromBreadcrumb: true })
+    // Direct navigation without using toggleNode to avoid double API calls
+    fileStore.navigateToPath(item.path)
   } else {
-    // For files, use the original composable function
-    handleItemDoubleClick(item)
+    // For files, handle opening/downloading
+    openFileLocal(item)
+  }
+}
+
+// Local file opening function to avoid duplicate navigation calls for folders
+function openFileLocal(item) {
+  try {
+    if (!item?.path) {
+      console.error('Cannot open file: invalid file item', item)
+      return
+    }
+    
+    console.log('Opening file:', item.name)
+    
+    // Get file type checkers from composable
+    const { isImageFile, isVideoFile, isCodeFile } = useFileManager()
+    
+    if (isImageFile(item)) {
+      // TODO: Open in image viewer modal
+      console.log('Opening image viewer for:', item.name)
+    } else if (isVideoFile(item)) {
+      // TODO: Open in video player modal
+      console.log('Opening video player for:', item.name)
+    } else if (isCodeFile(item)) {
+      // TODO: Open in code editor modal
+      console.log('Opening code editor for:', item.name)
+    } else {
+      // Default to download
+      downloadFileLocal(item)
+    }
+  } catch (error) {
+    console.error('Error opening file:', error)
+    alert('Failed to open file. Please try again.')
+  }
+}
+
+// Local file download function
+function downloadFileLocal(item) {
+  try {
+    if (!item?.path) {
+      console.error('Cannot download file: invalid file item', item)
+      return
+    }
+    
+    // Create a temporary link for download
+    const link = document.createElement('a')
+    link.href = `/api/files/download?path=${encodeURIComponent(item.path)}`
+    link.download = item.name || 'download'
+    link.style.display = 'none'
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    console.log('Download initiated for:', item.name)
+  } catch (error) {
+    console.error('Error downloading file:', error)
+    alert('Failed to download file. Please try again.')
   }
 }
 

@@ -1,4 +1,3 @@
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
@@ -10,13 +9,15 @@ import {
   setResetToken, getUserByResetToken, updatePassword,
   enable2FA, disable2FA, getUserById
 } from '../models/userModel.js';
-
-function generateAccessToken(user) {
-  return jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
-}
-function generateRefreshToken(user) {
-  return jwt.sign({ userId: user.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN });
-}
+import { 
+  generateAccessToken, 
+  generateRefreshToken, 
+  generateTokenPair,
+  verifyRefreshToken,
+  setRefreshTokenCookie,
+  clearRefreshTokenCookie
+} from '../utils/jwtUtils.js';
+import SecureLogger from '../utils/secureLogger.js';
 
 // --- REGISTRIEREN MIT MAIL-BESTÄTIGUNG ---
 export async function register(req, res, next) {
@@ -38,11 +39,11 @@ export async function register(req, res, next) {
     await sendMail({
       to: email,
       subject: "Bitte bestätige deine E-Mail",
-      html: `<p>Bestätige deine Registrierung:</p><a href="http://localhost:3000/verify-email?token=${token}">Jetzt bestätigen</a>`
+      html: `<p>Bestätige deine Registrierung:</p><a href="${process.env.FRONTEND_URL}/verify-email?token=${token}">Jetzt bestätigen</a>`
     });
     res.status(201).json({ message: 'Registered. Check your E-Mail!' });
   } catch (err) {
-    console.error('[REGISTER] Error:', err);
+    SecureLogger.errorWithContext(err, { action: 'register', ip: req.ip });
     next(err);
   }
 }
@@ -76,12 +77,14 @@ export async function login(req, res, next) {
     if (user.is_2fa_enabled) {
       return res.json({ requires2FA: true, userId: user.id });
     }
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict', secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
-    res.json({ accessToken, user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } });
+    const tokens = generateTokenPair(user);
+    setRefreshTokenCookie(res, tokens.refreshToken);
+    res.json({ 
+      accessToken: tokens.accessToken, 
+      user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } 
+    });
   } catch (err) {
-    console.error('[LOGIN] Error:', err);
+    SecureLogger.security('login_failure', { ip: req.ip, userAgent: req.get('User-Agent') });
     next(err);
   }
 }
@@ -96,10 +99,12 @@ export async function verify2FA(req, res) {
   if (!user || !user.is_2fa_enabled) return res.status(401).json({ message: "Nicht aktiviert" });
   const verified = speakeasy.totp.verify({ secret: user.fa2_secret, encoding: 'base32', token: code });
   if (!verified) return res.status(400).json({ message: "Ungültiger Code" });
-  const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
-  res.cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict', secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 });
-  res.json({ accessToken, user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } });
+  const tokens = generateTokenPair(user);
+  setRefreshTokenCookie(res, tokens.refreshToken);
+  res.json({ 
+    accessToken: tokens.accessToken, 
+    user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } 
+  });
 }
 
 // --- 2FA SETUP/DEAKTIVIERUNG ---
@@ -143,7 +148,7 @@ export async function forgotPassword(req, res, next) {
     await sendMail({
       to: email,
       subject: "Passwort zurücksetzen",
-      html: `<p>Setze dein Passwort zurück:</p><a href="http://localhost:3000/reset-password?token=${token}">Passwort zurücksetzen</a>`
+      html: `<p>Setze dein Passwort zurück:</p><a href="${process.env.FRONTEND_URL}/reset-password?token=${token}">Passwort zurücksetzen</a>`
     });
     res.json({ message: "Reset-Mail verschickt." });
   } catch (err) {
@@ -163,7 +168,7 @@ export async function resetPassword(req, res, next) {
     await updatePassword(user.id, hash);
     res.json({ message: "Passwort aktualisiert" });
   } catch (err) {
-    console.error('[RESET PASSWORD] Error:', err);
+    SecureLogger.errorWithContext(err, { action: 'reset_password', ip: req.ip });
     next(err);
   }
 }
@@ -172,19 +177,21 @@ export async function resetPassword(req, res, next) {
 export async function refreshToken(req, res) {
   const { refreshToken } = req.cookies;
   if (!refreshToken) return res.status(401).json({ message: 'No refresh token' });
+  
   try {
-    const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const payload = verifyRefreshToken(refreshToken);
     const user = await getUserById(payload.userId);
     if (!user) return res.status(401).json({ message: 'User not found' });
-    const accessToken = jwt.sign({ userId: payload.userId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
+    
+    const accessToken = generateAccessToken(user);
     res.json({ accessToken });
-  } catch {
-    res.status(401).json({ message: 'Invalid refresh token' });
+  } catch (error) {
+    res.status(401).json({ message: 'Invalid refresh token: ' + error.message });
   }
 }
 export function logout(req, res, next) {
   try {
-    res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+    clearRefreshTokenCookie(res);
     res.json({ message: 'Logged out' });
   } catch (err) {
     next(err);
@@ -200,10 +207,13 @@ export async function getProfile(req, res) {
 
     const accessToken = generateAccessToken(user);
 
+    // Log user activity (GDPR-compliant)
+    SecureLogger.userActivity('profile_access', user.id);
+
     // Destructure user to avoid accessing properties directly
     res.status(200).json({accessToken, user: { id: user.id, email: user.email, name: user.first_name + ' ' + user.last_name } });
   } catch (err) {
-    console.error('[PROFILE] Error:', err);
+    SecureLogger.errorWithContext(err, { action: 'get_profile', ip: req.ip });
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

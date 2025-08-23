@@ -1,19 +1,7 @@
 // backend/websocketHandler.js
 import { WebSocketServer } from 'ws';
-import { createLogger, transports, format } from 'winston';
-
-const logger = createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: format.combine(
-    format.timestamp(),
-    format.printf(({ timestamp, level, message, ...meta }) =>
-      `${timestamp} [${level.toUpperCase()}]: ${message}${
-        Object.keys(meta).length ? ' ' + JSON.stringify(meta) : ''
-      }`
-    )
-  ),
-  transports: [new transports.Console()]
-});
+import crypto from 'crypto';
+import logger from './utils/logger.js';
 
 class WebSocketManager {
   constructor(server) {
@@ -221,8 +209,8 @@ class WebSocketManager {
     }
   }
 
-  // Public methods for broadcasting updates
-  broadcastToPath(path, message) {
+  // Optimized broadcasting with batching and filtering
+  broadcastToPath(path, message, options = {}) {
     const normalizedPath = this.normalizePath(path);
     const subscribers = this.pathSubscriptions.get(normalizedPath);
     
@@ -234,46 +222,127 @@ class WebSocketManager {
     const broadcastMessage = {
       ...message,
       path: normalizedPath,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      batchId: options.batchId || crypto.randomUUID().substring(0, 8)
     };
 
-    logger.info(`Broadcasting to ${subscribers.size} clients on path: ${normalizedPath}`, {
-      messageType: message.type
+    // Filter active connections only
+    const activeSubscribers = Array.from(subscribers).filter(ws => 
+      ws.readyState === ws.OPEN
+    );
+
+    if (activeSubscribers.length === 0) {
+      logger.debug(`No active subscribers for path: ${normalizedPath}`);
+      // Clean up dead connections
+      this.pathSubscriptions.delete(normalizedPath);
+      return;
+    }
+
+    logger.info(`Broadcasting to ${activeSubscribers.length} active clients on path: ${normalizedPath}`, {
+      messageType: message.type,
+      batchId: broadcastMessage.batchId
     });
 
-    subscribers.forEach(ws => {
-      this.sendToClient(ws, broadcastMessage);
-    });
+    // Batch sending for better performance
+    const batchSize = 50;
+    for (let i = 0; i < activeSubscribers.length; i += batchSize) {
+      const batch = activeSubscribers.slice(i, i + batchSize);
+      
+      // Send to batch with small delay to prevent overwhelming
+      setImmediate(() => {
+        batch.forEach(ws => {
+          this.sendToClient(ws, broadcastMessage);
+        });
+      });
+    }
   }
 
-  broadcastFileCreated(file) {
+  // Optimized file event broadcasting
+  broadcastFileCreated(file, options = {}) {
     const parentPath = this.getParentPath(file.path);
+    const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
+    
+    // Broadcast to parent directory and root
     this.broadcastToPath(parentPath, {
       type: 'file_created',
-      file: file
-    });
+      file: file,
+      action: 'create'
+    }, { batchId });
+
+    // Also broadcast to root if not already parent
+    if (parentPath !== '/') {
+      this.broadcastToPath('/', {
+        type: 'file_created',
+        file: file,
+        action: 'create',
+        affectedPath: parentPath
+      }, { batchId });
+    }
   }
 
-  broadcastFileUpdated(file) {
+  broadcastFileUpdated(file, options = {}) {
     const parentPath = this.getParentPath(file.path);
+    const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
+    
     this.broadcastToPath(parentPath, {
       type: 'file_updated',
-      file: file
-    });
+      file: file,
+      action: 'update'
+    }, { batchId });
   }
 
-  broadcastFileDeleted(filePath) {
+  broadcastFileDeleted(filePath, options = {}) {
     const parentPath = this.getParentPath(filePath);
+    const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
+    
     this.broadcastToPath(parentPath, {
       type: 'file_deleted',
-      path: filePath
-    });
+      path: filePath,
+      action: 'delete'
+    }, { batchId });
+
+    // Also broadcast to root
+    if (parentPath !== '/') {
+      this.broadcastToPath('/', {
+        type: 'file_deleted',
+        path: filePath,
+        action: 'delete',
+        affectedPath: parentPath
+      }, { batchId });
+    }
   }
 
-  broadcastFolderChanged(folderPath) {
+  broadcastFolderChanged(folderPath, options = {}) {
+    const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
+    
     this.broadcastToPath(folderPath, {
       type: 'folder_changed',
-      path: folderPath
+      path: folderPath,
+      action: 'refresh'
+    }, { batchId });
+  }
+
+  // Batch multiple file operations
+  broadcastBatchFileOperations(operations) {
+    const batchId = crypto.randomUUID().substring(0, 8);
+    
+    logger.info(`Broadcasting batch operation with ${operations.length} items`, { batchId });
+    
+    operations.forEach(op => {
+      switch (op.type) {
+        case 'create':
+          this.broadcastFileCreated(op.file, { batchId });
+          break;
+        case 'update':
+          this.broadcastFileUpdated(op.file, { batchId });
+          break;
+        case 'delete':
+          this.broadcastFileDeleted(op.path, { batchId });
+          break;
+        case 'folder_change':
+          this.broadcastFolderChanged(op.path, { batchId });
+          break;
+      }
     });
   }
 

@@ -7,6 +7,7 @@ interface ListOptions {
   search?: string
   page?: number
   limit?: number
+  forceRefresh?: string
 }
 
 interface UploadOptions {

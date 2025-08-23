@@ -37,13 +37,13 @@ export default function authenticate(req, res, next) {
 
     req.user = payload;
     
-    // Log authentication for security monitoring
-    console.log(`Authentication successful for user ${payload.userId} from ${req.ip}`);
+    // Log authentication for security monitoring (without sensitive data)
+    console.log(`Authentication successful from ${req.ip}`);
     
     next();
   } catch (err) {
-    // Enhanced error handling for security
-    console.warn(`Authentication failed from ${req.ip}: ${err.message}`);
+    // Enhanced error handling for security (log only general failure)
+    console.warn(`Authentication failed from ${req.ip}`);
     
     if (!err.statusCode) {
       err.statusCode = err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError'

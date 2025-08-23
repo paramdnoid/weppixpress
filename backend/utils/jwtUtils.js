@@ -1,0 +1,182 @@
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+
+/**
+ * Zentrale JWT Token Utilities
+ */
+
+// Token-Konfiguration
+const ACCESS_TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '15m';
+const REFRESH_TOKEN_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error('JWT secrets must be configured in environment variables');
+}
+
+/**
+ * Generiert Access Token
+ * @param {Object} user - User object with id
+ * @param {Object} options - Additional token options
+ * @returns {string} JWT Access Token
+ */
+export function generateAccessToken(user, options = {}) {
+  const payload = {
+    userId: user.id,
+    type: 'access',
+    iat: Math.floor(Date.now() / 1000),
+    jti: crypto.randomUUID() // Unique token ID for revocation
+  };
+
+  // Optional: Add roles/permissions
+  if (user.role) {
+    payload.role = user.role;
+  }
+
+  return jwt.sign(payload, JWT_SECRET, {
+    expiresIn: options.expiresIn || ACCESS_TOKEN_EXPIRES,
+    issuer: process.env.JWT_ISSUER || 'weppixpress',
+    audience: process.env.JWT_AUDIENCE || 'weppixpress-api',
+    subject: String(user.id)
+  });
+}
+
+/**
+ * Generiert Refresh Token
+ * @param {Object} user - User object with id  
+ * @param {Object} options - Additional token options
+ * @returns {string} JWT Refresh Token
+ */
+export function generateRefreshToken(user, options = {}) {
+  const payload = {
+    userId: user.id,
+    type: 'refresh',
+    iat: Math.floor(Date.now() / 1000),
+    jti: crypto.randomUUID()
+  };
+
+  return jwt.sign(payload, JWT_REFRESH_SECRET, {
+    expiresIn: options.expiresIn || REFRESH_TOKEN_EXPIRES,
+    issuer: process.env.JWT_ISSUER || 'weppixpress',
+    audience: process.env.JWT_AUDIENCE || 'weppixpress-api',
+    subject: String(user.id)
+  });
+}
+
+/**
+ * Generiert Token-Pair (Access + Refresh)
+ * @param {Object} user - User object
+ * @param {Object} options - Token options
+ * @returns {Object} Token pair
+ */
+export function generateTokenPair(user, options = {}) {
+  return {
+    accessToken: generateAccessToken(user, options.access),
+    refreshToken: generateRefreshToken(user, options.refresh),
+    expiresIn: ACCESS_TOKEN_EXPIRES,
+    tokenType: 'Bearer'
+  };
+}
+
+/**
+ * Verifiziert Access Token
+ * @param {string} token - JWT Token
+ * @returns {Object} Decoded payload
+ */
+export function verifyAccessToken(token) {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      issuer: process.env.JWT_ISSUER || 'weppixpress',
+      audience: process.env.JWT_AUDIENCE || 'weppixpress-api'
+    });
+
+    if (decoded.type !== 'access') {
+      throw new Error('Invalid token type');
+    }
+
+    return decoded;
+  } catch (error) {
+    throw new Error(`Invalid access token: ${error.message}`);
+  }
+}
+
+/**
+ * Verifiziert Refresh Token
+ * @param {string} token - JWT Refresh Token
+ * @returns {Object} Decoded payload
+ */
+export function verifyRefreshToken(token) {
+  try {
+    const decoded = jwt.verify(token, JWT_REFRESH_SECRET, {
+      issuer: process.env.JWT_ISSUER || 'weppixpress',
+      audience: process.env.JWT_AUDIENCE || 'weppixpress-api'
+    });
+
+    if (decoded.type !== 'refresh') {
+      throw new Error('Invalid token type');
+    }
+
+    return decoded;
+  } catch (error) {
+    throw new Error(`Invalid refresh token: ${error.message}`);
+  }
+}
+
+/**
+ * Dekodiert Token ohne Verifikation (für Debug/Logging)
+ * @param {string} token - JWT Token
+ * @returns {Object} Decoded payload
+ */
+export function decodeToken(token) {
+  try {
+    return jwt.decode(token);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Prüft ob Token abgelaufen ist
+ * @param {string} token - JWT Token
+ * @returns {boolean} True wenn abgelaufen
+ */
+export function isTokenExpired(token) {
+  const decoded = decodeToken(token);
+  if (!decoded || !decoded.exp) {
+    return true;
+  }
+  
+  return Date.now() >= decoded.exp * 1000;
+}
+
+/**
+ * Cookie-Konfiguration für Refresh Token
+ */
+export const REFRESH_TOKEN_COOKIE_CONFIG = {
+  httpOnly: true,
+  sameSite: 'strict',
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: '/api/auth'
+};
+
+/**
+ * Setzt Refresh Token Cookie
+ * @param {Object} res - Express response
+ * @param {string} refreshToken - Refresh token
+ */
+export function setRefreshTokenCookie(res, refreshToken) {
+  res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_CONFIG);
+}
+
+/**
+ * Löscht Refresh Token Cookie
+ * @param {Object} res - Express response
+ */
+export function clearRefreshTokenCookie(res) {
+  res.clearCookie('refreshToken', {
+    ...REFRESH_TOKEN_COOKIE_CONFIG,
+    maxAge: 0
+  });
+}
