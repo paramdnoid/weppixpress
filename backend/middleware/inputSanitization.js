@@ -5,10 +5,10 @@ import validator from 'validator';
 import logger from '../utils/logger.js';
 
 /**
- * Erweiterte Input-Sanitization Middleware
+ * Enhanced Input Sanitization Middleware
  */
 
-// Gefährliche Patterns für verschiedene Angriffe
+// Dangerous patterns for various attack vectors
 const SECURITY_PATTERNS = {
   // SQL Injection
   sqlInjection: [
@@ -75,10 +75,10 @@ const SECURITY_PATTERNS = {
 };
 
 /**
- * Prüft Text auf gefährliche Patterns
+ * Checks text for malicious patterns
  * @param {string} input - Input string
- * @param {string} context - Context für Logging
- * @returns {Object} Ergebnis der Prüfung
+ * @param {string} context - Context for logging
+ * @returns {Object} Check result
  */
 function detectMaliciousPatterns(input, context = 'unknown') {
   if (!input || typeof input !== 'string') {
@@ -88,7 +88,7 @@ function detectMaliciousPatterns(input, context = 'unknown') {
   const threats = [];
   const inputLower = input.toLowerCase();
 
-  // Prüfe alle Pattern-Kategorien
+  // Check all pattern categories
   Object.entries(SECURITY_PATTERNS).forEach(([category, patterns]) => {
     patterns.forEach((pattern, index) => {
       if (pattern.test(input) || pattern.test(inputLower)) {
@@ -116,7 +116,7 @@ function detectMaliciousPatterns(input, context = 'unknown') {
 }
 
 /**
- * Bestimmt Schweregrad basierend auf Kategorie
+ * Determines severity level based on category
  */
 function getSeverity(category) {
   const severityMap = {
@@ -132,7 +132,7 @@ function getSeverity(category) {
 }
 
 /**
- * Sanitisiert String-Eingaben
+ * Sanitizes string inputs
  * @param {string} input - Input string
  * @param {Object} options - Sanitization options
  */
@@ -143,18 +143,18 @@ function sanitizeString(input, options = {}) {
 
   let sanitized = input;
 
-  // HTML-Tags entfernen (falls nicht erlaubt)
+  // Remove HTML tags (if not allowed)
   if (options.stripHtml !== false) {
     sanitized = sanitized.replace(/<[^>]*>/g, '');
   }
 
-  // Null bytes entfernen
+  // Remove null bytes
   sanitized = sanitized.replace(/\x00/g, '');
 
-  // Kontrollzeichen entfernen
+  // Remove control characters
   sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
-  // SQL-Sonderzeichen escapen
+  // Escape SQL special characters
   if (options.escapeSql !== false) {
     sanitized = sanitized.replace(/'/g, "''");
     sanitized = sanitized.replace(/"/g, '""');
@@ -167,7 +167,7 @@ function sanitizeString(input, options = {}) {
 }
 
 /**
- * Validiert und sanitisiert Email-Adressen
+ * Validates and sanitizes email addresses
  */
 function sanitizeEmail(email) {
   if (!email || typeof email !== 'string') {
@@ -184,7 +184,7 @@ function sanitizeEmail(email) {
 }
 
 /**
- * Validiert und sanitisiert URLs
+ * Validates and sanitizes URLs
  */
 function sanitizeUrl(url) {
   if (!url || typeof url !== 'string') {
@@ -201,7 +201,7 @@ function sanitizeUrl(url) {
 }
 
 /**
- * Rekursive Objekt-Sanitization
+ * Recursive object sanitization
  */
 function sanitizeObject(obj, options = {}) {
   if (!obj || typeof obj !== 'object') {
@@ -215,7 +215,7 @@ function sanitizeObject(obj, options = {}) {
   const sanitized = {};
   
   Object.keys(obj).forEach(key => {
-    // Schlüssel prüfen
+    // Check keys
     const keyCheck = detectMaliciousPatterns(key, 'object-key');
     if (!keyCheck.isSafe && options.strict) {
       logger.warn(`Malicious key detected: ${key}`);
@@ -229,11 +229,11 @@ function sanitizeObject(obj, options = {}) {
       
       if (!valueCheck.isSafe) {
         if (options.strict) {
-          // In strict mode: Wert ablehnen
+          // In strict mode: reject value
           logger.warn(`Malicious value rejected for key: ${key}`);
           return;
         } else {
-          // Sanitisieren
+          // Sanitize value
           sanitized[key] = sanitizeString(value, options);
         }
       } else {
@@ -250,7 +250,7 @@ function sanitizeObject(obj, options = {}) {
 }
 
 /**
- * Express Middleware für erweiterte Input-Sanitization
+ * Express Middleware for enhanced input sanitization
  */
 export const enhancedSanitization = (options = {}) => {
   const config = {
@@ -273,7 +273,7 @@ export const enhancedSanitization = (options = {}) => {
         req.query = sanitizeObject(req.query, config);
       }
 
-      // Headers prüfen
+      // Check headers
       const userAgent = req.get('User-Agent') || '';
       const referer = req.get('Referer') || '';
       
@@ -331,7 +331,7 @@ export const securityMiddlewareStack = [
 ];
 
 /**
- * Strict Security Middleware für kritische Endpoints
+ * Strict Security Middleware for critical endpoints
  */
 export const strictSecurityMiddleware = [
   xss(),
@@ -341,7 +341,7 @@ export const strictSecurityMiddleware = [
 ];
 
 /**
- * Utility Funktionen für manuelle Validierung
+ * Utility functions for manual validation
  */
 export const InputValidator = {
   sanitizeString,
@@ -350,7 +350,7 @@ export const InputValidator = {
   sanitizeObject,
   detectMaliciousPatterns,
   
-  // Spezielle Validatoren
+  // Special validators
   isValidFilename: (filename) => {
     if (!filename || typeof filename !== 'string') return false;
     const check = detectMaliciousPatterns(filename, 'filename');

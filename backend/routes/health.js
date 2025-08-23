@@ -1,4 +1,3 @@
-// routes/health.js
 import express from 'express';
 import { healthCheck, readinessCheck, livenessCheck } from '../controllers/healthController.js';
 

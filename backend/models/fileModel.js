@@ -1,4 +1,3 @@
-// models/fileModel.js
 import pool from '../db.js';
 
 export async function createFile(fileData) {

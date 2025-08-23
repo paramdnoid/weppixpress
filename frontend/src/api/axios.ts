@@ -7,7 +7,9 @@ const API_BASE_URL = 'http://localhost:3000/api'
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  timeout: 30000
+  timeout: 0, // No timeout for large file uploads
+  maxContentLength: Infinity,
+  maxBodyLength: Infinity
 })
 
 // Request interceptor to add auth token

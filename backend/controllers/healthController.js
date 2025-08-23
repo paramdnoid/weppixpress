@@ -1,4 +1,3 @@
-// controllers/healthController.js
 import pool from '../db.js';
 import { createClient } from 'redis';
 
@@ -10,7 +9,6 @@ export async function healthCheck(_req, res) {
   };
 
   try {
-    // Check database
     await pool.query('SELECT 1');
     health.services.database = 'healthy';
   } catch {
@@ -19,7 +17,6 @@ export async function healthCheck(_req, res) {
   }
 
   try {
-    // Check Redis
     const redis = createClient();
     await redis.connect();
     await redis.ping();

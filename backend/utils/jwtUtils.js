@@ -2,10 +2,10 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
 /**
- * Zentrale JWT Token Utilities
+ * Central JWT Token Utilities
  */
 
-// Token-Konfiguration
+// Token configuration
 const ACCESS_TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_TOKEN_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -16,7 +16,7 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
 }
 
 /**
- * Generiert Access Token
+ * Generates access token
  * @param {Object} user - User object with id
  * @param {Object} options - Additional token options
  * @returns {string} JWT Access Token
@@ -29,7 +29,7 @@ export function generateAccessToken(user, options = {}) {
     jti: crypto.randomUUID() // Unique token ID for revocation
   };
 
-  // Optional: Add roles/permissions
+  // Add roles/permissions if available
   if (user.role) {
     payload.role = user.role;
   }

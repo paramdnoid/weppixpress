@@ -7,16 +7,18 @@ import { ValidationError } from '../utils/errors.js';
 import { ensureUserUploadDir } from './fileController.js';
 import { fileFilter } from '../utils/fileValidation.js';
 
-// Conflict-safe naming helpers
 const pathExists = async (p) => {
   try { await fsp.access(p); return true; } catch { return false; }
 };
 /**
- * Returns a unique absolute path inside `dir` by appending " (1)", "(2)", ... before the extension if needed.
+ * Generates a unique path by appending a number suffix if the desired name already exists
+ * @param {string} dir - The directory path
+ * @param {string} desiredName - The desired filename
+ * @returns {Promise<string>} A unique absolute path
  */
 const getUniquePath = async (dir, desiredName) => {
   const idx = desiredName.lastIndexOf('.');
-  const hasExt = idx > 0 && desiredName.indexOf('.') !== 0; // ignore dotfiles
+  const hasExt = idx > 0 && desiredName.indexOf('.') !== 0;
   const base = hasExt ? desiredName.slice(0, idx) : desiredName;
   const ext = hasExt ? desiredName.slice(idx) : '';
   let candidate = desiredName;
@@ -27,14 +29,12 @@ const getUniquePath = async (dir, desiredName) => {
   return join(dir, candidate);
 };
 
-// Basic filename sanitizer to prevent path tricks and control chars
 const sanitizeFilename = (name) => {
   const base = basename(name || '');
-  // drop control chars and reserved characters on Windows/POSIX
+  // Remove control characters and reserved characters
   return base.replace(/[\u0000-\u001F<>:"/\\|?*]+/g, '').trim() || 'unnamed';
 };
 
-// Configure multer for file uploads with async operations
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     (async () => {
@@ -44,13 +44,13 @@ const storage = multer.diskStorage({
         }
         const userDir = await ensureUserUploadDir(req.user.userId);
 
-        // Get path from form fields (if available) or default to root
+        // Extract upload path from form data, default to root
         let uploadPath = '/';
         if (req.body && req.body.path) {
           uploadPath = req.body.path;
         }
 
-        // Secure path resolution
+        // Resolve path securely
         let targetPath;
         try {
           const sanitizedPath = sanitizeUploadPath(uploadPath);
@@ -100,20 +100,15 @@ const storage = multer.diskStorage({
   }
 });
 
-// Custom middleware to handle upload with dynamic path
 export const handleUploadWithPath = async (req, res, next) => {
-  let uploadPath = '/'; // Default path
+  let uploadPath = '/';
   let uploadedFiles = [];
 
-  // Using centralized file filter
-
-  // Parse form data manually
+  // Parse form data
   const form = multer({
     storage: multer.memoryStorage(),
     fileFilter,
     limits: {
-      // 512MB per file by default; adjust if needed in env
-      fileSize: Number(process.env.UPLOAD_MAX_FILESIZE_BYTES || 512 * 1024 * 1024),
       files: Number(process.env.UPLOAD_MAX_FILES || 50)
     }
   });
@@ -127,7 +122,7 @@ export const handleUploadWithPath = async (req, res, next) => {
     uploadPath = req.body.path || '/';
     const userDir = await ensureUserUploadDir(req.user.userId);
     
-    // Secure path resolution
+    // Resolve path securely
     let targetPath;
     try {
       const sanitizedPath = sanitizeUploadPath(uploadPath);
@@ -152,12 +147,12 @@ export const handleUploadWithPath = async (req, res, next) => {
         for (const file of files) {
           if (file.fieldname === 'files' || file.fieldname === 'files[]') {
             const safeName = sanitizeFilename(file.originalname);
-            // Ensure parent directory still exists (race-safe)
+            // Ensure directory exists
             try {
               await fsp.mkdir(targetPath, { recursive: true });
             } catch {}
 
-            // Choose a conflict-safe path and write file
+            // Generate unique path and write file
             const uniquePath = await getUniquePath(targetPath, safeName);
             await fsp.writeFile(uniquePath, file.buffer);
             const finalName = basename(uniquePath);
@@ -203,7 +198,6 @@ export const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: Number(process.env.UPLOAD_MAX_FILESIZE_BYTES || 512 * 1024 * 1024),
     files: Number(process.env.UPLOAD_MAX_FILES || 50)
   }
 });

@@ -1,6 +1,6 @@
 import { createLogger, transports, format } from 'winston';
 
-// Zentrale Logger-Konfiguration
+// Central logger configuration
 const logger = createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: format.combine(

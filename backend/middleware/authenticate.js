@@ -9,7 +9,6 @@ export default function authenticate(req, res, next) {
       throw err;
     }
 
-    // Validate authorization header format
     if (!authHeader.startsWith('Bearer ')) {
       const err = new Error('Invalid token format');
       err.statusCode = 401;
@@ -17,8 +16,6 @@ export default function authenticate(req, res, next) {
     }
 
     const token = authHeader.split(' ')[1];
-    
-    // Check token length and format
     if (!token || token.length < 10) {
       const err = new Error('Invalid token');
       err.statusCode = 401;
@@ -26,8 +23,6 @@ export default function authenticate(req, res, next) {
     }
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Additional payload validation
     if (!payload.userId || (typeof payload.userId !== 'string' && typeof payload.userId !== 'number')) {
       const err = new Error('Invalid token payload');
       err.statusCode = 401;
@@ -36,13 +31,10 @@ export default function authenticate(req, res, next) {
 
 
     req.user = payload;
-    
-    // Log authentication for security monitoring (without sensitive data)
     console.log(`Authentication successful from ${req.ip}`);
     
     next();
   } catch (err) {
-    // Enhanced error handling for security (log only general failure)
     console.warn(`Authentication failed from ${req.ip}`);
     
     if (!err.statusCode) {
@@ -51,7 +43,6 @@ export default function authenticate(req, res, next) {
         : 500;
     }
 
-    // For invalid signature errors (JWT secret changed), provide clear error message
     if (err.name === 'JsonWebTokenError' && err.message === 'invalid signature') {
       err.message = 'Session expired. Please log in again.';
     }

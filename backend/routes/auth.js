@@ -17,25 +17,20 @@ const router = express.Router();
 router.post('/register', validateRequest(registerSchema), register);
 router.post('/login', validateRequest(loginSchema), login);
 
-// Email verification
 router.get('/verify-email', verifyEmail);
 
-// 2FA verification
 router.post('/verify-2fa', validateRequest(verify2FASchema), verify2FA);
 
-// Password reset flows
 router.post('/forgot-password', validateRequest(forgotPasswordSchema), forgotPassword);
 router.post('/reset-password', validateRequest(resetPasswordSchema), resetPassword);
 
-// Token management
 router.post('/refresh', validateRequest(refreshSchema), refreshToken);
 router.post('/logout', logout);
 
-// 2FA setup and management (protected)
 router.post('/setup-2fa', authenticate, setup2FA);
 router.post('/enable-2fa', authenticate, validateRequest(enable2FASchema), enable2FAController);
 router.post('/disable-2fa', authenticate, disable2FAController);
 
-router.get('/me', authenticate, getProfile );
+router.get('/me', authenticate, getProfile);
 
 export default router;

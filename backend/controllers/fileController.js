@@ -14,15 +14,14 @@ dotenv.config();
 
 const baseDir = _resolve(process.env.UPLOAD_DIR || join(__dirname, '../..', 'uploads'));
 
-// --- Conflict-safe naming helpers ---
 async function pathExists(p) {
   try { await fsp.access(p); return true; } catch { return false; }
 }
 /**
- * Returns a unique absolute path inside `dir` by appending " (1)", "(2)", ... before the extension if needed.
- * @param {string} dir absolute directory
- * @param {string} desiredName filename or folder name
- * @returns {Promise<string>} absolute unique path
+ * Generates a unique path by appending a number suffix if the desired name already exists
+ * @param {string} dir - The absolute directory path
+ * @param {string} desiredName - The desired filename or folder name
+ * @returns {Promise<string>} A unique absolute path
  */
 async function getUniquePath(dir, desiredName) {
   const idx = desiredName.lastIndexOf('.');
@@ -36,7 +35,6 @@ async function getUniquePath(dir, desiredName) {
   }
   return join(dir, candidate);
 }
-// --- end helpers ---
 
 /**
  * Non-recursively reads a file system item and returns its metadata (flat listing only).
@@ -52,7 +50,7 @@ async function readItem(item, targetPath, baseDirUser) {
     const isFile = item.isFile();
     let hasSubfolder = false;
     
-    // Only check if directory has subfolders, don't read them
+    // Check if directory has subfolders without recursively reading them
     if (item.isDirectory()) {
       try {
         const subItems = await fsp.readdir(fullPath, { withFileTypes: true });
@@ -74,7 +72,7 @@ async function readItem(item, targetPath, baseDirUser) {
       sizeInBytes = sizeResult.size;
       
       if (sizeResult.limitReached.timeout || sizeResult.limitReached.maxFiles) {
-        logger.warn(`Folder size calculation limited for ${fullPath}`, sizeResult.limitReached);
+        logger.warn(`Folder size calculation limited for ${fullPath}:`, sizeResult.limitReached);
       }
     }
     
@@ -85,12 +83,12 @@ async function readItem(item, targetPath, baseDirUser) {
       size: sizeInBytes,
       sizeFormatted: filesize(sizeInBytes),
       extension: isFile ? item.name.split('.').pop() || '' : undefined,
-      mimeType: undefined, // TODO: Add mime type detection if needed
+      mimeType: undefined,
       created: stats.birthtime.toISOString(),
       modified: stats.mtime.toISOString(),
       accessed: stats.atime.toISOString(),
       hasSubfolders: hasSubfolder,
-      itemCount: undefined, // TODO: Add item count for folders if needed
+      itemCount: undefined,
       hasThumbnail: false,
       thumbnailId: undefined,
       permissions: {
@@ -127,19 +125,19 @@ async function getFolderSize(folderPath, options = {}) {
   const startTime = Date.now();
   
   async function calculateSizeRecursive(path, depth = 0) {
-    // Depth limit check (inclusive)
+    // Check depth limit
     if (depth >= config.maxDepth) {
       errors.push(`Max depth ${config.maxDepth} exceeded at: ${path}`);
       return 0;
     }
 
-    // File count limit check (inclusive)
+    // Check file count limit
     if (fileCount >= config.maxFiles) {
       errors.push(`Max file count ${config.maxFiles} exceeded`);
       return 0;
     }
 
-    // Timeout check (inclusive)
+    // Check timeout limit
     if (Date.now() - startTime >= config.timeout) {
       errors.push(`Timeout of ${config.timeout}ms exceeded`);
       return 0;
@@ -481,13 +479,12 @@ export async function createFolder(req, res, next) {
       const sanitizedPath = sanitizeUploadPath(path);
       targetDir = secureResolve(baseDirUser, sanitizedPath);
       
-      // Debug logging
-      logger.debug(`CreateFolder: name="${name}", path="${path}", sanitizedPath="${sanitizedPath}", targetDir="${targetDir}"`);
+      logger.debug('Creating folder', { name, path, sanitizedPath, targetDir });
     } catch (error) {
       return res.status(400).json({ error: 'Invalid path: ' + error.message });
     }
     
-    // Pick a conflict-safe path
+    // Generate a unique folder path to avoid conflicts
     const uniqueFolderPath = await getUniquePath(targetDir, safeName);
     await fsp.mkdir(uniqueFolderPath);
 
@@ -607,7 +604,7 @@ export async function copyFiles(req, res, next) {
     await fsp.mkdir(destPath, { recursive: true });
     const copiedItems = [];
     // Read optional limits from request or env, with sane clamps
-    const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
     const reqLimits = req.body?.limits || {};
     const limits = {
       maxDepth: clamp(Number.isFinite(+reqLimits.maxDepth) ? +reqLimits.maxDepth : (parseInt(process.env.COPY_MAX_DEPTH) || 50), 1, 500),
@@ -642,7 +639,7 @@ export async function copyFiles(req, res, next) {
         // Check if source exists
         const stats = await fsp.stat(fullSourcePath);
 
-        // Prevent self-nesting: if destination ends up inside the source folder, pick a unique sibling name
+        // Prevent self-nesting by generating a unique name if destination would be inside source
         if (stats.isDirectory()) {
           if (isSubPath(fullSourcePath, fullDestPath) || fullSourcePath === fullDestPath) {
             const base = fileName;
@@ -663,7 +660,7 @@ export async function copyFiles(req, res, next) {
           // Choose a conflict-safe destination folder name
           fullDestPath = await getUniquePath(destPath, basename(fullDestPath));
           const safeDest = fullDestPath;
-          // Copy directory recursively with limits, exclude the chosen dest to avoid recursion into itself
+          // Copy directory recursively with limits, excluding destination to prevent infinite recursion
           copyResult = await copyDirectoryRecursive(fullSourcePath, safeDest, { ...limits, excludePaths: [safeDest] });
           
           if (!copyResult.success) {
@@ -730,7 +727,7 @@ async function copyDirectoryRecursive(source, destination, options = {}) {
   const startTime = Date.now();
 
   async function copyRecursive(src, dest, depth = 0) {
-    // Limits checks (inclusive): depth 0 is the starting folder
+    // Check limits (depth 0 is the starting folder)
     if (depth >= config.maxDepth) {
       errors.push(`Max depth exceeded: ${src}`);
       return false;
@@ -752,7 +749,7 @@ async function copyDirectoryRecursive(source, destination, options = {}) {
       for (const entry of entries) {
         const sourcePath = join(src, entry.name);
         const destPath = join(dest, entry.name);
-        // Skip paths that would traverse into excluded destinations (avoid copying into self)
+        // Skip excluded paths to prevent copying into self
         if (excludes.some(e => sourcePath === e || sourcePath.startsWith(e + '/'))) {
           errors.push(`Skipped excluded path: ${sourcePath}`);
           continue;
