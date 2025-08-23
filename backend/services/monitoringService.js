@@ -3,6 +3,7 @@ import process from 'process';
 import logger from '../utils/logger.js';
 import cacheService from './cacheService.js';
 import databaseService from './databaseService.js';
+import errorMetricsService from './errorMetricsService.js';
 
 /**
  * System monitoring and health check service
@@ -261,8 +262,8 @@ export class MonitoringService {
     
     // Get external service health
     const [cacheHealth, dbHealth] = await Promise.all([
-      cacheService.healthCheck().catch(err => ({ status: 'error', error: err.message })),
-      databaseService.healthCheck().catch(err => ({ status: 'error', error: err.message }))
+      this.getServiceHealth('cache', () => cacheService.healthCheck()),
+      this.getServiceHealth('database', () => databaseService.healthCheck())
     ]);
     
     // Calculate metrics
@@ -441,6 +442,27 @@ export class MonitoringService {
           : 0
       }
     };
+  }
+
+  // Helper method for safe service health checking
+  async getServiceHealth(serviceName, healthCheckFn) {
+    try {
+      const result = await healthCheckFn();
+      logger.debug(`Health check successful for ${serviceName}:`, result);
+      return result;
+    } catch (error) {
+      logger.error(`${serviceName} health check failed:`, {
+        error: error.message,
+        service: serviceName,
+        stack: error.stack
+      });
+      return { 
+        status: 'error', 
+        error: error.message, 
+        service: serviceName,
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 }
 

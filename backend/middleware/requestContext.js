@@ -5,19 +5,31 @@ import logger from '../utils/logger.js';
  * Request context middleware for tracking and logging
  */
 export const requestContext = (req, res, next) => {
-  // Generate unique request ID
-  const requestId = crypto.randomUUID();
+  // Generate unique request ID (or use existing from client)
+  const requestId = req.get('X-Request-ID') || 
+                    req.get('X-Correlation-ID') || 
+                    crypto.randomUUID();
+  
+  // Generate correlation ID for distributed tracing
+  const correlationId = req.get('X-Correlation-ID') || requestId;
   
   // Store in response locals for access in other middleware/controllers
   res.locals.requestId = requestId;
+  res.locals.correlationId = correlationId;
   
-  // Add request ID to response headers
+  // Add IDs to response headers
   res.setHeader('X-Request-ID', requestId);
+  res.setHeader('X-Correlation-ID', correlationId);
+  
+  // Add to request for easy access
+  req.requestId = requestId;
+  req.correlationId = correlationId;
   
   // Log request start
   const startTime = Date.now();
   logger.info('Request started', {
     requestId,
+    correlationId,
     method: req.method,
     url: req.url,
     ip: req.ip,
@@ -34,6 +46,7 @@ export const requestContext = (req, res, next) => {
     
     logger.info('Request completed', {
       requestId,
+      correlationId,
       method: req.method,
       url: req.url,
       statusCode: res.statusCode,

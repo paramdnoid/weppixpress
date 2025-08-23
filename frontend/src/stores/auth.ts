@@ -6,6 +6,7 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
+  role: string;
   verified?: boolean;
   has2FA?: boolean;
 }

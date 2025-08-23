@@ -88,7 +88,8 @@ export async function login(req, res, next) {
       user: { 
         id: user.id, 
         email: user.email, 
-        name: `${user.first_name} ${user.last_name}`.trim() 
+        name: `${user.first_name} ${user.last_name}`.trim(),
+        role: user.role || 'user'
       } 
     });
   } catch (err) {
@@ -118,7 +119,8 @@ export async function verify2FA(req, res) {
     user: { 
       id: user.id, 
       email: user.email, 
-      name: `${user.first_name} ${user.last_name}`.trim() 
+      name: `${user.first_name} ${user.last_name}`.trim(),
+      role: user.role || 'user'
     } 
   });
 }
@@ -211,7 +213,15 @@ export async function refreshToken(req, res) {
     }
     
     const accessToken = generateAccessToken(user);
-    res.json({ accessToken });
+    res.json({ 
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: `${user.first_name} ${user.last_name}`.trim(),
+        role: user.role || 'user'
+      }
+    });
   } catch (error) {
     res.status(401).json({ message: 'Invalid refresh token: ' + error.message });
   }
@@ -243,7 +253,8 @@ export async function getProfile(req, res) {
       user: {
         id: user.id,
         email: user.email,
-        name: `${user.first_name} ${user.last_name}`.trim()
+        name: `${user.first_name} ${user.last_name}`.trim(),
+        role: user.role || 'user'
       }
     });
   } catch (err) {

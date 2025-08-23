@@ -1,9 +1,22 @@
 import { AppError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
+import errorMetricsService from '../services/errorMetricsService.js';
 
 export function errorHandler(err, req, res, _next) {
   let error = { ...err };
   error.message = err.message;
+
+  // Record error metrics
+  errorMetricsService.recordError(error, {
+    userId: req.user?.id,
+    requestId: res.locals?.requestId,
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    url: req.originalUrl,
+    method: req.method,
+    body: req.method !== 'GET' ? req.body : undefined,
+    query: req.query
+  });
 
   logger.error({
     message: error.message,
@@ -11,7 +24,8 @@ export function errorHandler(err, req, res, _next) {
     url: req.originalUrl,
     method: req.method,
     ip: req.ip,
-    userAgent: req.get('User-Agent')
+    userAgent: req.get('User-Agent'),
+    requestId: res.locals?.requestId
   });
 
   if (err.name === 'CastError') {

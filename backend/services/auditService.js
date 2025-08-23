@@ -102,30 +102,47 @@ export class AuditService {
 
   // Store critical events in Redis for real-time monitoring
   async storeInRedis(event) {
-    const key = `audit:critical:${event.event}`;
-    const score = Date.now();
-    
-    await redisClient.zAdd(key, {
-      score,
-      value: JSON.stringify(event)
-    });
+    try {
+      const key = `audit:critical:${event.event}`;
+      const score = Date.now();
+      
+      await redisClient.zAdd(key, {
+        score,
+        value: JSON.stringify(event)
+      });
 
-    // Keep only last 1000 events
-    await redisClient.zRemRangeByRank(key, 0, -1001);
+      // Keep only last 1000 events
+      await redisClient.zRemRangeByRank(key, 0, -1001);
+    } catch (error) {
+      logger.error('Failed to store critical event in Redis:', {
+        error: error.message,
+        event: event.event,
+        eventId: event.id
+      });
+      // Don't throw - audit storage failures shouldn't break the main flow
+    }
   }
 
   // Update metrics
   async updateMetrics(events) {
-    const metrics = {};
-    
-    events.forEach(event => {
-      const key = `metrics:${event.event}`;
-      metrics[key] = (metrics[key] || 0) + 1;
-    });
+    try {
+      const metrics = {};
+      
+      events.forEach(event => {
+        const key = `metrics:${event.event}`;
+        metrics[key] = (metrics[key] || 0) + 1;
+      });
 
-    // Update counters in Redis
-    for (const [key, count] of Object.entries(metrics)) {
-      await redisClient.incrBy(key, count);
+      // Update counters in Redis
+      for (const [key, count] of Object.entries(metrics)) {
+        await redisClient.incrBy(key, count);
+      }
+    } catch (error) {
+      logger.error('Failed to update metrics in Redis:', {
+        error: error.message,
+        eventCount: events.length
+      });
+      // Don't throw - metrics failures shouldn't break the main flow
     }
   }
 
@@ -146,53 +163,76 @@ export class AuditService {
 
   // Query audit logs
   async queryLogs(filters = {}) {
-    // This would typically query from a database or log aggregation service
-    // For now, return recent critical events from Redis
-    const { event, startDate, endDate, userId, limit = 100 } = filters;
-    
-    const key = event ? `audit:critical:${event}` : 'audit:critical:*';
-    const keys = await redisClient.keys(key);
-    
-    let allEvents = [];
-    
-    for (const k of keys) {
-      const events = await redisClient.zRevRange(k, 0, limit - 1);
-      const parsed = events.map(e => JSON.parse(e));
-      allEvents.push(...parsed);
-    }
-    
-    // Filter by date range
-    if (startDate || endDate) {
-      allEvents = allEvents.filter(e => {
-        const eventDate = new Date(e.timestamp);
-        if (startDate && eventDate < new Date(startDate)) return false;
-        if (endDate && eventDate > new Date(endDate)) return false;
-        return true;
+    try {
+      // This would typically query from a database or log aggregation service
+      // For now, return recent critical events from Redis
+      const { event, startDate, endDate, userId, limit = 100 } = filters;
+      
+      const key = event ? `audit:critical:${event}` : 'audit:critical:*';
+      const keys = await redisClient.keys(key);
+      
+      let allEvents = [];
+      
+      for (const k of keys) {
+        try {
+          const events = await redisClient.zRevRange(k, 0, limit - 1);
+          const parsed = events.map(e => JSON.parse(e));
+          allEvents.push(...parsed);
+        } catch (parseError) {
+          logger.warn(`Failed to parse events from key ${k}:`, parseError.message);
+          // Continue processing other keys
+        }
+      }
+      
+      // Filter by date range
+      if (startDate || endDate) {
+        allEvents = allEvents.filter(e => {
+          const eventDate = new Date(e.timestamp);
+          if (startDate && eventDate < new Date(startDate)) return false;
+          if (endDate && eventDate > new Date(endDate)) return false;
+          return true;
+        });
+      }
+      
+      // Filter by userId
+      if (userId) {
+        allEvents = allEvents.filter(e => e.userId === userId);
+      }
+      
+      // Sort by timestamp
+      allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      return allEvents.slice(0, limit);
+    } catch (error) {
+      logger.error('Failed to query audit logs:', {
+        error: error.message,
+        filters
       });
+      return []; // Return empty array instead of throwing
     }
-    
-    // Filter by userId
-    if (userId) {
-      allEvents = allEvents.filter(e => e.userId === userId);
-    }
-    
-    // Sort by timestamp
-    allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    return allEvents.slice(0, limit);
   }
 
   // Get metrics
   async getMetrics(_period = '1h') {
-    const metrics = {};
-    const keys = await redisClient.keys('metrics:*');
-    
-    for (const key of keys) {
-      const value = await redisClient.get(key);
-      const eventName = key.replace('metrics:', '');
-      metrics[eventName] = parseInt(value || 0);
+    try {
+      const metrics = {};
+      const keys = await redisClient.keys('metrics:*');
+      
+      for (const key of keys) {
+        try {
+          const value = await redisClient.get(key);
+          const eventName = key.replace('metrics:', '');
+          metrics[eventName] = parseInt(value || 0);
+        } catch (keyError) {
+          logger.warn(`Failed to get metric for key ${key}:`, keyError.message);
+          // Continue processing other keys
+        }
+      }
+      
+      return metrics;
+    } catch (error) {
+      logger.error('Failed to get audit metrics:', error.message);
+      return {}; // Return empty object instead of throwing
     }
-    
-    return metrics;
   }
 }

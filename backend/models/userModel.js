@@ -35,3 +35,12 @@ export async function getUserById(id) {
   const res = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
   return res[0] || null;
 }
+
+export async function updateUserRole(userId, role) {
+  await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
+}
+
+export async function getAllUsers() {
+  const res = await pool.query('SELECT id, first_name, last_name, email, role, is_verified, created_at FROM users ORDER BY created_at DESC');
+  return res;
+}

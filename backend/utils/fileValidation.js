@@ -1,15 +1,15 @@
 import { ValidationError } from './errors.js';
 
-// Zentrale File-Filter-Konfiguration
+// Central file filter configuration
 const BLOCKED_MIME_TYPES = [];
 
 const BLOCKED_EXTENSIONS = [];
 
-// Erlaubte File Extensions (Whitelist-Ansatz für mehr Sicherheit)
+// Allowed file extensions (whitelist approach for better security)
 const ALLOWED_EXTENSIONS = [];
 
 /**
- * Zentrale File-Validation Funktion
+ * Central file validation function
  * @param {Object} file - Multer file object
  * @param {Function} callback - Multer callback (error, boolean)
  * @param {Object} options - Validation options
@@ -30,25 +30,25 @@ export function validateFile(file, callback, options = {}) {
     const fileExtension = file.originalname.toLowerCase().split('.').pop();
     const fullExtension = '.' + fileExtension;
 
-    // Whitelist-Modus (empfohlen für Production)
+    // Whitelist mode (recommended for production)
     if (useWhitelist) {
       if (!allowedTypes.includes(fullExtension)) {
         return callback(new ValidationError(`File type .${fileExtension} not allowed`), false);
       }
     } else {
-      // Blacklist-Modus
+      // Blacklist mode
       if (BLOCKED_MIME_TYPES.includes(file.mimetype) ||
         blockedTypes.includes(fullExtension)) {
         return callback(new ValidationError('File type not allowed for security reasons'), false);
       }
     }
 
-    // Zusätzliche Sicherheitsprüfungen
+    // Additional security checks
     if (file.originalname.includes('..') || file.originalname.includes('/')) {
       return callback(new ValidationError('Invalid filename characters'), false);
     }
 
-    // Null-Byte-Schutz
+    // Null byte protection
     if (file.originalname.includes('\x00')) {
       return callback(new ValidationError('Invalid filename format'), false);
     }
@@ -60,18 +60,18 @@ export function validateFile(file, callback, options = {}) {
 }
 
 /**
- * Express-Middleware-kompatible File-Filter
+ * Express middleware compatible file filter
  */
-export const fileFilter = (req, file, cb) => {
+export const fileFilter = (req, file, cb) => { // eslint-disable-line no-unused-vars
   validateFile(file, cb, {
     useWhitelist: process.env.NODE_ENV === 'production'
   });
 };
 
 /**
- * Strict File-Filter für kritische Bereiche
+ * Strict file filter for critical areas
  */
-export const strictFileFilter = (req, file, cb) => {
+export const strictFileFilter = (req, file, cb) => { // eslint-disable-line no-unused-vars
   validateFile(file, cb, {
     useWhitelist: true,
     allowedTypes: ['.jpg', '.jpeg', '.png', '.pdf', '.txt']

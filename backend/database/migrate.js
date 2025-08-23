@@ -8,7 +8,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const migrations = [
   '001_create_users_table.sql',
-  '002_create_files_table.sql'
+  '002_create_files_table.sql',
+  '003_add_user_roles.sql',
+  '004_add_file_indexes.sql'
 ];
 
 export async function runMigrations() {
@@ -36,7 +38,17 @@ export async function runMigrations() {
           'utf8'
         );
         
-        await pool.query(sqlContent);
+        // Split SQL statements by semicolon and execute each separately
+        const statements = sqlContent
+          .split(';')
+          .map(stmt => stmt.trim())
+          .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+        
+        for (const statement of statements) {
+          if (statement.trim()) {
+            await pool.query(statement);
+          }
+        }
         await pool.query(
           'INSERT INTO migrations (filename) VALUES (?)', 
           [migration]

@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-export default function authenticate(req, res, next) {
+export function authenticateToken(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -50,3 +50,25 @@ export default function authenticate(req, res, next) {
     next(err);
   }
 }
+
+export function requireAdmin(req, res, next) {
+  try {
+    if (!req.user) {
+      const err = new Error('Authentication required');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    if (req.user.role !== 'admin') {
+      const err = new Error('Admin access required');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export default authenticateToken;

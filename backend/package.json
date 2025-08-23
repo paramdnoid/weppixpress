@@ -10,7 +10,8 @@
     "test:watch": "npm test -- --watch",
     "lint": "eslint . --ext .js",
     "lint:fix": "eslint . --ext .js --fix",
-    "cleanup-folders": "node scripts/cleanup-nested-folders.js"
+    "cleanup-folders": "node scripts/cleanup-nested-folders.js",
+    "make-admin": "node scripts/make-first-admin.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

@@ -11,18 +11,25 @@ export async function healthCheck(_req, res) {
   try {
     await pool.query('SELECT 1');
     health.services.database = 'healthy';
-  } catch {
+  } catch (dbError) {
+    console.warn('Database health check failed:', dbError.message);
     health.services.database = 'unhealthy';
     health.status = 'degraded';
   }
 
   try {
-    const redis = createClient();
+    const redis = createClient({ 
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      socket: {
+        connectTimeout: 5000
+      }
+    });
     await redis.connect();
     await redis.ping();
     await redis.disconnect();
     health.services.redis = 'healthy';
-  } catch {
+  } catch (redisError) {
+    console.warn('Redis health check failed:', redisError.message);
     health.services.redis = 'unhealthy';
     health.status = 'degraded';
   }
