@@ -193,13 +193,6 @@ function parseSize(size) {
   return Math.floor(parseFloat(value) * units[unit]);
 }
 
-export {
-  requestContext,
-  requestSizeLimiter,
-  requestTimeout,
-  corsPreflightHandler,
-  apiVersioning,
-  parseSize
-};
+export { requestContext, requestTimeout, corsPreflightHandler, apiVersioning };
 
 export default requestContext;

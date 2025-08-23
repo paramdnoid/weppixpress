@@ -57,7 +57,7 @@
     <!-- Empty State -->
     <div v-if="showEmptyState" class="empty-state col-span-full text-center py-5 text-muted">
       <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
-      <div>{{ emptyMessage || 'No files or folders found' }}</div>
+      <div v-text="emptyMessage || 'No files or folders found'"></div>
     </div>
 
     <!-- Loading State -->

@@ -96,12 +96,12 @@ class BusinessLogicError extends AppError {
   }
 }
 
-export {
-  AppError,
-  ValidationError,
+export { 
+  AppError, 
+  ValidationError, 
   AuthenticationError,
   AuthorizationError,
-  NotFoundError,
+  NotFoundError, 
   ConflictError,
   RateLimitError,
   DatabaseError,

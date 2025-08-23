@@ -13,7 +13,7 @@
           <!-- Error State -->
           <div v-if="group.error" class="alert alert-warning m-2">
             <i class="icon ti ti-alert-triangle"></i>
-            {{ group.error }}
+            <span v-text="group.error"></span>
           </div>
           
           <!-- Loading State for Root -->

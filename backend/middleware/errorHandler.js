@@ -43,14 +43,12 @@ function errorHandler(err, req, res, _next) {
 
   // Record metrics (best-effort)
   try {
-    errorMetricsService.capture({
-      name: err.name || 'Error',
-      message: err.message,
-      statusCode,
-      path: req.originalUrl,
+    errorMetricsService.recordError(err, {
+      url: req.originalUrl,
       method: req.method,
       userId: req.user?.id,
-      isOperational: !!isAppError
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
     });
   } catch (_) {
     // ignore metrics errors

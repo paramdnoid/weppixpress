@@ -151,15 +151,7 @@ function validatePathParam(paramName = 'path', uploadBaseDir) {
   };
 }
 
-export {
-  secureResolve,
-  getUserDirectory,
-  isSafeFilename,
-  toClientRelativePath,
-  sanitizeUploadPath,
-  isWithinUploadDir,
-  validatePathParam
-};
+export { secureResolve, getUserDirectory, sanitizeUploadPath };
 
 export default {
   secureResolve,

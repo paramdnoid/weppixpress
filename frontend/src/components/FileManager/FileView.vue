@@ -14,10 +14,9 @@
                     :class="{ active: idx === breadcrumbs.length - 1 }">
                   <button v-if="item.path && idx < breadcrumbs.length - 1" type="button"
                           class="btn btn-link p-0 m-0 border-0" :title="item.name" :aria-label="`Navigate to ${item.name}`"
-                          @click.stop.prevent="$emit('navigate', item)">
-                    {{ item.name }}
+                          @click.stop.prevent="$emit('navigate', item)" v-text="item.name">
                   </button>
-                  <span v-else :title="item.name">{{ item.name }}</span>
+                  <span v-else :title="item.name" v-text="item.name"></span>
                 </li>
               </ol>
             </nav>
@@ -35,7 +34,7 @@
         <!-- Error State -->
         <div v-else-if="error" class="text-center text-danger py-6">
           <Icon icon="mdi:alert-circle" class="empty-icon mb-2" />
-          <div>{{ error }}</div>
+          <div v-text="error"></div>
           <button type="button" class="btn btn-sm btn-outline-primary mt-2" @click="$emit('retry')">
             <Icon icon="mdi:refresh" width="16" height="16" class="me-1" />
             Try Again
@@ -45,7 +44,7 @@
         <!-- Empty State -->
         <div v-else-if="items.length === 0" class="text-center text-muted py-6">
           <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
-          <div>{{ emptyMessage }}</div>
+          <div v-text="emptyMessage"></div>
           <div v-if="searchQuery" class="small mt-1">
             <button type="button" class="btn btn-link btn-sm p-0" @click="clearSearch">
               Clear search to see all files
@@ -65,7 +64,7 @@
                 <div class="progress-bar progress-bar-striped progress-bar-animated"
                   :style="`width: ${uploadProgress}%`" />
               </div>
-              <div class="small text-muted">{{ uploadProgress }}% complete</div>
+              <div class="small text-muted" v-text="`${uploadProgress}% complete`"></div>
             </div>
           </div>
         </div>

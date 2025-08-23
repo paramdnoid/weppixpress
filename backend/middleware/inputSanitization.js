@@ -313,7 +313,7 @@ const enhancedSanitization =  (options = {}) => {
 /**
  * Standard Security Middleware Stack
  */
-export const standardSecurityMiddleware = [
+const standardSecurityMiddleware =  [
   // Prevent NoSQL operator injection in req bodies
   mongoSanitize(),
 
@@ -332,7 +332,7 @@ export const standardSecurityMiddleware = [
 /**
  * Strict Security Middleware for critical endpoints
  */
-export const strictSecurityMiddleware = [
+const strictSecurityMiddleware =  [
   mongoSanitize({ replaceWith: '_' }),
   xss(),
   hpp({ whitelist: [] }),
@@ -342,7 +342,7 @@ export const strictSecurityMiddleware = [
 /**
  * Utility functions for manual validation
  */
-export const validators = {
+const validators =  {
   isValidFilename: (filename) => {
     if (!filename || typeof filename !== 'string') return false;
     const check = detectMaliciousPatterns(filename, 'filename');
@@ -369,6 +369,6 @@ export const validators = {
 
 // Re-export useful helpers for external modules
 
-export { detectMaliciousPatterns, sanitizeString, sanitizeObject, sanitizeUrl, sanitizeEmail, enhancedSanitization };
+export { sanitizeObject };
 
 export const securityMiddlewareStack = standardSecurityMiddleware;

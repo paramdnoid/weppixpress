@@ -1,11 +1,22 @@
-
 import { ValidationError } from '../utils/errors.js';
 import { fileFilter } from '../utils/fileValidation.js';
 import { sanitizeUploadPath, secureResolve } from '../utils/pathSecurity.js';
 import { ensureUserUploadDir } from './fileController.js';
+import cacheService from '../services/cacheService.js';
 import { promises as fsp } from 'fs';
 import multer from 'multer';
 import { basename, join, relative } from 'path';
+
+// Cache utility functions for backward compatibility
+const FileCache = {
+  async invalidateUserFiles(userId) {
+    return await cacheService.deletePattern(`files:${userId}:*`);
+  },
+  async invalidateFilePath(userId, path) {
+    const key = `files:${userId}:${(path || '/').replace(/\//g, '_')}`;
+    return await cacheService.delete(key);
+  }
+};
 
 // helpers
 const pathExists = async (p) => {
@@ -33,80 +44,35 @@ const sanitizeFilename = (name) => {
   return base.replace(/[\u0000-\u001F<>:"/\\|?*]+/g, '').trim() || 'unnamed';
 };
 
-// Multer disk storage with secure path resolution
-const storage = multer.diskStorage({
-  destination: (req, _file, cb) => {
-    (async () => {
-      try {
-        if (!req.user?.userId) {
-          return cb(new ValidationError('Missing authenticated user'), null);
-        }
-        const userDir = await ensureUserUploadDir(req.user.userId);
-        const uploadPath = req.body?.path || '/';
+// Simple multer memory storage - we'll handle file writing in the controller
+const storage = multer.memoryStorage();
 
-        let targetPath;
-        try {
-          const sanitizedPath = sanitizeUploadPath(uploadPath);
-          targetPath = secureResolve(userDir, sanitizedPath);
-        } catch (error) {
-          return cb(new ValidationError('Invalid upload path: ' + error.message), null);
-        }
-
-        try {
-          await fsp.access(targetPath);
-        } catch {
-          await fsp.mkdir(targetPath, { recursive: true });
-        }
-
-        cb(null, targetPath);
-      } catch (error) {
-        cb(error, null);
-      }
-    })();
-  },
-  filename: (req, file, cb) => {
-    (async () => {
-      try {
-        const safeName = sanitizeFilename(file.originalname);
-        if (!req.user?.userId) {
-          return cb(new ValidationError('Missing authenticated user'), null);
-        }
-        const userDir = await ensureUserUploadDir(req.user.userId);
-        const uploadPath = req.body?.path || '/';
-
-        let targetPath;
-        try {
-          const sanitizedPath = sanitizeUploadPath(uploadPath);
-          targetPath = secureResolve(userDir, sanitizedPath);
-        } catch (err) {
-          return cb(new ValidationError('Invalid upload path: ' + err.message), null);
-        }
-
-        await fsp.mkdir(targetPath, { recursive: true });
-        const uniquePath = await getUniquePath(targetPath, safeName);
-        cb(null, basename(uniquePath));
-      } catch (e) {
-        cb(e, null);
-      }
-    })();
-  }
-});
+const maxFileSize =
+  Number(process.env.UPLOAD_MAX_FILESIZE_BYTES) ||
+  (Number(process.env.UPLOAD_MAX_FILESIZE_GB || 5) * 1024 * 1024 * 1024); // default 5GB
 
 const upload = multer({
   storage,
-  fileFilter,
-  limits: { files: Number(process.env.UPLOAD_MAX_FILES || 50) }
+  fileFilter: fileFilter(), // Call the function to get the actual filter
+  limits: {
+    files: Number(process.env.UPLOAD_MAX_FILES || 200),
+    fileSize: maxFileSize,
+    fields: 2000
+  }
 });
 
 // Exported middleware to parse files before controller
-export const uploadMiddleware = upload.fields([{ name: 'files' }, { name: 'files[]' }]);
+export const uploadMiddleware = upload.any();
 
 export async function uploadFile(req, res, next) {
   try {
-    const filesArr = [
-      ...(req.files?.['files'] || []),
-      ...(req.files?.['files[]'] || [])
-    ];
+    const filesArr = Array.isArray(req.files)
+      ? req.files
+      : [
+          ...(req.files?.['file'] || []),
+          ...(req.files?.['files'] || []),
+          ...(req.files?.['files[]'] || [])
+        ];
 
     if (!filesArr || filesArr.length === 0) {
       throw new ValidationError('No files uploaded');
@@ -114,9 +80,32 @@ export async function uploadFile(req, res, next) {
 
     const uploadedFiles = [];
     const userDir = await ensureUserUploadDir(req.user.userId);
+    const uploadPath = req.body?.path || '/';
+
+    // Sanitize and resolve target path
+    let targetPath;
+    try {
+      const sanitizedPath = sanitizeUploadPath(uploadPath);
+      targetPath = secureResolve(userDir, sanitizedPath);
+    } catch (error) {
+      throw new ValidationError('Invalid upload path: ' + error.message);
+    }
+
+    // Ensure target directory exists
+    await fsp.mkdir(targetPath, { recursive: true });
 
     for (const file of filesArr) {
-      const rel = relative(userDir, file.path).replace(/\\/g, '/');
+      // Sanitize filename
+      const safeName = sanitizeFilename(file.originalname);
+      
+      // Get unique file path
+      const uniquePath = await getUniquePath(targetPath, safeName);
+      
+      // Write file to disk
+      await fsp.writeFile(uniquePath, file.buffer);
+      
+      // Calculate relative path for response
+      const rel = relative(userDir, uniquePath).replace(/\\/g, '/');
 
       uploadedFiles.push({
         name: file.originalname,
@@ -129,7 +118,6 @@ export async function uploadFile(req, res, next) {
       // Invalidate caches (best-effort)
       if (req.user?.userId) {
         try {
-          const { FileCache } = await import('../utils/cache.js');
           await FileCache.invalidateUserFiles(req.user.userId);
           const createdPath = '/' + rel.replace(/^\/+/, '');
           const parentPath = createdPath.replace(/\/[^/]*$/, '/').replace(/\/+$/, '/') || '/';

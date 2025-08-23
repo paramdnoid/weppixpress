@@ -23,8 +23,7 @@
           class="me-2 flex-shrink-0" 
           aria-hidden="true"
         />
-        <span class="file-name text-truncate" :title="item.name">
-          {{ item.name }}
+        <span class="file-name text-truncate" :title="item.name" v-text="item.name">
         </span>
       </div>
     </td>
@@ -34,13 +33,12 @@
         :datetime="item.modified"
         :title="fullDateString"
       >
-        {{ formattedDate }}
+        <span v-text="formattedDate"></span>
       </time>
       <span v-else>-</span>
     </td>
     <td class="text-end text-muted file-size-cell">
-      <span :title="sizeTooltip">
-        {{ formattedSize }}
+      <span :title="sizeTooltip" v-text="formattedSize">
       </span>
     </td>
   </tr>

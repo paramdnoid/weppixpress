@@ -1,6 +1,6 @@
-import { getAllUsers, updateUserRole, getUserById } from '../models/userModel.js';
+import { getAllUsers, getUserById, updateUserRole } from '../models/userModel.js';
+import logger from '../utils/logger.js';
 import { validationResult } from 'express-validator';
-import SecureLogger from '../utils/secureLogger.js';
 
 /**
  * Get all users (admin only)
@@ -19,7 +19,7 @@ export async function getUsers(req, res, next) {
       }))
     });
   } catch (err) {
-    SecureLogger.errorWithContext(err, { action: 'get_users', adminId: req.user.userId });
+    logger.error('Get users error', { action: 'get_users', adminId: req.user.userId, error: err.message });
     next(err);
   }
 }
@@ -58,7 +58,7 @@ export async function updateUserRoleController(req, res, next) {
 
     await updateUserRole(userId, role);
 
-    SecureLogger.userActivity('role_updated', req.user.userId, {
+    logger.userActivity('role_updated', req.user.userId, {
       targetUserId: userId,
       targetUserEmail: user.email,
       oldRole: user.role || 'user',
@@ -74,7 +74,7 @@ export async function updateUserRoleController(req, res, next) {
       }
     });
   } catch (err) {
-    SecureLogger.errorWithContext(err, { 
+    logger.error(err, { 
       action: 'update_user_role', 
       adminId: req.user.userId,
       targetUserId: req.body.userId 
@@ -101,7 +101,7 @@ export async function makeAdmin(req, res, next) {
 
     await updateUserRole(userId, 'admin');
 
-    SecureLogger.userActivity('admin_granted', req.user.userId, {
+    logger.userActivity('admin_granted', req.user.userId, {
       targetUserId: userId,
       targetUserEmail: user.email
     });
@@ -115,7 +115,7 @@ export async function makeAdmin(req, res, next) {
       }
     });
   } catch (err) {
-    SecureLogger.errorWithContext(err, { 
+    logger.error(err, { 
       action: 'make_admin', 
       adminId: req.user.userId,
       targetUserId: req.params.userId 
@@ -149,7 +149,7 @@ export async function removeAdmin(req, res, next) {
 
     await updateUserRole(userId, 'user');
 
-    SecureLogger.userActivity('admin_revoked', req.user.userId, {
+    logger.userActivity('admin_revoked', req.user.userId, {
       targetUserId: userId,
       targetUserEmail: user.email
     });
@@ -163,7 +163,7 @@ export async function removeAdmin(req, res, next) {
       }
     });
   } catch (err) {
-    SecureLogger.errorWithContext(err, { 
+    logger.error(err, { 
       action: 'remove_admin', 
       adminId: req.user.userId,
       targetUserId: req.params.userId 

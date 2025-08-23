@@ -1,4 +1,3 @@
-
 import monitoringService from '../services/monitoringService.js';
 
 /**
@@ -96,5 +95,5 @@ async function withCacheMonitoring(operation, isReadOperation, fn) {
   }
 }
 
-export { requestMonitoring, errorMonitoring, withDbMonitoring, withCacheMonitoring };
+export { requestMonitoring, errorMonitoring };
 export default requestMonitoring;

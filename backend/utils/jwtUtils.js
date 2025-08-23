@@ -182,20 +182,8 @@ function clearRefreshTokenCookie(res) {
   });
 }
 
-export {
-  generateAccessToken,
-  generateRefreshToken,
-  generateTokenPair,
-  verifyAccessToken,
-  verifyRefreshToken,
-  decodeToken,
-  isTokenExpired,
-  setRefreshTokenCookie,
-  clearRefreshTokenCookie,
-  REFRESH_TOKEN_COOKIE_CONFIG
-};
 
-export default {
+export {
   generateAccessToken,
   generateRefreshToken,
   generateTokenPair,

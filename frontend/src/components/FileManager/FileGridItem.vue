@@ -22,7 +22,7 @@
     <div class="icon-wrap">
       <Icon :icon="icon" class="explorer-icon" :class="`text-${iconClass}`" />
     </div>
-    <div class="explorer-label">{{ name }}</div>
+    <div class="explorer-label" v-text="name"></div>
   </div>
 </template>
 

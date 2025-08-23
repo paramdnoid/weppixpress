@@ -8,7 +8,7 @@
       type="button"
     >
       <Icon :icon="icon" class="me-2" width="16" height="16" />
-      {{ label }}
+      <span v-text="label"></span>
       <Icon 
         v-if="isActive" 
         :icon="sortIcon"

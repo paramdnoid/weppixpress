@@ -1,7 +1,7 @@
-import express from 'express';
-import { getUsers, updateUserRoleController, makeAdmin, removeAdmin } from '../controllers/adminController.js';
+import { getUsers, makeAdmin, removeAdmin, updateUserRoleController } from '../controllers/adminController.js';
 import authenticateToken, { requireAdmin } from '../middleware/authenticate.js';
 import validateRequest from '../validation/validateRequest.js';
+import express from 'express';
 import { body } from 'express-validator';
 
 const router = express.Router();

@@ -13,7 +13,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="renameModalLabel">
-              Rename {{ itemToRename?.name }}
+              <span>Rename </span><span v-text="itemToRename?.name"></span>
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" />
           </div>
@@ -29,7 +29,10 @@
                   v-model="fileName"
                   :placeholder="itemToRename?.name" 
                   required 
+                  maxlength="255"
+                  :class="{ 'is-invalid': renameValidationError }"
                 />
+                <div v-if="renameValidationError" class="invalid-feedback" v-text="renameValidationError"></div>
               </div>
             </div>
             <div class="modal-footer">
@@ -39,7 +42,7 @@
               <button 
                 type="submit" 
                 class="btn btn-primary" 
-                :disabled="!fileName?.trim() || isLoading"
+                :disabled="!fileName?.trim() || isLoading || !!renameValidationError"
               >
                 <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" />
                 Rename
@@ -80,7 +83,10 @@
                   v-model="folderName"
                   placeholder="Enter folder name" 
                   required 
+                  maxlength="255"
+                  :class="{ 'is-invalid': folderValidationError }"
                 />
+                <div v-if="folderValidationError" class="invalid-feedback" v-text="folderValidationError"></div>
               </div>
             </div>
             <div class="modal-footer">
@@ -90,7 +96,7 @@
               <button 
                 type="submit" 
                 class="btn btn-primary" 
-                :disabled="!folderName?.trim() || isFolderSubmitting"
+                :disabled="!folderName?.trim() || isFolderSubmitting || !!folderValidationError"
               >
                 <span v-if="isFolderSubmitting" class="spinner-border spinner-border-sm me-1" />
                 Create
@@ -105,7 +111,8 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, watch, nextTick, onBeforeUnmount, computed } from 'vue'
+import { ValidationService } from '@/services/validationService'
 
 const props = defineProps({
   itemToRename: { type: Object, default: null },
@@ -127,6 +134,23 @@ const fileName = ref('')
 const folderName = ref('')
 const isFolderSubmitting = ref(false)
 const isFolderModalVisible = ref(false)
+
+// Validation
+const renameValidationError = computed(() => {
+  if (!fileName.value || fileName.value === props.itemToRename?.name) {
+    return null
+  }
+  const result = ValidationService.validateFileName(fileName.value)
+  return result.isValid ? null : result.error
+})
+
+const folderValidationError = computed(() => {
+  if (!folderName.value.trim()) {
+    return null
+  }
+  const result = ValidationService.validateFolderName(folderName.value)
+  return result.isValid ? null : result.error
+})
 
 // Watch for item changes to update rename modal
 watch(() => props.itemToRename, (newItem) => {
@@ -159,6 +183,13 @@ function handleRenameSubmit() {
   const name = fileName.value.trim()
   if (!name || !props.itemToRename || name === props.itemToRename.name) return
   
+  // Additional validation before submit
+  const validationResult = ValidationService.validateFileName(name)
+  if (!validationResult.isValid) {
+    console.error('Invalid filename:', validationResult.error)
+    return
+  }
+  
   emit('rename', {
     oldName: props.itemToRename.name,
     newName: name,
@@ -184,6 +215,13 @@ function hideRenameModal() {
 function handleFolderSubmit() {
   const name = folderName.value.trim()
   if (!name) return
+
+  // Additional validation before submit
+  const validationResult = ValidationService.validateFolderName(name)
+  if (!validationResult.isValid) {
+    console.error('Invalid folder name:', validationResult.error)
+    return
+  }
 
   isFolderSubmitting.value = true
   emit('createFolder', name)

@@ -1,4 +1,4 @@
-import { FileCache } from '../utils/cache.js';
+import cacheService from '../services/cacheService.js';
 import logger from '../utils/logger.js';
 import { getUserDirectory, sanitizeUploadPath, secureResolve } from '../utils/pathSecurity.js';
 import dotenv from 'dotenv';
@@ -8,6 +8,25 @@ import { resolve as _resolve, basename, dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
+
+// Cache utility functions for backward compatibility
+const FileCache = {
+  async getFileList(userId, path) {
+    const key = `files:${userId}:${(path || '/').replace(/\//g, '_')}`;
+    return await cacheService.get(key);
+  },
+  async setFileList(userId, path, fileList) {
+    const key = `files:${userId}:${(path || '/').replace(/\//g, '_')}`;
+    return await cacheService.set(key, fileList, 10); // 10 seconds TTL
+  },
+  async invalidateUserFiles(userId) {
+    return await cacheService.deletePattern(`files:${userId}:*`);
+  },
+  async invalidateFilePath(userId, path) {
+    const key = `files:${userId}:${(path || '/').replace(/\//g, '_')}`;
+    return await cacheService.delete(key);
+  }
+};
 const __dirname = dirname(__filename);
 
 dotenv.config();
@@ -120,7 +139,7 @@ async function getFolderSize(folderPath, options = {}) {
   let totalSize = 0;
   let fileCount = 0;
   let dirCount = 0;
-  let errors = [];
+  const errors = [];
   
   const startTime = Date.now();
   
@@ -722,7 +741,7 @@ async function copyDirectoryRecursive(source, destination, options = {}) {
 
   let fileCount = 0;
   let dirCount = 0;
-  let errors = [];
+  const errors = [];
   const startTime = Date.now();
 
   async function copyRecursive(src, dest, depth = 0) {

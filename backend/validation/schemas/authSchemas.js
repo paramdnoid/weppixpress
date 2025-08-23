@@ -1,6 +1,8 @@
 import Joi from 'joi';
 
 const registerSchema = Joi.object({
+  first_name: Joi.string().min(2).max(50).required(),
+  last_name: Joi.string().min(2).max(50).required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(8).required(),
   name: Joi.string().min(2).max(100).optional()
@@ -29,11 +31,4 @@ const enable2FASchema =  Joi.object({
   secret: Joi.string().required(),
 });
 
-export {
-  registerSchema,
-  loginSchema,
-  verify2FASchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  enable2FASchema
-};
+export { registerSchema, loginSchema, verify2FASchema, forgotPasswordSchema, resetPasswordSchema, enable2FASchema };

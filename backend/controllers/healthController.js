@@ -1,4 +1,4 @@
-import pool from '../db.js';
+import pool from '../services/dbConnection.js';
 import { createClient } from 'redis';
 
 export async function healthCheck(_req, res) {

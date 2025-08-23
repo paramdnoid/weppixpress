@@ -1,4 +1,4 @@
-import logger from './utils/logger.js';
+import logger from '../utils/logger.js';
 import crypto from 'crypto';
 import { WebSocketServer } from 'ws';
 
@@ -19,9 +19,9 @@ class WebSocketManager {
     logger.info('WebSocket server initialized on /ws');
   }
 
-  verifyClient(info) {
+  verifyClient(_info) {
     // Optional: Add authentication verification here
-    // const token = info.req.headers.authorization;
+    // const token = _info.req.headers.authorization;
     // return this.validateToken(token);
     return true;
   }
@@ -248,11 +248,11 @@ class WebSocketManager {
       const batch = activeSubscribers.slice(i, i + batchSize);
       
       // Send to batch with small delay to prevent overwhelming
-      setImmediate(() => {
+      setTimeout(() => {
         batch.forEach(ws => {
           this.sendToClient(ws, broadcastMessage);
         });
-      });
+      }, 0);
     }
   }
 
@@ -382,4 +382,4 @@ class WebSocketManager {
   }
 }
 
-export { WebSocketManager }
+export { WebSocketManager };

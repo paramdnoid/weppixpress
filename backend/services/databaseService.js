@@ -1,4 +1,4 @@
-import pool from '../db.js';
+import pool from './dbConnection.js';
 import logger from '../utils/logger.js';
 
 /**

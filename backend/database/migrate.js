@@ -1,8 +1,9 @@
-// database/migrate.js
-import pool from '../db.js';
+import pool from '../services/dbConnection.js';
 import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+
+// database/migrate.js
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

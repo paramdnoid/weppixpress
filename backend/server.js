@@ -12,12 +12,12 @@ import uploadRoutes from './routes/upload.js';
 import websiteInfoRoutes from './routes/websiteInfo.js';
 import cacheService from './services/cacheService.js';
 import databaseService from './services/databaseService.js';
-import errorMetricsService from './services/errorMetricsService.js';
 import monitoringService from './services/monitoringService.js';
 import { setupSwagger } from './swagger/swagger.js';
 import circuitBreakerRegistry from './utils/circuitBreaker.js';
 import logger from './utils/logger.js';
-import { WebSocketManager } from './websocketHandler.js';
+import { WebSocketManager } from './services/websocketService.js';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -43,15 +43,28 @@ if (process.env.NODE_ENV !== 'test') {
   await cacheService.initialize();
 }
 
+// Performance optimizations
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  },
+  level: 6,
+  threshold: 1024 // Only compress responses over 1kb
+}));
+
 // Request context and tracking
 app.use(requestContext);
 app.use(requestMonitoring);
-app.use(requestTimeout(30000)); // 30 second timeout
+app.use(requestTimeout(5 * 60 * 1000)); // 5 minute timeout for long uploads
 app.use(corsPreflightHandler);
 app.use(apiVersioning);
 
-app.use(express.json({ limit: '50gb' }));
-app.use(express.urlencoded({ extended: true, limit: '50gb' }));
+// Smart body parsing limits
+app.use('/api/upload', express.json({ limit: '50gb' }));
+app.use('/api/upload', express.urlencoded({ extended: true, limit: '50gb' }));
+app.use(express.json({ limit: '10mb' })); // Smaller limit for non-upload routes
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 if (process.env.NODE_ENV !== 'production') {
@@ -76,9 +89,16 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
       imgSrc: ["'self'", 'data:', 'https:'],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com'],
-      objectSrc: ["'none'"]
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null
     }
-  }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
 app.use(securityMiddlewareStack);
@@ -169,11 +189,20 @@ if (process.env.NODE_ENV !== 'test') {
 
 setupSwagger(app);
 
-// Serve dashboard static files
-app.use('/dashboard', express.static(path.join(__dirname, 'public/dashboard')));
+// Serve dashboard static files with optimized caching
+app.use('/dashboard', express.static(path.join(__dirname, 'public/dashboard'), {
+  maxAge: process.env.NODE_ENV === 'production' ? '1d' : '0',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // Dashboard route
-app.get('/dashboard', (req, res) => {
+app.get('/dashboard', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public/dashboard/index.html'));
 });
 
@@ -196,24 +225,40 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📚 API Docs available at http://localhost:${PORT}/api-docs`);
 });
 
+// Optimize server performance settings
+server.requestTimeout = 0;    // disable per-request timeout
+server.headersTimeout = 0;    // allow slow multipart headers for big forms
+server.keepAliveTimeout = 65_000; // keep-alive > typical proxy idle
+server.maxHeadersCount = 2000; // increase header limit for complex requests
+
+// Enable TCP_NODELAY for better real-time performance
+server.on('connection', (socket) => {
+  socket.setNoDelay(true);
+  socket.setKeepAlive(true, 60000); // Keep alive for 60 seconds
+});
+
 const wsManager = new WebSocketManager(server);
 
+// Make WebSocket manager globally available for controllers
 global.wsManager = wsManager;
-
-function broadcastFileCreated(file) {
-  wsManager.broadcastFileCreated(file);
-}
-
-function broadcastFileDeleted(filePath) {
-  wsManager.broadcastFileDeleted(filePath);
-}
-
-function broadcastFolderChanged(folderPath) {
-  wsManager.broadcastFolderChanged(folderPath);
-}
 
 app.get('/api/ws/stats', (_req, res) => {
   res.json(wsManager.getStats());
+});
+
+app.get('/api/security/info', (_req, res) => {
+  res.json({
+    securityFeatures: {
+      helmet: 'enabled',
+      cors: 'configured',
+      rateLimiting: 'redis-based',
+      inputSanitization: 'xss-clean, hpp, mongo-sanitize',
+      compression: 'gzip',
+      logging: 'gdpr-compliant'
+    },
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 app.get('/api/cache/health', async (_req, res) => {
@@ -237,9 +282,16 @@ app.get('/api/system/metrics', async (req, res) => {
   res.json(report);
 });
 
-app.get('/api/system/errors', async (req, res) => {
-
-  res.json(metrics);
+app.get('/api/system/errors', async (_req, res) => {
+  try {
+    const data =
+      (typeof monitoringService.getErrorMetrics === 'function' && await monitoringService.getErrorMetrics()) ||
+      (typeof monitoringService.getRecentErrors === 'function' && await monitoringService.getRecentErrors()) ||
+      [];
+    res.json(data);
+  } catch (e) {
+    res.json([]);
+  }
 });
 
 app.get('/api/system/circuit-breakers', async (_req, res) => {

@@ -33,7 +33,7 @@
               <Icon :icon="isUploading ? 'mdi:loading' : 'mdi:upload'" width="16" height="16" class="me-2"
                 :class="{ 'spinner': isUploading }" />
               <span class="flex-fill">
-                {{ isUploading ? `Uploading... ${uploadProgress}%` : 'Upload Files' }}
+                <span v-text="isUploading ? `Uploading... ${uploadProgress}%` : 'Upload Files'"></span>
               </span>
               <div v-if="isUploading" class="position-absolute top-0 start-0 h-100 bg-primary opacity-10"
                 :style="`width: ${uploadProgress}%`" />
@@ -46,21 +46,21 @@
             <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('copySelected')"
               :disabled="isLoading">
               <Icon icon="mdi:content-copy" width="16" height="16" class="me-2" />
-              Copy ({{ selectedCount }})
+              Copy (<span v-text="selectedCount"></span>)
             </button>
           </li>
           <li v-if="selectedCount > 0">
             <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('cutSelected')"
               :disabled="isLoading">
               <Icon icon="mdi:content-cut" width="16" height="16" class="me-2" />
-              Cut ({{ selectedCount }})
+              Cut (<span v-text="selectedCount"></span>)
             </button>
           </li>
           <li>
             <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('pasteItems')"
               :disabled="isLoading || (!clipboardHasItems && clipboardItemCount === 0)">
               <Icon icon="mdi:content-paste" width="16" height="16" class="me-2" />
-              Paste{{ clipboardItemCount > 0 ? ` (${clipboardItemCount})` : '' }}
+              Paste<span v-if="clipboardItemCount > 0"> (<span v-text="clipboardItemCount"></span>)</span>
             </button>
           </li>
           <li v-if="selectedCount > 0">
@@ -70,7 +70,7 @@
             <button type="button" class="dropdown-item d-flex align-items-center text-danger"
               @click="$emit('deleteSelected')" :disabled="isLoading">
               <Icon icon="mdi:delete" width="16" height="16" class="me-2" />
-              Delete ({{ selectedCount }})
+              Delete (<span v-text="selectedCount"></span>)
             </button>
           </li>
         </ul>
@@ -101,7 +101,7 @@
           <li v-for="option in sortOptions" :key="option.value">
             <button type="button" class="dropdown-item d-flex align-items-center justify-content-between"
               @click="$emit('sort', option.value)">
-              {{ option.label }}
+              <span v-text="option.label"></span>
               <Icon v-if="sortKey === option.value" :icon="sortDir === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
                 width="16" height="16" />
             </button>
@@ -116,7 +116,7 @@
         :class="{ active: viewMode === mode.key }" :aria-selected="viewMode === mode.key"
         @click="$emit('viewMode', mode.key)" :title="mode.title">
         <Icon :icon="mode.icon" width="20" height="20" />
-        <span class="d-none d-lg-inline ms-1">{{ mode.label }}</span>
+        <span class="d-none d-lg-inline ms-1" v-text="mode.label"></span>
       </button>
     </nav>
   </div>

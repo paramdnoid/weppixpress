@@ -1,5 +1,5 @@
-import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
+import jwt from 'jsonwebtoken';
 
 function getTokenFromRequest(req) {
   // 1) Authorization header: Bearer <token>

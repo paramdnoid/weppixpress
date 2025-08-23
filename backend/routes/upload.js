@@ -1,5 +1,6 @@
-import { uploadMiddleware, uploadFile } from '../controllers/uploadController.js';
+import { uploadFile, uploadMiddleware } from '../controllers/uploadController.js';
 import authenticate from '../middleware/authenticate.js';
+import { requestTimeout } from '../middleware/requestContext.js';
 import express from 'express';
 
 // routes/upload.js
@@ -15,6 +16,7 @@ const router = express.Router();
  *     security:
  *       - bearerAuth: []
  *     requestBody:
+ *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
@@ -23,10 +25,23 @@ const router = express.Router();
  *               file:
  *                 type: string
  *                 format: binary
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               "files[]":
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               path:
+ *                 type: string
+ *                 description: Target folder path within the user's space (e.g., /projects/demo)
  *     responses:
  *       201:
  *         description: File uploaded successfully
  */
-router.post('/', authenticate, uploadMiddleware, uploadFile);
+router.post('/', authenticate, requestTimeout(15 * 60 * 1000), uploadMiddleware, uploadFile);
 
 export default router;

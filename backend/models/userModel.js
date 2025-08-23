@@ -1,4 +1,4 @@
-import pool from '../db.js';
+import pool from '../services/dbConnection.js';
 
 export async function findUserByEmail(email) {
   const res = await pool.query('SELECT * FROM users WHERE email = ?', [email]);

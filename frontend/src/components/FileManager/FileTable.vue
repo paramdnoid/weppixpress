@@ -11,7 +11,7 @@
     <!-- Empty State -->
     <div v-else-if="sortedItems.length === 0" class="text-center py-5 text-muted">
       <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
-      <div>{{ emptyMessage || 'No files or folders found' }}</div>
+      <div v-text="emptyMessage || 'No files or folders found'"></div>
     </div>
 
     <!-- Table -->

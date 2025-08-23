@@ -1,9 +1,11 @@
+import sendMail from '../utils/mail.js';
+import logger from '../utils/logger.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import speakeasy from 'speakeasy';
-import QRCode from 'qrcode';
-import sendMail from '../utils/mail.js';
 import { validationResult } from 'express-validator';
+import QRCode from 'qrcode';
+import speakeasy from 'speakeasy';
+
 import {
   findUserByEmail, createUser, setVerificationToken, verifyUserByToken,
   setResetToken, getUserByResetToken, updatePassword,
@@ -11,13 +13,11 @@ import {
 } from '../models/userModel.js';
 import { 
   generateAccessToken, 
-  generateRefreshToken, 
   generateTokenPair,
   verifyRefreshToken,
   setRefreshTokenCookie,
   clearRefreshTokenCookie
 } from '../utils/jwtUtils.js';
-import SecureLogger from '../utils/secureLogger.js';
 
 export async function register(req, res, next) {
   const errors = validationResult(req);
@@ -46,7 +46,7 @@ export async function register(req, res, next) {
     });
     res.status(201).json({ message: 'Registration successful. Please check your email for verification.' });
   } catch (err) {
-    SecureLogger.errorWithContext(err, { action: 'register', ip: req.ip });
+    logger.error('Registration error', { action: 'register', ip: req.ip, error: err.message });
     next(err);
   }
 }
@@ -93,7 +93,7 @@ export async function login(req, res, next) {
       } 
     });
   } catch (err) {
-    SecureLogger.security('login_failure', { ip: req.ip, userAgent: req.get('User-Agent') });
+    logger.security('login_failure', { ip: req.ip, userAgent: req.get('User-Agent') });
     next(err);
   }
 }
@@ -194,7 +194,7 @@ export async function resetPassword(req, res, next) {
     await updatePassword(user.id, hash);
     res.json({ message: 'Password has been updated successfully' });
   } catch (err) {
-    SecureLogger.errorWithContext(err, { action: 'reset_password', ip: req.ip });
+    logger.error('Password reset error', { action: 'reset_password', ip: req.ip, error: err.message });
     next(err);
   }
 }
@@ -245,7 +245,7 @@ export async function getProfile(req, res) {
     const accessToken = generateAccessToken(user);
 
     // Log user activity (GDPR-compliant)
-    SecureLogger.userActivity('profile_access', user.id);
+    logger.userActivity('profile_access', user.id);
 
     // Destructure user to avoid accessing properties directly
     res.status(200).json({
@@ -258,7 +258,7 @@ export async function getProfile(req, res) {
       }
     });
   } catch (err) {
-    SecureLogger.errorWithContext(err, { action: 'get_profile', ip: req.ip });
+    logger.error('Get profile error', { action: 'get_profile', ip: req.ip, error: err.message });
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

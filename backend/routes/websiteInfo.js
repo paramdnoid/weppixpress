@@ -1,8 +1,8 @@
-import express from 'express';
-import rateLimit from 'express-rate-limit';
 import { authenticateToken } from '../middleware/authenticate.js';
 import { getWebsiteInfo, probe } from '../services/websiteInfoService.js';
 import logger from '../utils/logger.js';
+import express from 'express';
+import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
 
