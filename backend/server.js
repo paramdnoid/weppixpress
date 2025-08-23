@@ -16,6 +16,7 @@ import uploadRoutes from './routes/upload.js';
 import healthRoutes from './routes/health.js';
 import dashboardRoutes from './routes/dashboard.js';
 import adminRoutes from './routes/admin.js';
+import websiteInfoRoutes from './routes/websiteInfo.js';
 
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { setupSwagger } from './swagger/swagger.js';
@@ -186,6 +187,7 @@ app.use('/api/files', fileRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/website-info', websiteInfoRoutes);
 
 app.use(notFound);
 app.use(errorMonitoring);
