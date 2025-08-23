@@ -1,5 +1,5 @@
 import { promises as fsp } from 'fs';
-import { dirname, resolve as _resolve, join, relative } from 'path';
+import { dirname, resolve as _resolve, join, relative, basename } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +13,30 @@ import { FileCache } from '../utils/cache.js';
 dotenv.config();
 
 const baseDir = _resolve(process.env.UPLOAD_DIR || join(__dirname, '../..', 'uploads'));
+
+// --- Conflict-safe naming helpers ---
+async function pathExists(p) {
+  try { await fsp.access(p); return true; } catch { return false; }
+}
+/**
+ * Returns a unique absolute path inside `dir` by appending " (1)", "(2)", ... before the extension if needed.
+ * @param {string} dir absolute directory
+ * @param {string} desiredName filename or folder name
+ * @returns {Promise<string>} absolute unique path
+ */
+async function getUniquePath(dir, desiredName) {
+  const idx = desiredName.lastIndexOf('.');
+  const hasExt = idx > 0 && desiredName.indexOf('.') !== 0; // ignore dotfiles
+  const base = hasExt ? desiredName.slice(0, idx) : desiredName;
+  const ext = hasExt ? desiredName.slice(idx) : '';
+  let candidate = desiredName;
+  let i = 1;
+  while (await pathExists(join(dir, candidate))) {
+    candidate = `${base} (${i++})${ext}`;
+  }
+  return join(dir, candidate);
+}
+// --- end helpers ---
 
 /**
  * Non-recursively reads a file system item and returns its metadata (flat listing only).
@@ -56,7 +80,7 @@ async function readItem(item, targetPath, baseDirUser) {
     
     return {
       name: item.name,
-      path: relative(baseDirUser, fullPath),
+      path: relative(baseDirUser, fullPath).replace(/\\/g, '/'),
       type: item.isDirectory() ? 'folder' : 'file',
       size: sizeInBytes,
       sizeFormatted: filesize(sizeInBytes),
@@ -103,20 +127,20 @@ async function getFolderSize(folderPath, options = {}) {
   const startTime = Date.now();
   
   async function calculateSizeRecursive(path, depth = 0) {
-    // Depth limit check
-    if (depth > config.maxDepth) {
+    // Depth limit check (inclusive)
+    if (depth >= config.maxDepth) {
       errors.push(`Max depth ${config.maxDepth} exceeded at: ${path}`);
       return 0;
     }
 
-    // File count limit check
-    if (fileCount > config.maxFiles) {
+    // File count limit check (inclusive)
+    if (fileCount >= config.maxFiles) {
       errors.push(`Max file count ${config.maxFiles} exceeded`);
       return 0;
     }
 
-    // Timeout check
-    if (Date.now() - startTime > config.timeout) {
+    // Timeout check (inclusive)
+    if (Date.now() - startTime >= config.timeout) {
       errors.push(`Timeout of ${config.timeout}ms exceeded`);
       return 0;
     }
@@ -230,7 +254,13 @@ export async function getFolderFiles(req, res) {
       entries.map(item => readItem(item, targetPath, baseDirUser))
     );
 
-    const items = children.filter(Boolean);
+    const items = children
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      });
+
     const response = {
       items,
       pagination: {
@@ -276,6 +306,10 @@ export async function ensureUserUploadDir(userId) {
  */
 export async function deleteFiles(req, res, next) {
   try {
+    if (!req.user?.userId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing user ID' });
+    }
+
     const { paths } = req.body;
     const userId = req.user.userId;
     const baseDirUser = await ensureUserUploadDir(userId);
@@ -310,7 +344,8 @@ export async function deleteFiles(req, res, next) {
         await FileCache.invalidateFilePath(userId, parentDir);
 
         if (global.wsManager) {
-          global.wsManager.broadcastFileDeleted(relativePath);
+          const deletedPath = ('/' + relativePath).replace(/\/+/, '/');
+          global.wsManager.broadcastFileDeleted(deletedPath);
         }
       } catch (error) {
         logger.error(`Failed to delete ${fullPath}:`, error);
@@ -345,6 +380,16 @@ export async function moveFiles(req, res, next) {
 
     await fsp.mkdir(destPath, { recursive: true });
 
+    // Helper to test if child is subpath of parent
+    const isSubPath = (parent, child) => {
+      try {
+        const rel = relative(parent, child);
+        return rel && !rel.startsWith('..') && !rel.startsWith('/') && rel !== '';
+      } catch {
+        return false;
+      }
+    };
+
     const movedItems = [];
     for (const sourcePath of paths) {
       let fullSourcePath;
@@ -357,11 +402,31 @@ export async function moveFiles(req, res, next) {
       }
       
       const fileName = sourcePath.split('/').pop();
-      const fullDestPath = join(destPath, fileName);
+      let fullDestPath = join(destPath, fileName);
 
       try {
+        const srcStats = await fsp.stat(fullSourcePath);
+        if (srcStats.isDirectory()) {
+          if (isSubPath(fullSourcePath, fullDestPath) || fullSourcePath === fullDestPath) {
+            const base = fileName;
+            let candidate = `${base} (moved)`;
+            let candidatePath = join(destPath, candidate);
+            let i = 2;
+            while (true) {
+              try { await fsp.access(candidatePath); candidate = `${base} (moved ${i++})`; candidatePath = join(destPath, candidate); }
+              catch { break; }
+            }
+            fullDestPath = candidatePath;
+          }
+        }
+
+        // Ensure conflict-safe final destination
+        fullDestPath = await getUniquePath(dirname(fullDestPath), basename(fullDestPath));
+        const finalName = basename(fullDestPath);
+
         await fsp.rename(fullSourcePath, fullDestPath);
-        movedItems.push({ from: sourcePath, to: join(destination, fileName) });
+        const destRel = join(destination, finalName).replace(/\\/g, '/');
+        movedItems.push({ from: sourcePath, to: destRel });
 
         // Invalidate cache for user and affected directories
         await FileCache.invalidateUserFiles(userId);
@@ -370,11 +435,13 @@ export async function moveFiles(req, res, next) {
         await FileCache.invalidateFilePath(userId, sourceParent);
 
         if (global.wsManager) {
-          global.wsManager.broadcastFileDeleted(sourcePath);
+          const deletedPath = ('/' + sourcePath).replace(/\/+/, '/');
+          const createdPath = ('/' + destRel).replace(/\/+/, '/');
+          global.wsManager.broadcastFileDeleted(deletedPath);
           global.wsManager.broadcastFileCreated({
-            name: fileName,
-            path: join(destination, fileName),
-            type: 'file'
+            name: finalName,
+            path: createdPath,
+            type: srcStats.isDirectory() ? 'folder' : 'file'
           });
         }
       } catch (error) {
@@ -404,7 +471,7 @@ export async function createFolder(req, res, next) {
       return res.status(400).json({ error: 'Folder name is required' });
     }
 
-    const safeName = name.replace(/[<>:"|?*\x00-\x1F]/g, '').trim();
+    const safeName = name.replace(/[<>:"|?*\\x00-\\x1F]/g, '').trim();
     if (!safeName) {
       return res.status(400).json({ error: 'Invalid folder name' });
     }
@@ -420,31 +487,27 @@ export async function createFolder(req, res, next) {
       return res.status(400).json({ error: 'Invalid path: ' + error.message });
     }
     
-    const newFolderPath = join(targetDir, safeName);
+    // Pick a conflict-safe path
+    const uniqueFolderPath = await getUniquePath(targetDir, safeName);
+    await fsp.mkdir(uniqueFolderPath);
 
-    // Check if folder already exists
-    try {
-      await fsp.access(newFolderPath);
-      return res.status(409).json({ error: 'Folder already exists' });
-    } catch {
-      // Folder doesn't exist, continue
-    }
-
-    // Create folder without recursive option to avoid nested duplicates
-    await fsp.mkdir(newFolderPath);
-
+    const finalName = basename(uniqueFolderPath);
     const folderInfo = {
-      name: safeName,
-      path: join(path, safeName).replace(/\\/g, '/'),
+      name: finalName,
+      path: join(path, finalName).replace(/\\/g, '/'),
       type: 'folder',
       created: new Date().toISOString()
     };
 
     // Invalidate cache
     await FileCache.invalidateUserFiles(userId);
+    await FileCache.invalidateFilePath(userId, path || '/');
 
     if (global.wsManager) {
-      global.wsManager.broadcastFileCreated(folderInfo);
+      global.wsManager.broadcastFileCreated({
+        ...folderInfo,
+        path: ('/' + folderInfo.path).replace(/\/+/, '/'),
+      });
     }
 
     res.status(201).json({ success: true, folder: folderInfo });
@@ -461,7 +524,16 @@ export async function createFolder(req, res, next) {
  */
 export async function renameItem(req, res, next) {
   try {
-    const { oldPath, newName } = req.body;
+    if (!req.user?.userId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing user ID' });
+    }
+
+    const { oldPath, newName: rawNewName } = req.body;
+    const safeNewName = String(rawNewName || '').replace(/[<>:"|?*\\x00-\\x1F]/g, '').trim();
+    if (!safeNewName) {
+      return res.status(400).json({ error: 'Invalid new name' });
+    }
+
     const userId = req.user.userId;
     const baseDirUser = await ensureUserUploadDir(userId);
 
@@ -473,24 +545,33 @@ export async function renameItem(req, res, next) {
       return res.status(400).json({ error: 'Invalid old path: ' + error.message });
     }
     
-    const parentDir = dirname(fullOldPath);
-    const fullNewPath = join(parentDir, newName);
+    const parentDirAbs = dirname(fullOldPath);
+    const fullNewPath = await getUniquePath(parentDirAbs, safeNewName);
+    const finalName = basename(fullNewPath);
 
     await fsp.rename(fullOldPath, fullNewPath);
 
-    const newRelativePath = join(dirname(oldPath), newName).replace(/\\/g, '/');
+    const newRelativePath = join(dirname(oldPath), finalName).replace(/\\/g, '/');
     
     // Invalidate cache for user and parent directory
     await FileCache.invalidateUserFiles(userId);
     const oldPathParentDir = dirname(oldPath) || '/';
     await FileCache.invalidateFilePath(userId, oldPathParentDir);
-    
+
+    let itemType = 'file';
+    try {
+      const st = await fsp.stat(fullNewPath);
+      itemType = st.isDirectory() ? 'folder' : 'file';
+    } catch {}
+
     if (global.wsManager) {
-      global.wsManager.broadcastFileDeleted(oldPath);
+      const deletedPath = ('/' + oldPath).replace(/\/+/, '/');
+      const createdPath = ('/' + newRelativePath).replace(/\/+/, '/');
+      global.wsManager.broadcastFileDeleted(deletedPath);
       global.wsManager.broadcastFileCreated({
-        name: newName,
-        path: newRelativePath,
-        type: 'file'
+        name: finalName,
+        path: createdPath,
+        type: itemType
       });
     }
 
@@ -577,9 +658,13 @@ export async function copyFiles(req, res, next) {
           }
         }
         
+        let copyResult;
         if (stats.isDirectory()) {
+          // Choose a conflict-safe destination folder name
+          fullDestPath = await getUniquePath(destPath, basename(fullDestPath));
+          const safeDest = fullDestPath;
           // Copy directory recursively with limits, exclude the chosen dest to avoid recursion into itself
-          const copyResult = await copyDirectoryRecursive(fullSourcePath, fullDestPath, { ...limits, excludePaths: [fullDestPath] });
+          copyResult = await copyDirectoryRecursive(fullSourcePath, safeDest, { ...limits, excludePaths: [safeDest] });
           
           if (!copyResult.success) {
             logger.error(`Failed to copy directory ${fullSourcePath}: ${copyResult.errors.join('; ')}`);
@@ -589,11 +674,12 @@ export async function copyFiles(req, res, next) {
             logger.warn(`Directory copy completed with warnings for ${fullSourcePath}: ${copyResult.errors.join('; ')}`);
           }
         } else {
-          // Copy file
+          // Choose a conflict-safe destination file name
+          fullDestPath = await getUniquePath(destPath, basename(fullDestPath));
           await fsp.copyFile(fullSourcePath, fullDestPath);
         }
         
-        const destRelativePath = join(destination, fileName).replace(/\\/g, '/');
+        const destRelativePath = join(destination, basename(fullDestPath)).replace(/\\/g, '/');
         copiedItems.push({ from: sourcePath, to: destRelativePath });
         
         // Invalidate cache for user and destination directory
@@ -602,9 +688,10 @@ export async function copyFiles(req, res, next) {
         
         // Broadcast file created event
         if (global.wsManager) {
+          const createdPath = ('/' + destRelativePath).replace(/\/+/, '/');
           global.wsManager.broadcastFileCreated({
-            name: fileName,
-            path: destRelativePath,
+            name: basename(fullDestPath),
+            path: createdPath,
             type: stats.isDirectory() ? 'folder' : 'file'
           });
         }
@@ -673,7 +760,7 @@ async function copyDirectoryRecursive(source, destination, options = {}) {
         // Skip symlinks to avoid cycles
         try {
           const lst = await fsp.lstat(sourcePath);
-          if (lst.isSymbolicLink && lst.isSymbolicLink()) {
+          if (typeof lst.isSymbolicLink === 'function' && lst.isSymbolicLink()) {
             errors.push(`Skipped symlink: ${sourcePath}`);
             continue;
           }
