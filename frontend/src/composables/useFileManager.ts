@@ -39,8 +39,6 @@ export function useFileManager() {
   const sidebarWidth = ref(DEFAULT_SIDEBAR_WIDTH)
   const isCollapsed = ref(false)
   const isDragging = ref(false)
-  const isUploading = ref(false)
-  const uploadProgress = ref(0)
 
   // ===== LONG PRESS STATE =====
   const isLongPressing = ref(false)
@@ -238,47 +236,10 @@ export function useFileManager() {
   }
 
   // ===== FILE UPLOAD =====
-  function handleFileUpload(event: Event): void {
-    try {
-      const input = event.target as HTMLInputElement
-      if (!input || !input.files) {
-        console.warn('No files selected or invalid input element')
-        return
-      }
-      
-      const files = Array.from(input.files)
-      
-      if (files.length === 0) {
-        console.warn('No files to upload')
-        return
-      }
-      
-      isUploading.value = true
-      uploadProgress.value = 0
-      
-      fileStore.uploadFiles(files, {
-        onProgress: (progress: number) => {
-          uploadProgress.value = Math.max(0, Math.min(100, progress))
-        }
-      }).catch((error) => {
-        console.error('Upload failed:', error)
-        alert('Upload failed. Please try again.')
-      }).finally(() => {
-        isUploading.value = false
-        uploadProgress.value = 0
-        
-        // Reset input
-        try {
-          input.value = ''
-        } catch (e) {
-          console.warn('Could not reset input value:', e)
-        }
-      })
-    } catch (error) {
-      console.error('Error handling file upload:', error)
-      isUploading.value = false
-      uploadProgress.value = 0
-    }
+  // Legacy file upload handler (will be replaced by chunked upload)
+  function handleFileUpload(items: FileList | File[] | FileSystemEntry[] | DataTransferItemList): void {
+    console.log('Legacy upload handler called, consider migrating to chunked upload')
+    // This can be used as fallback or removed entirely
   }
 
   // ===== DELETE =====
@@ -351,8 +312,6 @@ export function useFileManager() {
     sidebarWidth,
     isCollapsed,
     isDragging,
-    isUploading,
-    uploadProgress,
     emptyStateMessage,
     
     // File utilities (delegated to service)

@@ -9,6 +9,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import fileRoutes from './routes/files.js';
 import healthRoutes from './routes/health.js';
 import uploadRoutes from './routes/upload.js';
+import chunkedUploadRoutes from './routes/chunkedUpload.js';
 import websiteInfoRoutes from './routes/websiteInfo.js';
 import cacheService from './services/cacheService.js';
 import databaseService from './services/databaseService.js';
@@ -17,6 +18,7 @@ import { setupSwagger } from './swagger/swagger.js';
 import circuitBreakerRegistry from './utils/circuitBreaker.js';
 import logger from './utils/logger.js';
 import { WebSocketManager } from './services/websocketService.js';
+import uploadCleanupService from './services/uploadCleanupService.js';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -121,7 +123,8 @@ if (process.env.NODE_ENV !== 'test') {
     legacyHeaders: false,
     skip: (req) => {
       return req.path.startsWith('/api/health') || 
-             req.path.startsWith('/api-docs');
+             req.path.startsWith('/api-docs') ||
+             req.path.startsWith('/api/chunked-upload'); // Skip rate limiting for chunked uploads
     },
     handler: (req, res) => {
       logger.warn('Rate limit exceeded', {
@@ -170,11 +173,11 @@ if (process.env.NODE_ENV !== 'test') {
       prefix: 'rl:upload:'
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_UPLOAD_MAX) || 20,
+    max: parseInt(process.env.RATE_LIMIT_UPLOAD_MAX) || 1000, // Increased for chunked uploads
     handler: (req, res) => {
       res.status(429).json({
         error: {
-          message: 'Upload rate limit exceeded.',
+          message: 'Upload rate limit exceeded. Please try again later.',
           code: 'UPLOAD_RATE_LIMIT_EXCEEDED',
           retryAfter: 900
         }
@@ -185,6 +188,7 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(generalLimiter);
   app.use('/api/auth', authLimiter);
   app.use('/api/upload', uploadLimiter);
+  app.use('/api/chunked-upload', uploadLimiter);
 }
 
 setupSwagger(app);
@@ -210,6 +214,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/chunked-upload', chunkedUploadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/website-info', websiteInfoRoutes);
@@ -241,6 +246,11 @@ const wsManager = new WebSocketManager(server);
 
 // Make WebSocket manager globally available for controllers
 global.wsManager = wsManager;
+
+// Start upload cleanup service
+if (process.env.NODE_ENV !== 'test') {
+  uploadCleanupService.start();
+}
 
 app.get('/api/ws/stats', (_req, res) => {
   res.json(wsManager.getStats());

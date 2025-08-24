@@ -1,5 +1,6 @@
 <template>
-  <main class="resizable-grid border-start" tabindex="0" @keydown="handleKeydown">
+  <main class="resizable-grid border-start" tabindex="0" @keydown="handleKeydown" 
+        @drop="handleDrop" @dragover="handleDragOver" @dragenter="handleDragEnter" @dragleave="handleDragLeave">
     <!-- File Content Area -->
     <div class="d-flex flex-column position-relative file-view">
       <div class="content-scroll overflow-auto flex-grow-1">
@@ -52,22 +53,14 @@
           </div>
         </div>
 
-        <!-- Upload Progress Overlay -->
-        <div v-if="isUploading" class="upload-overlay">
-          <div class="card shadow-lg">
-            <div class="card-body text-center">
-              <div class="mb-2">
-                <Icon icon="mdi:upload" width="32" height="32" class="text-primary" />
-              </div>
-              <div class="mb-2">Uploading files...</div>
-              <div class="progress mb-2">
-                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                  :style="`width: ${uploadProgress}%`" />
-              </div>
-              <div class="small text-muted" v-text="`${uploadProgress}% complete`"></div>
-            </div>
-          </div>
-        </div>
+        <!-- Folder Scan Modal -->
+        <FolderScanModal
+          :isVisible="isScanning"
+          :progress="scanProgress"
+          :scanResult="scanResult"
+          @cancel="cancelScanning"
+          @start="startUploads"
+        />
 
         <!-- Grid View -->
         <FileGrid v-if="viewMode === 'grid' && !isLoading && !error && items.length > 0" :items="items"
@@ -83,6 +76,18 @@
           @itemDoubleClick="item => $emit('item-dbl-click', item)" @sort="$emit('sort', $event)" />
       </div>
     </div>
+
+    <!-- Upload Queue (Bottom Right) -->
+    <UploadQueue
+      :uploads="uploads"
+      @pause="pauseUpload"
+      @resume="resumeUpload" 
+      @cancel="cancelUpload"
+      @remove="removeUpload"
+      @pauseAll="pauseAllUploads"
+      @resumeAll="resumeAllUploads"
+      @clearCompleted="clearCompleted"
+    />
   </main>
 </template>
 
@@ -90,6 +95,9 @@
 import { ref, computed } from 'vue'
 import FileGrid from './FileGrid.vue'
 import FileTable from './FileTable.vue'
+import FolderScanModal from './FolderScanModal.vue'
+import UploadQueue from './UploadQueue.vue'
+import { useChunkedUpload } from '@/composables/useChunkedUpload'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -102,8 +110,6 @@ const props = defineProps({
   selectedItems: { type: Set, default: () => new Set() },
   isLoading: { type: Boolean, default: false },
   error: { type: String, default: '' },
-  isUploading: { type: Boolean, default: false },
-  uploadProgress: { type: Number, default: 0 },
   emptyMessage: { type: String, default: 'This folder is empty' }
 })
 
@@ -114,8 +120,27 @@ const emit = defineEmits([
   'item-dbl-click',
   'sort',
   'delete-selected',
-  'selection-change'
+  'selection-change',
+  'upload-files'
 ])
+
+// Chunked upload functionality
+const {
+  uploads,
+  isScanning,
+  scanProgress,
+  scanResult,
+  uploadFiles,
+  startUploads,
+  cancelScanning,
+  pauseUpload,
+  resumeUpload,
+  cancelUpload,
+  removeUpload,
+  pauseAllUploads,
+  resumeAllUploads,
+  clearCompleted
+} = useChunkedUpload()
 
 const searchQuery = computed(() => props.searchValue)
 
@@ -123,6 +148,45 @@ function clearSearch() {
   emit('search', '')
 }
 
+// Handle file uploads triggered from parent component
+async function handleUploadFiles(items) {
+  try {
+    await uploadFiles(items)
+  } catch (error) {
+    console.error('Upload initiation failed:', error)
+  }
+}
+
+// Expose upload function to parent
+defineExpose({
+  handleUploadFiles
+})
+
+// Drag and drop handlers
+function handleDragEnter(event) {
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function handleDragOver(event) {
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function handleDragLeave(event) {
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+async function handleDrop(event) {
+  event.preventDefault()
+  event.stopPropagation()
+  
+  const items = event.dataTransfer?.items
+  if (items && items.length > 0) {
+    await handleUploadFiles(items)
+  }
+}
 
 function handleKeydown(event) {
   // Only handle keyboard shortcuts if not focused on input elements
@@ -183,13 +247,6 @@ function handleKeydown(event) {
   margin-bottom: 1rem;
 }
 
-.upload-overlay {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1050;
-}
 
 .content-scroll::-webkit-scrollbar {
   width: 8px;

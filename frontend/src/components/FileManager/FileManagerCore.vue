@@ -4,8 +4,6 @@
       :is-sidebar-collapsed="isCollapsed" 
       :is-loading="fileStore.state.isLoading"
       :selected-count="fileStore.selectedItems.length" 
-      :is-uploading="isUploading" 
-      :upload-progress="uploadProgress"
       :clipboard-has-items="fileStore.hasClipboard"
       :clipboard-item-count="fileStore.clipboardInfo?.count || 0"
       :search-value="fileStore.state.filters.search"
@@ -21,7 +19,7 @@
       @copy-selected="handleCopySelected"
       @cut-selected="handleCutSelected"
       @paste-items="handlePasteItems"
-      @file-upload="handleFileUpload"
+      @file-upload="handleNewFileUpload"
       @search="fileStore.setSearch"
       @sort="fileStore.setSorting" 
       @view-mode="setViewMode" 
@@ -50,8 +48,7 @@
         :selected-items="fileStore.state.selectedIds"
         :is-loading="fileStore.state.isLoading" 
         :error="fileStore.state.error" 
-        :is-uploading="isUploading"
-        :upload-progress="uploadProgress" 
+        ref="fileViewRef" 
         :empty-message="emptyStateMessage" 
         @navigate="handleBreadcrumbNavigate"
         @item-dbl-click="handleItemDoubleClickLocal"
@@ -87,15 +84,12 @@ const {
   viewMode,
   sidebarWidth,
   isCollapsed,
-  isUploading,
-  uploadProgress,
   emptyStateMessage,
   SORT_OPTIONS,
   VIEW_MODES,
   getItemKey,
   handleItemClick,
   handleItemDoubleClick,
-  handleFileUpload,
   setViewMode,
   toggleSidebar,
   startDragging,
@@ -106,6 +100,7 @@ const authStore = useAuthStore()
 
 const modalsRef = ref()
 const itemToRename = ref(null)
+const fileViewRef = ref(null)
 
 // Tree data management
 const treeData = ref([
@@ -429,6 +424,15 @@ onMounted(async () => {
     }
   }
 })
+
+// New chunked upload handler
+async function handleNewFileUpload(items) {
+  if (fileViewRef.value?.handleUploadFiles) {
+    await fileViewRef.value.handleUploadFiles(items)
+  } else {
+    console.warn('FileView not ready for upload')
+  }
+}
 </script>
 
 <style scoped>

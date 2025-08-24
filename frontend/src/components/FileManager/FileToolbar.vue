@@ -10,7 +10,7 @@
 
       <!-- Hidden File Input for Upload -->
       <input ref="fileInput" type="file" multiple class="d-none" @change="handleFileUpload"
-        :disabled="isLoading || isUploading" />
+        :disabled="isLoading" webkitdirectory />
 
       <!-- Menu Dropdown -->
       <div class="position-relative">
@@ -28,15 +28,10 @@
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item d-flex align-items-center position-relative"
-              @click="triggerFileUpload" :disabled="isLoading || isUploading">
-              <Icon :icon="isUploading ? 'mdi:loading' : 'mdi:upload'" width="16" height="16" class="me-2"
-                :class="{ 'spinner': isUploading }" />
-              <span class="flex-fill">
-                <span v-text="isUploading ? `Uploading... ${uploadProgress}%` : 'Upload Files'"></span>
-              </span>
-              <div v-if="isUploading" class="position-absolute top-0 start-0 h-100 bg-primary opacity-10"
-                :style="`width: ${uploadProgress}%`" />
+            <button type="button" class="dropdown-item d-flex align-items-center"
+              @click="triggerFileUpload" :disabled="isLoading">
+              <Icon icon="mdi:upload" width="16" height="16" class="me-2" />
+              <span class="flex-fill">Upload Files/Folders</span>
             </button>
           </li>
           <li v-if="selectedCount > 0">
@@ -128,8 +123,6 @@ import { ref, watch } from 'vue'
 const props = defineProps({
   isSidebarCollapsed: { type: Boolean, default: false },
   isLoading: { type: Boolean, default: false },
-  isUploading: { type: Boolean, default: false },
-  uploadProgress: { type: Number, default: 0 },
   selectedCount: { type: Number, default: 0 },
   clipboardHasItems: { type: Boolean, default: false },
   clipboardItemCount: { type: Number, default: 0 },
@@ -165,7 +158,11 @@ watch(() => props.searchValue, (newValue) => {
 })
 
 function handleFileUpload(event) {
-  emit('fileUpload', event)
+  const input = event.target
+  if (input && input.files) {
+    emit('fileUpload', input.files)
+    input.value = '' // Reset input
+  }
 }
 
 function triggerFileUpload() {

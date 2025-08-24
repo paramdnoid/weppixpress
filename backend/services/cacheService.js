@@ -182,6 +182,26 @@ class CacheService {
   }
 
   /**
+   * Get keys matching pattern
+   * @param {string} pattern - Key pattern
+   */
+  async keys(pattern) {
+    if (!this.isAvailable()) {
+      return [];
+    }
+
+    try {
+      const keys = await this.client.keys(this.prefixKey(pattern));
+      logger.debug('Cache keys', { pattern, count: keys.length });
+      return keys;
+    } catch (error) {
+      logger.error('Cache keys error:', error);
+      this.stats.errors++;
+      return [];
+    }
+  }
+
+  /**
    * Delete multiple keys matching pattern
    * @param {string} pattern - Key pattern
    */
