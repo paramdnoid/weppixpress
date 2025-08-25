@@ -35,15 +35,15 @@ export function useChunkedUpload() {
   }
 
   function setupEventListeners() {
-    window.addEventListener('upload-progress', handleUploadProgress)
-    window.addEventListener('upload-status-change', handleStatusChange)
+    window.addEventListener('upload-progress', handleUploadProgress as EventListener)
+    window.addEventListener('upload-status-change', handleStatusChange as EventListener)
     window.addEventListener('beforeunload', handleBeforeUnload)
     window.addEventListener('visibilitychange', handleVisibilityChange)
   }
 
   function removeEventListeners() {
-    window.removeEventListener('upload-progress', handleUploadProgress)
-    window.removeEventListener('upload-status-change', handleStatusChange)
+    window.removeEventListener('upload-progress', handleUploadProgress as EventListener)
+    window.removeEventListener('upload-status-change', handleStatusChange as EventListener)
     window.removeEventListener('beforeunload', handleBeforeUnload)
     window.removeEventListener('visibilitychange', handleVisibilityChange)
   }
