@@ -95,7 +95,6 @@ GET    /api/chunked-upload/active         # List active uploads
 ### Environment Variables:
 ```env
 UPLOAD_CHUNK_SIZE=2097152        # 2MB chunks
-MAX_CONCURRENT_UPLOADS=3         # Limit concurrent uploads
 MAX_UPLOAD_FILE_SIZE=53687091200 # 50GB max file size
 UPLOAD_SESSION_TTL=86400         # 24 hour session TTL
 ```
