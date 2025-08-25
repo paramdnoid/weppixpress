@@ -139,7 +139,7 @@ cd frontend && npm run dev
 
 Nach wenigen Sekunden ist die Anwendung unter http://localhost:5173 erreichbar und kommuniziert mit dem Backend auf Port 3001.
 
-## Voraussetzung
+## Voraussetzungen
 
 - Node.js >=16
 - npm oder Yarn
