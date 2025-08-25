@@ -27,8 +27,12 @@ function sanitizeLogData(obj, depth = 0, maxDepth = 5) {
     return sanitized;
   }
   
-  if (typeof obj !== 'object' || Array.isArray(obj)) return obj;
-  
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeLogData(item, depth + 1, maxDepth));
+  }
+
+  if (typeof obj !== 'object') return obj;
+
   const sanitized = {};
   Object.keys(obj).forEach(key => {
     const lowerKey = key.toLowerCase();
