@@ -23,7 +23,7 @@ npm run dev       # startet den Express-Server auf Port 3001
 cd ..
 ```
 
-**4. Frontend einrichten**
+**3. Frontend einrichten**
 ```bash
 cd frontend
 npm install
@@ -33,7 +33,7 @@ npm run dev       # startet Vite auf Port 5173
 cd ..
 ```
 
-**5. Gesamtprojekt starten (Dev-Mode)**
+**4. Gesamtprojekt starten (Dev-Mode)**
 Starten Sie Backend und Frontend in separaten Terminals:
 ```bash
 # Terminal 1
@@ -43,7 +43,7 @@ cd backend && npm run dev
 cd frontend && npm run dev
 ```
 
-**6. Environment-Variablen**
+**5. Environment-Variablen**
 Erstellen Sie im `backend` und `frontend` je eine Datei `.env.example` mit diesen Einträgen:
 
 ```dotenv
