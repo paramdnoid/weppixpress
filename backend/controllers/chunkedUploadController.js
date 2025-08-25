@@ -11,6 +11,9 @@ const UPLOAD_SESSION_TTL = parseInt(process.env.UPLOAD_SESSION_TTL) || (24 * 60 
 const MAX_CONCURRENT_UPLOADS = parseInt(process.env.MAX_CONCURRENT_UPLOADS) || 3; // eslint-disable-line no-unused-vars
 const MAX_FILE_SIZE = parseInt(process.env.MAX_UPLOAD_FILE_SIZE) || (50 * 1024 * 1024 * 1024); // 50GB
 
+const CACHE_PREFIX = `${process.env.CACHE_PREFIX || 'weppix'}:`;
+const stripCachePrefix = (key) => key.startsWith(CACHE_PREFIX) ? key.slice(CACHE_PREFIX.length) : key;
+
 class ChunkedUploadController {
   constructor() {
     this.activeUploads = new Map();
@@ -269,8 +272,8 @@ class ChunkedUploadController {
     try {
       const userId = req.user.userId;
       const pattern = `upload_session:${userId}:*`;
-      const keys = await cacheService.keys(pattern);
-      
+      const keys = (await cacheService.keys(pattern)).map(stripCachePrefix);
+
       const sessions = [];
       for (const key of keys) {
         const session = await cacheService.get(key);
@@ -399,9 +402,9 @@ class ChunkedUploadController {
   }
 
   async getUploadSession(uploadId) {
-    const keys = await cacheService.keys(`upload_session:*:${uploadId}`);
+    const keys = (await cacheService.keys(`upload_session:*:${uploadId}`)).map(stripCachePrefix);
     if (keys.length === 0) return null;
-    
+
     const session = await cacheService.get(keys[0]);
     if (session) {
       session.uploadedChunks = new Set(session.uploadedChunks || []);
@@ -410,7 +413,7 @@ class ChunkedUploadController {
   }
 
   async deleteUploadSession(uploadId) {
-    const keys = await cacheService.keys(`upload_session:*:${uploadId}`);
+    const keys = (await cacheService.keys(`upload_session:*:${uploadId}`)).map(stripCachePrefix);
     for (const key of keys) {
       await cacheService.delete(key);
     }
@@ -453,7 +456,7 @@ class ChunkedUploadController {
   async cleanupExpiredSessions() {
     try {
       const pattern = 'upload_session:*';
-      const keys = await cacheService.keys(pattern);
+      const keys = (await cacheService.keys(pattern)).map(stripCachePrefix);
       const expiredSessions = [];
 
       for (const key of keys) {
