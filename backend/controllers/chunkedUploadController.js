@@ -8,7 +8,6 @@ import crypto from 'crypto';
 
 const CHUNK_SIZE = parseInt(process.env.UPLOAD_CHUNK_SIZE) || (2 * 1024 * 1024); // 2MB chunks (reduced for better memory usage)
 const UPLOAD_SESSION_TTL = parseInt(process.env.UPLOAD_SESSION_TTL) || (24 * 60 * 60); // 24 hours
-const MAX_CONCURRENT_UPLOADS = parseInt(process.env.MAX_CONCURRENT_UPLOADS) || 3; // eslint-disable-line no-unused-vars
 const MAX_FILE_SIZE = parseInt(process.env.MAX_UPLOAD_FILE_SIZE) || (50 * 1024 * 1024 * 1024); // 50GB
 
 const CACHE_PREFIX = `${process.env.CACHE_PREFIX || 'weppix'}:`;

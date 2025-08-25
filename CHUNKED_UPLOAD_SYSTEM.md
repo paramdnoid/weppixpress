@@ -63,13 +63,11 @@ frontend/src/components/FileManager/FolderScanModal.vue     # Scan progress
 - **Reduced Chunk Size**: 2MB chunks (down from 5MB)
 - **Small Stream Buffers**: 16KB buffers to minimize memory usage
 - **Garbage Collection**: Forced GC every 10 chunks during finalization
-- **Limited Concurrency**: Max 3 concurrent uploads by default
 
 ### Configuration
 ```bash
 # Environment Variables
 UPLOAD_CHUNK_SIZE=2097152        # 2MB chunks
-MAX_CONCURRENT_UPLOADS=2         # Limit concurrent uploads
 MAX_UPLOAD_FILE_SIZE=53687091200 # 50GB max file size
 UPLOAD_SESSION_TTL=86400         # 24 hour session TTL
 
@@ -186,7 +184,6 @@ node test/simple-upload-test.js
 
 ### High Memory Usage
 - Ensure `UPLOAD_CHUNK_SIZE=2097152` (2MB)
-- Set `MAX_CONCURRENT_UPLOADS=2` or lower
 - Use Node.js flags: `--max-old-space-size=4096 --expose-gc`
 
 ### Cache Service Errors
