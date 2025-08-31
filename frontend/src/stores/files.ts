@@ -211,6 +211,8 @@ export const useFileStore = defineStore('files', () => {
     if (!data.file) return
 
     const file = data.file as FileItem
+    // Normalize path to ensure leading slash
+    file.path = normalizePath((file as any).path)
     const parentPath = getParentPath(file.path)
     
     // Only update if the file is in current view or affects current navigation
@@ -226,6 +228,17 @@ export const useFileStore = defineStore('files', () => {
       
       // Clear tree cache for affected path
       state.value.treeCache.delete(parentPath)
+
+      // Notify sidebar tree to reorganize/refresh
+      setTimeout(() => {
+        const treeRoot = document.getElementById('menu')
+        if (treeRoot) {
+          const event = new CustomEvent('tree:reorganize', {
+            detail: { targetPath: parentPath }
+          })
+          treeRoot.dispatchEvent(event)
+        }
+      }, 50)
     }
   }
 
@@ -307,6 +320,17 @@ export const useFileStore = defineStore('files', () => {
     // Invalidate cache for changed folder
     invalidateCache(normalizedPath)
     state.value.treeCache.delete(normalizedPath)
+
+    // Notify sidebar to update the affected node
+    setTimeout(() => {
+      const treeRoot = document.getElementById('menu')
+      if (treeRoot) {
+        const event = new CustomEvent('tree:reorganize', {
+          detail: { targetPath: normalizedPath }
+        })
+        treeRoot.dispatchEvent(event)
+      }
+    }, 50)
   }
 
   // ===== COMPUTED =====

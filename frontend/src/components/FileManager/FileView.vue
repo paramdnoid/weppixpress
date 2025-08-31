@@ -59,7 +59,7 @@
           :progress="scanProgress"
           :scanResult="scanResult"
           @cancel="cancelScanning"
-          @start="startUploads"
+          @start="startUploadsHere"
         />
 
         <!-- Grid View -->
@@ -99,6 +99,7 @@ import FileTable from './FileTable.vue'
 import FolderScanModal from './FolderScanModal.vue'
 import UploadQueue from './UploadQueue.vue'
 import { useChunkedUpload } from '@/composables/useChunkedUpload'
+import { useFileStore } from '@/stores/files'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -145,6 +146,8 @@ const {
   clearAllUploads
 } = useChunkedUpload()
 
+const fileStore = useFileStore()
+
 const searchQuery = computed(() => props.searchValue)
 
 function clearSearch() {
@@ -189,6 +192,11 @@ async function handleDrop(event) {
   if (items && items.length > 0) {
     await handleUploadFiles(items)
   }
+}
+
+function startUploadsHere() {
+  const basePath = fileStore.state.value?.currentPath || '/'
+  startUploads(basePath)
 }
 
 function handleKeydown(event) {

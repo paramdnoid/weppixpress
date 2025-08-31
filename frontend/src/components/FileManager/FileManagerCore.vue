@@ -425,6 +425,38 @@ onMounted(async () => {
   }
 })
 
+// Listen for tree reorganization events to refresh root list if needed
+onMounted(() => {
+  const treeRoot = document.getElementById('menu')
+  if (!treeRoot) return
+
+  function onTreeReorganize(e) {
+    try {
+      const detail = (e && e.detail) || {}
+      const targetPath = detail.targetPath || ''
+      if (targetPath === '/') {
+        // Refresh root folders in sidebar
+        fileStore.loadFolderContents('/', false)
+          .then(items => {
+            const folders = items.filter(item => item.type === 'folder')
+            treeData.value[0].items = folders
+          })
+          .catch(() => {})
+      }
+    } catch {}
+  }
+
+  treeRoot.addEventListener('tree:reorganize', onTreeReorganize)
+
+  // Cleanup
+  const cleanup = () => treeRoot.removeEventListener('tree:reorganize', onTreeReorganize)
+  try {
+    if (import.meta && import.meta.hot) {
+      import.meta.hot.dispose(() => cleanup())
+    }
+  } catch {}
+})
+
 // New chunked upload handler
 async function handleNewFileUpload(items) {
   if (fileViewRef.value?.handleUploadFiles) {

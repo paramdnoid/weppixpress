@@ -33,14 +33,22 @@ class ChunkedUploadController {
       }
 
       const userDir = await ensureUserUploadDir(req.user.userId);
+      const safeName = this.sanitizeFilename(fileName);
       const sanitizedPath = sanitizeUploadPath(relativePath);
-      const targetDir = secureResolve(userDir, sanitizedPath);
-      
-      // Ensure target directory exists (not the file path!)
+
+      // Determine if client sent a path including the filename; if so, strip it
+      const pathParts = sanitizedPath.split('/').filter(Boolean);
+      const lastPart = pathParts[pathParts.length - 1] || '';
+      const looksLikeFilename = lastPart.toLowerCase() === safeName.toLowerCase() ||
+        (!!lastPart && lastPart.includes('.') && !lastPart.startsWith('.'));
+
+      const dirOnlyPath = looksLikeFilename ? pathParts.slice(0, -1).join('/') : sanitizedPath;
+
+      // Resolve and ensure directory exists
+      const targetDir = secureResolve(userDir, dirOnlyPath);
       await fsp.mkdir(targetDir, { recursive: true });
 
       const uploadId = crypto.randomUUID();
-      const safeName = this.sanitizeFilename(fileName);
       const uniquePath = await this.getUniquePath(targetDir, safeName);
       
       // Create temp directory for chunks (using the correct parent directory)
@@ -63,7 +71,8 @@ class ChunkedUploadController {
         chunkSize: parseInt(chunkSize),
         targetPath: uniquePath,
         tempDir,
-        relativePath: sanitizedPath,
+        // Persist only the directory path (without filename)
+        relativePath: dirOnlyPath,
         totalChunks: Math.ceil(fileSize / chunkSize),
         uploadedChunks: new Set(),
         createdAt: new Date(),
@@ -550,11 +559,13 @@ class ChunkedUploadController {
         try {
           const userDir = await ensureUserUploadDir(uploadSession.userId);
           const relativePath = uploadSession.targetPath.replace(userDir, '').replace(/\\/g, '/');
-          const parentPath = dirname(relativePath).replace(/\\/g, '/') || '/';
+          // Ensure leading slash for client consistency
+          const normalizedPath = ('/' + relativePath).replace(/\/+/, '/');
+          const parentPath = dirname(normalizedPath).replace(/\\/g, '/') || '/';
 
           global.wsManager.broadcastFileCreated({
             name: uploadSession.fileName,
-            path: relativePath,
+            path: normalizedPath,
             type: 'file',
             size: uploadSession.fileSize,
             modified: new Date().toISOString()

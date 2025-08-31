@@ -1,4 +1,5 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { useFileStore } from '@/stores/files'
 import { chunkedUploadService, type UploadProgress } from '@/services/chunkedUploadService'
 import { FolderScannerService, type FileEntry, type FolderScanProgress, type FolderScanResult } from '@/services/folderScannerService'
 
@@ -8,6 +9,7 @@ export function useChunkedUpload() {
   const scanProgress = ref<FolderScanProgress | null>(null)
   const scanResult = ref<FolderScanResult | null>(null)
   const folderScanner = ref<FolderScannerService | null>(null)
+  const fileStore = useFileStore()
 
   // Load persisted uploads on mount
   onMounted(async () => {
@@ -51,11 +53,43 @@ export function useChunkedUpload() {
   function handleUploadProgress(event: CustomEvent) {
     const { uploadId, progress } = event.detail
     updateUploadProgress(uploadId, progress)
+
+    // If the progress marks the upload as completed, auto-remove shortly after
+    if (progress?.status === 'completed') {
+      setTimeout(() => {
+        removeUpload(uploadId)
+        // Fallback refresh in case WS didn't update the view
+        try { 
+          fileStore.refreshCurrentPath()
+          const treeRoot = document.getElementById('menu')
+          if (treeRoot) {
+            const targetPath = (fileStore as any)?.state?.value?.currentPath || '/'
+            treeRoot.dispatchEvent(new CustomEvent('tree:reorganize', { detail: { targetPath } }))
+          }
+        } catch {}
+      }, 1000)
+    }
   }
 
   function handleStatusChange(event: CustomEvent) {
     const { uploadId, status } = event.detail
     updateUploadStatus(uploadId, status)
+
+    // Auto-remove completed/cancelled uploads after a short delay
+    if (status === 'completed' || status === 'cancelled') {
+      setTimeout(() => {
+        removeUpload(uploadId)
+        // Fallback refresh in case WS didn't update the view
+        try { 
+          fileStore.refreshCurrentPath()
+          const treeRoot = document.getElementById('menu')
+          if (treeRoot) {
+            const targetPath = (fileStore as any)?.state?.value?.currentPath || '/'
+            treeRoot.dispatchEvent(new CustomEvent('tree:reorganize', { detail: { targetPath } }))
+          }
+        } catch {}
+      }, 1000)
+    }
   }
 
   function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -134,14 +168,14 @@ export function useChunkedUpload() {
     }
   }
 
-  async function startUploads() {
+  async function startUploads(basePath?: string) {
     if (!scanResult.value) return
 
     isScanning.value = false
     
     const promises = scanResult.value.files.map(async (fileEntry: FileEntry) => {
       try {
-        const uploadId = await chunkedUploadService.startUpload(fileEntry)
+        const uploadId = await chunkedUploadService.startUpload(fileEntry, basePath)
         
         // Add initial progress entry
         uploads.value.push({

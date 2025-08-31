@@ -81,15 +81,22 @@ export class ChunkedUploadService {
     }
   }
 
-  async startUpload(fileEntry: FileEntry): Promise<string> {
-    const session = await this.initializeUpload(fileEntry.file, fileEntry.relativePath)
+  async startUpload(fileEntry: FileEntry, basePath?: string): Promise<string> {
+    // Prefix the relative path with current folder basePath if provided
+    let relativePath = fileEntry.relativePath || ''
+    if (basePath && basePath !== '/') {
+      const base = basePath.replace(/^\/+|\/+$/g, '')
+      relativePath = base ? `${base}/${relativePath}` : relativePath
+    }
+
+    const session = await this.initializeUpload(fileEntry.file, relativePath)
     const cancelToken = axios.CancelToken.source()
 
     // Store in queued uploads, not active uploads
     const queuedInfo = {
       session,
       file: fileEntry.file,
-      relativePath: fileEntry.relativePath,
+      relativePath,
       cancelToken
     }
 
