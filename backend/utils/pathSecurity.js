@@ -1,8 +1,4 @@
-import { dirname, join, relative, resolve } from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { join, relative, resolve } from 'path';
 
 /**
  * Zentrale Path-Security Utilities

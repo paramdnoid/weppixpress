@@ -68,4 +68,37 @@ router.get('/active',
   chunkedUploadController.listActiveUploads.bind(chunkedUploadController)
 );
 
+// Debug endpoint to check session by ID (only in development)
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/debug/:uploadId',
+    authenticate,
+    requestTimeout(10 * 1000),
+    async (req, res) => {
+      try {
+        const { uploadId } = req.params;
+        const session = await chunkedUploadController.getUploadSession(uploadId);
+        
+        if (session) {
+          res.json({
+            success: true,
+            data: {
+              uploadId: session.uploadId,
+              fileName: session.fileName,
+              status: session.status,
+              uploadedChunks: session.uploadedChunks.size,
+              totalChunks: session.totalChunks,
+              createdAt: session.createdAt,
+              lastActivity: session.lastActivity
+            }
+          });
+        } else {
+          res.status(404).json({ success: false, message: 'Session not found' });
+        }
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    }
+  );
+}
+
 export default router;
