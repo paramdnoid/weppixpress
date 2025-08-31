@@ -18,10 +18,10 @@ function toAbsoluteUrl(base, maybeRelative) {
 }
 
 async function fetchText(url, { timeoutMs = 12000, userAgent = DEFAULT_UA } = {}) {
-  const controller = new AbortController();
+  const controller = new globalThis.AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    const res = await globalThis.fetch(url, {
       redirect: 'follow',
       signal: controller.signal,
       headers: {
@@ -138,6 +138,8 @@ export async function getWebsiteInfo(rawUrl, opts = {}) {
     return { ok: false, status, error: `Unsupported content-type: ${contentType}`, url: finalUrl || urlStr };
   }
 
+  // Load HTML into cheerio for extraction
+  const $ = cheerio.load(text);
   const meta = extractMeta($, finalUrl || urlStr);
   const jsonLd = extractJsonLd($);
 
@@ -154,7 +156,7 @@ export async function getWebsiteInfo(rawUrl, opts = {}) {
 // Optional: light-weight health check for your service
 export async function probe(url) {
   try {
-    const res = await fetch(url, { method: 'HEAD' });
+    const res = await globalThis.fetch(url, { method: 'HEAD' });
     return { ok: res.ok, status: res.status, url: res.url };
   } catch (e) {
     return { ok: false, error: String(e) };

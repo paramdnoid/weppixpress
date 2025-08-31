@@ -311,6 +311,30 @@ export class ChunkedUploadService {
     this.dispatchStatusEvent(uploadId, 'cancelled')
   }
 
+  async cancelAllUploads(): Promise<void> {
+    try {
+      // Cancel client-side tokens
+      for (const [uploadId, info] of this.activeUploads.entries()) {
+        try { info.cancelToken?.cancel('Upload cancelled by user') } catch {}
+        this.dispatchStatusEvent(uploadId, 'cancelled')
+      }
+      for (const [, info] of this.queuedUploads.entries()) {
+        try { info.cancelToken?.cancel('Upload cancelled by user') } catch {}
+      }
+
+      // Clear internal queues
+      this.activeUploads.clear()
+      this.queuedUploads.clear()
+      this.uploadQueue = []
+
+      // Cancel server-side sessions
+      await api.delete('/chunked-upload/active')
+    } catch (error) {
+      console.error('Failed to cancel all uploads:', error)
+      throw error
+    }
+  }
+
   async getUploadStatus(uploadId: string): Promise<UploadProgress | null> {
     try {
       const response = await api.get(`/chunked-upload/status/${uploadId}`)

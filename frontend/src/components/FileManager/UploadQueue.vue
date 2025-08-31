@@ -123,8 +123,11 @@
             </div>
           </div>
 
-          <div class="border-top p-2 text-end" v-if="hasCompletedUploads">
-            <button type="button" class="btn btn-outline-secondary btn-sm" @click="clearCompleted">
+          <div class="border-top p-2 d-flex justify-content-end gap-2" v-if="uploads.length > 0">
+            <button type="button" class="btn btn-outline-secondary btn-sm" @click="clearAll">
+              Clear All
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" v-if="hasCompletedUploads" @click="clearCompleted">
               Clear Completed
             </button>
           </div>
@@ -152,6 +155,7 @@ const emit = defineEmits<{
   pauseAll: []
   resumeAll: []
   clearCompleted: []
+  clearAll: []
 }>()
 
 const isCollapsed = ref(false)
@@ -203,6 +207,10 @@ function removeCompleted(uploadId: string) {
 
 function clearCompleted() {
   emit('clearCompleted')
+}
+
+function clearAll() {
+  emit('clearAll')
 }
 
 function getFileIcon(fileName: string): string {

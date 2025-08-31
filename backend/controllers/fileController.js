@@ -779,7 +779,7 @@ async function copyDirectoryRecursive(source, destination, options = {}) {
             errors.push(`Skipped symlink: ${sourcePath}`);
             continue;
           }
-        } catch (e) {
+        } catch (_e) {
           errors.push(`Failed to lstat: ${sourcePath}`);
           continue;
         }

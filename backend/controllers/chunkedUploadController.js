@@ -1,4 +1,4 @@
-import { promises as fsp, createWriteStream, createReadStream } from 'fs';
+import { promises as fsp, createWriteStream } from 'fs';
 import { join, dirname, basename, extname } from 'path';
 import { ValidationError } from '../utils/errors.js';
 import { sanitizeUploadPath, secureResolve } from '../utils/pathSecurity.js';
@@ -360,7 +360,21 @@ class ChunkedUploadController {
       for (const key of keys) {
         const session = await cacheService.get(key);
         if (session && session.status !== 'completed') {
-          const progress = (session.uploadedChunks.size / session.totalChunks) * 100;
+          // Ensure uploadedChunks is a Set for consistent size calculations
+          if (Array.isArray(session.uploadedChunks)) {
+            session.uploadedChunks = new Set(session.uploadedChunks);
+          } else if (session.uploadedChunks && typeof session.uploadedChunks === 'object' && session.uploadedChunks.size === undefined) {
+            session.uploadedChunks = new Set(
+              Object.keys(session.uploadedChunks)
+                .filter((k) => !isNaN(parseInt(k)))
+                .map((k) => parseInt(k))
+            );
+          } else if (!session.uploadedChunks) {
+            session.uploadedChunks = new Set();
+          }
+
+          const uploadedCount = session.uploadedChunks.size;
+          const progress = (uploadedCount / session.totalChunks) * 100;
           sessions.push({
             uploadId: session.uploadId,
             fileName: session.fileName,
@@ -375,6 +389,39 @@ class ChunkedUploadController {
 
       res.json({ success: true, data: sessions });
 
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Cancel and clean all active (non-completed) uploads for current user
+  async cancelAllForUser(req, res, next) {
+    try {
+      const userId = req.user.userId;
+      const pattern = `upload_session:${userId}:*`;
+      const keys = (await cacheService.keys(pattern)).map(stripCachePrefix);
+
+      let cancelled = 0;
+      for (const key of keys) {
+        const session = await cacheService.get(key);
+        if (!session) continue;
+
+        // Normalize structure similar to getUploadSession
+        if (Array.isArray(session.uploadedChunks)) {
+          session.uploadedChunks = new Set(session.uploadedChunks);
+        }
+
+        try {
+          await this.cleanupUploadSession(session);
+        } catch (_) {
+          // ignore per-session cleanup errors to continue
+        }
+        const uploadId = session.uploadId;
+        await this.deleteUploadSession(uploadId);
+        cancelled++;
+      }
+
+      res.json({ success: true, data: { cancelled } });
     } catch (error) {
       next(error);
     }

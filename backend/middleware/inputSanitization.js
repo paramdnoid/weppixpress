@@ -169,7 +169,7 @@ function sanitizeString(input, options = {}) {
 /**
  * Validates and sanitizes email addresses
  */
-function sanitizeEmail(email) {
+function _sanitizeEmail(email) {
   if (!email || typeof email !== 'string') {
     return null;
   }
@@ -193,7 +193,7 @@ function sanitizeEmail(email) {
 /**
  * Validates and sanitizes URLs
  */
-function sanitizeUrl(url) {
+function _sanitizeUrl(url) {
   if (!url || typeof url !== 'string') {
     return null;
   }
@@ -332,7 +332,7 @@ const standardSecurityMiddleware =  [
 /**
  * Strict Security Middleware for critical endpoints
  */
-const strictSecurityMiddleware =  [
+const _strictSecurityMiddleware =  [
   mongoSanitize({ replaceWith: '_' }),
   xss(),
   hpp({ whitelist: [] }),
@@ -342,7 +342,7 @@ const strictSecurityMiddleware =  [
 /**
  * Utility functions for manual validation
  */
-const validators =  {
+const _validators =  {
   isValidFilename: (filename) => {
     if (!filename || typeof filename !== 'string') return false;
     const check = detectMaliciousPatterns(filename, 'filename');

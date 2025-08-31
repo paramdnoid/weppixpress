@@ -95,5 +95,5 @@ async function withCacheMonitoring(operation, isReadOperation, fn) {
   }
 }
 
-export { requestMonitoring, errorMonitoring };
+export { requestMonitoring, errorMonitoring, withDbMonitoring, withCacheMonitoring };
 export default requestMonitoring;

@@ -73,6 +73,6 @@ function strictFileFilter(req, file, cb) {
   return validateFile(file, cb, { useWhitelist: true });
 }
 
-export { fileFilter };
+export { fileFilter, strictFileFilter };
 
 export default fileFilter;

@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   root: true,
   env: {
     node: true,
@@ -7,7 +7,6 @@ export default {
   },
   extends: [
     'eslint:recommended',
-    '@vue/eslint-config-typescript',
     'plugin:vue/vue3-essential'
   ],
   parserOptions: {
@@ -16,9 +15,7 @@ export default {
   },
   rules: {
     'vue/multi-word-component-names': 'off',
-    '@typescript-eslint/no-explicit-any': 'off',
-    'no-unused-vars': 'warn',
-    '@typescript-eslint/no-unused-vars': 'warn'
+    'no-unused-vars': 'warn'
   },
   ignorePatterns: [
     'dist/',

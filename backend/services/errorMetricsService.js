@@ -79,7 +79,7 @@ class ErrorMetricsService {
   /**
    * Check if error conditions warrant an alert
    */
-  checkAlertConditions(errorMetric) {
+  checkAlertConditions(_errorMetric) {
     const now = Date.now();
     const timeWindow = this.alertThresholds.timeWindow;
 

@@ -241,6 +241,16 @@ export function useChunkedUpload() {
     uploads.value = uploads.value.filter(u => u.status !== 'completed')
   }
 
+  async function clearAllUploads() {
+    try {
+      await chunkedUploadService.cancelAllUploads()
+    } catch (error) {
+      console.error('Failed to clear all uploads:', error)
+    } finally {
+      uploads.value = []
+    }
+  }
+
   // Helper functions
   function getActiveUploadsCount(): number {
     return uploads.value.filter(u => !['completed', 'cancelled'].includes(u.status)).length
@@ -279,6 +289,7 @@ export function useChunkedUpload() {
     pauseAllUploads,
     resumeAllUploads,
     clearCompleted,
+    clearAllUploads,
 
     // Computed helpers
     getActiveUploadsCount,

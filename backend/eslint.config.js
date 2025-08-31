@@ -29,7 +29,15 @@ export default [
       }
     },
     rules: {
-      "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "caughtErrors": "all",
+          "caughtErrorsIgnorePattern": "^_"
+        }
+      ],
       "no-console": "warn",
       "prefer-const": "error",
       "no-var": "error",
@@ -37,6 +45,14 @@ export default [
       "no-undef": "error",
       "no-control-regex": "off",
       "no-extra-semi": "error"
+    }
+  },
+  // Test files: allow console and be lenient on unused vars
+  {
+    files: ["test/**", "tests/**"],
+    rules: {
+      "no-console": "off",
+      "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }]
     }
   }
 ];

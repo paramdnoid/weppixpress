@@ -3,6 +3,7 @@ import multer from 'multer';
 import authenticate from '../middleware/authenticate.js';
 import { requestTimeout } from '../middleware/requestContext.js';
 import chunkedUploadController from '../controllers/chunkedUploadController.js';
+import uploadCleanupService from '../services/uploadCleanupService.js';
 
 const router = express.Router();
 
@@ -66,6 +67,28 @@ router.get('/active',
   authenticate,
   requestTimeout(30 * 1000),
   chunkedUploadController.listActiveUploads.bind(chunkedUploadController)
+);
+
+// Trigger cleanup of expired/stale sessions (authenticated)
+router.post('/cleanup',
+  authenticate,
+  requestTimeout(60 * 1000),
+  async (req, res, next) => {
+    try {
+      // Use the service to keep logging/metrics consistent
+      const cleaned = await uploadCleanupService.manualCleanup();
+      res.json({ success: true, data: { cleaned } });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Cancel all active uploads for the current user
+router.delete('/active',
+  authenticate,
+  requestTimeout(60 * 1000),
+  chunkedUploadController.cancelAllForUser.bind(chunkedUploadController)
 );
 
 // Debug endpoint to check session by ID (only in development)

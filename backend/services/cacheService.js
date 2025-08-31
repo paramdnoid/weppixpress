@@ -92,7 +92,7 @@ class CacheService {
    * @param {string} key - Cache key
    * @param {Object} options - Options (reserved for future use)
    */
-  async get(key, options = {}) {
+  async get(key, _options = {}) {
     if (!this.isAvailable()) {
       logger.debug('Cache not available for get operation');
       this.stats.misses++;
@@ -132,7 +132,7 @@ class CacheService {
    * @param {number} ttl - Time to live in seconds
    * @param {Object} options - Options (reserved for future use)
    */
-  async set(key, value, ttl = 3600, options = {}) {
+  async set(key, value, ttl = 3600, _options = {}) {
     if (!this.isAvailable()) {
       logger.debug('Cache not available for set operation');
       return false;

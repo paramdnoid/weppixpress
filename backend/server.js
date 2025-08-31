@@ -299,7 +299,7 @@ app.get('/api/system/errors', async (_req, res) => {
       (typeof monitoringService.getRecentErrors === 'function' && await monitoringService.getRecentErrors()) ||
       [];
     res.json(data);
-  } catch (e) {
+  } catch (_e) {
     res.json([]);
   }
 });

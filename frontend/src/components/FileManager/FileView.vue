@@ -87,6 +87,7 @@
       @pauseAll="pauseAllUploads"
       @resumeAll="resumeAllUploads"
       @clearCompleted="clearCompleted"
+      @clearAll="clearAllUploads"
     />
   </main>
 </template>
@@ -140,6 +141,8 @@ const {
   pauseAllUploads,
   resumeAllUploads,
   clearCompleted
+  ,
+  clearAllUploads
 } = useChunkedUpload()
 
 const searchQuery = computed(() => props.searchValue)
