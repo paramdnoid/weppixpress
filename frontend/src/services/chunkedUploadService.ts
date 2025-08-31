@@ -47,6 +47,13 @@ export class ChunkedUploadService {
     paused: boolean
   }>()
 
+  private queuedUploads = new Map<string, {
+    session: UploadSession
+    file: File
+    relativePath: string
+    cancelToken: CancelTokenSource
+  }>()
+
   private maxConcurrentUploads = 3
   private uploadQueue: string[] = []
 
@@ -78,19 +85,15 @@ export class ChunkedUploadService {
     const session = await this.initializeUpload(fileEntry.file, fileEntry.relativePath)
     const cancelToken = axios.CancelToken.source()
 
-    const uploadInfo = {
+    // Store in queued uploads, not active uploads
+    const queuedInfo = {
       session,
       file: fileEntry.file,
       relativePath: fileEntry.relativePath,
-      currentChunk: 0,
-      cancelToken,
-      startTime: Date.now(),
-      lastProgressTime: Date.now(),
-      uploadedBytes: 0,
-      paused: false
+      cancelToken
     }
 
-    this.activeUploads.set(session.uploadId, uploadInfo)
+    this.queuedUploads.set(session.uploadId, queuedInfo)
     this.uploadQueue.push(session.uploadId)
 
     this.processQueue()
@@ -99,24 +102,44 @@ export class ChunkedUploadService {
   }
 
   private async processQueue(): Promise<void> {
-    const activeCount = Array.from(this.activeUploads.values())
-      .filter(upload => upload.currentChunk < upload.session.totalChunks && !upload.paused).length
+    const uploads = Array.from(this.activeUploads.values())
+    const activeUploads = uploads.filter(upload => upload.currentChunk < upload.session.totalChunks && !upload.paused)
+    const activeCount = activeUploads.length
+
+    console.log(`processQueue: active=${activeCount}, max=${this.maxConcurrentUploads}, queued=${this.uploadQueue.length}`)
+    console.log(`Upload states:`, uploads.map(u => ({ 
+      name: u.file.name, 
+      current: u.currentChunk, 
+      total: u.session.totalChunks,
+      active: u.currentChunk < u.session.totalChunks && !u.paused
+    })))
 
     if (activeCount >= this.maxConcurrentUploads || this.uploadQueue.length === 0) {
       return
     }
 
     const uploadId = this.uploadQueue.shift()
-    if (!uploadId || !this.activeUploads.has(uploadId)) {
+    if (!uploadId || !this.queuedUploads.has(uploadId)) {
       this.processQueue()
       return
     }
 
-    const uploadInfo = this.activeUploads.get(uploadId)!
-    if (uploadInfo.paused) {
-      this.processQueue()
-      return
+    const queuedInfo = this.queuedUploads.get(uploadId)!
+    
+    // Move from queued to active
+    const uploadInfo = {
+      ...queuedInfo,
+      currentChunk: 0,
+      startTime: Date.now(),
+      lastProgressTime: Date.now(),
+      uploadedBytes: 0,
+      paused: false
     }
+    
+    this.activeUploads.set(uploadId, uploadInfo)
+    this.queuedUploads.delete(uploadId)
+
+    console.log(`Starting upload for ${uploadInfo.file.name} (${uploadId})`)
 
     try {
       await this.uploadFileChunks(uploadId)
@@ -166,11 +189,19 @@ export class ChunkedUploadService {
           uploadInfo.uploadedBytes += chunk.size
 
           if (response.data.completed) {
+            console.log(`Upload completed for ${uploadInfo.file.name}`)
             this.completeUpload(uploadId)
             break
           }
         } else {
-          throw new Error(response.data.message || 'Chunk upload failed')
+          // Handle finalization errors specifically
+          if (response.status === 500 && response.data.message?.includes('Finalization failed')) {
+            console.error(`Finalization error for ${uploadInfo.file.name}:`, response.data.message)
+            this.handleUploadError(uploadId, new Error(`Finalization failed: ${response.data.message}`))
+            break
+          } else {
+            throw new Error(response.data.message || 'Chunk upload failed')
+          }
         }
 
       } catch (error) {
@@ -260,9 +291,14 @@ export class ChunkedUploadService {
 
   async cancelUpload(uploadId: string): Promise<void> {
     const uploadInfo = this.activeUploads.get(uploadId)
-    if (!uploadInfo) return
+    const queuedInfo = this.queuedUploads.get(uploadId)
+    
+    if (!uploadInfo && !queuedInfo) return
 
-    uploadInfo.cancelToken.cancel('Upload cancelled by user')
+    const cancelToken = uploadInfo?.cancelToken || queuedInfo?.cancelToken
+    if (cancelToken) {
+      cancelToken.cancel('Upload cancelled by user')
+    }
 
     try {
       await api.delete(`/chunked-upload/cancel/${uploadId}`)
@@ -271,6 +307,7 @@ export class ChunkedUploadService {
     }
 
     this.activeUploads.delete(uploadId)
+    this.queuedUploads.delete(uploadId)
     this.dispatchStatusEvent(uploadId, 'cancelled')
   }
 
@@ -305,6 +342,9 @@ export class ChunkedUploadService {
     const uploadInfo = this.activeUploads.get(uploadId)
     if (!uploadInfo) return
 
+    // Mark as completed immediately so processQueue() doesn't count it as active
+    uploadInfo.currentChunk = uploadInfo.session.totalChunks
+
     this.dispatchProgressEvent(uploadId, {
       uploadId,
       fileName: uploadInfo.file.name,
@@ -319,14 +359,20 @@ export class ChunkedUploadService {
       eta: '0s'
     })
 
+    // Remove from activeUploads after showing completed status briefly
     setTimeout(() => {
       this.activeUploads.delete(uploadId)
     }, 5000)
+
+    // Process next uploads in queue immediately
+    this.processQueue()
   }
 
   private handleUploadError(uploadId: string, error: any): void {
     const uploadInfo = this.activeUploads.get(uploadId)
     if (!uploadInfo) return
+
+    console.error(`Upload error for ${uploadInfo.file.name}:`, error.message)
 
     this.dispatchProgressEvent(uploadId, {
       uploadId,
@@ -341,6 +387,18 @@ export class ChunkedUploadService {
       status: 'error',
       eta: 'Error'
     })
+
+    // Show user-friendly error notification
+    if (typeof window !== 'undefined') {
+      const errorMsg = error.message?.includes('Finalization failed') 
+        ? `Failed to finalize upload for ${uploadInfo.file.name}. Please try again.`
+        : `Upload failed for ${uploadInfo.file.name}: ${error.message}`;
+      
+      // Dispatch custom event for error notifications
+      window.dispatchEvent(new CustomEvent('upload-error', {
+        detail: { uploadId, fileName: uploadInfo.file.name, error: errorMsg }
+      }))
+    }
   }
 
   private dispatchProgressEvent(uploadId: string, progress: UploadProgress): void {
@@ -371,7 +429,7 @@ export class ChunkedUploadService {
   }
 
   getQueueLength(): number {
-    return this.uploadQueue.length
+    return this.queuedUploads.size
   }
 }
 

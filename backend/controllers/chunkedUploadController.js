@@ -4,6 +4,7 @@ import { ValidationError } from '../utils/errors.js';
 import { sanitizeUploadPath, secureResolve } from '../utils/pathSecurity.js';
 import { ensureUserUploadDir } from './fileController.js';
 import cacheService from '../services/cacheService.js';
+import logger from '../utils/logger.js';
 import crypto from 'crypto';
 
 const CHUNK_SIZE = parseInt(process.env.UPLOAD_CHUNK_SIZE) || (2 * 1024 * 1024); // 2MB chunks (reduced for better memory usage)
@@ -35,14 +36,24 @@ class ChunkedUploadController {
       const sanitizedPath = sanitizeUploadPath(relativePath);
       const targetDir = secureResolve(userDir, sanitizedPath);
       
+      // Ensure target directory exists (not the file path!)
       await fsp.mkdir(targetDir, { recursive: true });
 
       const uploadId = crypto.randomUUID();
       const safeName = this.sanitizeFilename(fileName);
       const uniquePath = await this.getUniquePath(targetDir, safeName);
-      const tempDir = join(dirname(uniquePath), '.chunks', uploadId);
       
+      // Create temp directory for chunks (using the correct parent directory)
+      const tempDir = join(targetDir, '.chunks', uploadId);
       await fsp.mkdir(tempDir, { recursive: true });
+      
+      logger.info(`🔧 DEBUG: Upload paths for ${uploadId}`, {
+        targetDir,
+        uniquePath,
+        tempDir,
+        fileName: safeName,
+        codeVersion: 'FIXED-v2'
+      });
 
       const uploadSession = {
         uploadId,
@@ -60,7 +71,20 @@ class ChunkedUploadController {
         status: 'initialized'
       };
 
-      await this.saveUploadSession(uploadId, uploadSession);
+      const sessionSaved = await this.saveUploadSession(uploadId, uploadSession);
+      
+      if (!sessionSaved) {
+        logger.error(`Failed to save initial upload session for ${uploadId}`);
+        throw new ValidationError('Failed to initialize upload session');
+      }
+      
+      logger.info(`Upload session initialized successfully`, {
+        uploadId,
+        fileName: safeName,
+        fileSize: parseInt(fileSize),
+        totalChunks: uploadSession.totalChunks,
+        userId: req.user.userId
+      });
 
       res.json({
         success: true,
@@ -89,8 +113,22 @@ class ChunkedUploadController {
 
       const uploadSession = await this.getUploadSession(uploadId);
       if (!uploadSession) {
-        throw new ValidationError('Upload session not found or expired');
+        logger.warn(`Upload session not found during chunk upload`, {
+          uploadId,
+          userId: req.user.userId,
+          chunkIndex
+        });
+        throw new ValidationError('Upload session not found or expired. Please restart the upload.');
       }
+
+      logger.debug(`Found upload session for chunk upload`, {
+        uploadId,
+        fileName: uploadSession.fileName,
+        chunkIndex,
+        uploadedChunks: uploadSession.uploadedChunks ? uploadSession.uploadedChunks.size : 0,
+        totalChunks: uploadSession.totalChunks,
+        status: uploadSession.status
+      });
 
       if (uploadSession.userId !== req.user.userId) {
         throw new ValidationError('Unauthorized access to upload session');
@@ -112,25 +150,70 @@ class ChunkedUploadController {
       uploadSession.lastActivity = new Date();
       uploadSession.status = 'uploading';
 
-      await this.saveUploadSession(uploadId, uploadSession);
-
-      const progress = (uploadSession.uploadedChunks.size / uploadSession.totalChunks) * 100;
-
-      if (uploadSession.uploadedChunks.size === uploadSession.totalChunks) {
-        await this.finalizeUpload(uploadSession);
-        
-        res.json({
-          success: true,
-          completed: true,
-          progress: 100,
-          message: 'Upload completed successfully'
+      const sessionSaved = await this.saveUploadSession(uploadId, uploadSession);
+      
+      if (!sessionSaved) {
+        logger.error(`Failed to save session after chunk upload for ${uploadId}`, {
+          uploadedChunks: uploadSession.uploadedChunks.size,
+          totalChunks: uploadSession.totalChunks,
+          fileName: uploadSession.fileName
         });
+        throw new ValidationError('Failed to save upload progress');
+      }
+
+      // Extend TTL on active uploads to prevent expiration
+      const sessionKey = `upload_session:${uploadSession.userId}:${uploadId}`;
+      await cacheService.expire(sessionKey, UPLOAD_SESSION_TTL);
+
+      const uploadedCount = uploadSession.uploadedChunks && uploadSession.uploadedChunks.size !== undefined 
+        ? uploadSession.uploadedChunks.size 
+        : (Array.isArray(uploadSession.uploadedChunks) ? uploadSession.uploadedChunks.length : 0);
+      
+      const progress = (uploadedCount / uploadSession.totalChunks) * 100;
+
+      if (uploadedCount === uploadSession.totalChunks) {
+        logger.info(`All chunks received for upload ${uploadId}, starting finalization`, {
+          fileName: uploadSession.fileName,
+          totalChunks: uploadSession.totalChunks
+        });
+
+        try {
+          await this.finalizeUpload(uploadSession);
+          
+          logger.info(`Upload completed successfully: ${uploadId}`, {
+            fileName: uploadSession.fileName,
+            fileSize: uploadSession.fileSize
+          });
+
+          res.json({
+            success: true,
+            completed: true,
+            progress: 100,
+            message: 'Upload completed successfully'
+          });
+        } catch (finalizationError) {
+          logger.error(`Finalization failed for upload ${uploadId}:`, {
+            error: finalizationError.message,
+            fileName: uploadSession.fileName
+          });
+
+          res.status(500).json({
+            success: false,
+            completed: false,
+            progress: Math.round(progress * 100) / 100,
+            message: `Finalization failed: ${finalizationError.message}`
+          });
+        }
       } else {
+        const uploadedCount = uploadSession.uploadedChunks && uploadSession.uploadedChunks.size !== undefined 
+          ? uploadSession.uploadedChunks.size 
+          : (Array.isArray(uploadSession.uploadedChunks) ? uploadSession.uploadedChunks.length : 0);
+          
         res.json({
           success: true,
           completed: false,
           progress: Math.round(progress * 100) / 100,
-          uploadedChunks: uploadSession.uploadedChunks.size,
+          uploadedChunks: uploadedCount,
           totalChunks: uploadSession.totalChunks
         });
       }
@@ -298,67 +381,124 @@ class ChunkedUploadController {
   }
 
   async finalizeUpload(uploadSession) {
-    const writeStream = createWriteStream(uploadSession.targetPath, {
-      highWaterMark: 16 * 1024, // 16KB buffer to reduce memory usage
-      autoClose: true
-    });
-    
     try {
-      // Process chunks sequentially with optimized streaming
+      logger.info(`Starting finalization for upload ${uploadSession.uploadId}`, {
+        fileName: uploadSession.fileName,
+        totalChunks: uploadSession.totalChunks,
+        fileSize: uploadSession.fileSize
+      });
+
+      // Verify all chunks are present before starting assembly
+      const missingChunks = [];
+      for (let i = 0; i < uploadSession.totalChunks; i++) {
+        const chunkPath = join(uploadSession.tempDir, `chunk_${i}`);
+        try {
+          await fsp.access(chunkPath);
+        } catch {
+          missingChunks.push(i);
+        }
+      }
+
+      if (missingChunks.length > 0) {
+        throw new Error(`Missing chunks: ${missingChunks.join(', ')}`);
+      }
+
+      // Create write stream with proper error handling
+      const writeStream = createWriteStream(uploadSession.targetPath, {
+        highWaterMark: 64 * 1024, // 64KB buffer for better performance
+        autoClose: true
+      });
+
+      let totalBytesWritten = 0;
+
+      // Process chunks sequentially to avoid memory issues
       for (let i = 0; i < uploadSession.totalChunks; i++) {
         const chunkPath = join(uploadSession.tempDir, `chunk_${i}`);
         
         try {
-          const chunkStream = createReadStream(chunkPath, {
-            highWaterMark: 16 * 1024 // Match write stream buffer to reduce memory usage
-          });
+          // Read chunk data directly to have better control
+          const chunkData = await fsp.readFile(chunkPath);
+          totalBytesWritten += chunkData.length;
           
-          await new Promise((resolve, reject) => {
-            chunkStream.on('error', reject);
-            chunkStream.on('end', () => {
-              // Force garbage collection after each chunk to reduce memory pressure
-              if (global.gc && i % 10 === 0) {
-                global.gc();
-              }
-              resolve();
+          // Log progress periodically
+          if (i % 100 === 0 || i === uploadSession.totalChunks - 1) {
+            logger.debug(`Processing chunk ${i + 1}/${uploadSession.totalChunks} for ${uploadSession.uploadId}`, {
+              chunkSize: chunkData.length,
+              totalBytesWritten,
+              progress: Math.round(((i + 1) / uploadSession.totalChunks) * 100)
             });
-            
-            // Pipe without ending the write stream
-            chunkStream.pipe(writeStream, { end: false });
+          }
+          
+          // Write chunk data synchronously to maintain order
+          await new Promise((resolve, reject) => {
+            writeStream.write(chunkData, (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            });
           });
+
+          // Force garbage collection periodically for large files
+          if (global.gc && i % 50 === 0) {
+            global.gc();
+          }
+
         } catch (chunkError) {
-          throw new Error(`Failed to read chunk ${i}: ${chunkError.message}`);
+          writeStream.destroy();
+          throw new Error(`Failed to process chunk ${i}: ${chunkError.message}`);
         }
       }
 
-      // Close the write stream
-      writeStream.end();
-      
+      // Close the write stream and wait for completion
       await new Promise((resolve, reject) => {
-        writeStream.on('finish', resolve);
-        writeStream.on('error', reject);
+        writeStream.end((error) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
       });
 
-      // Verify file size matches expected
-      const stats = await fsp.stat(uploadSession.targetPath);
-      if (stats.size !== uploadSession.fileSize) {
-        throw new Error(`File size mismatch: expected ${uploadSession.fileSize}, got ${stats.size}`);
+      // Verify final file integrity
+      try {
+        const stats = await fsp.stat(uploadSession.targetPath);
+        if (stats.size !== uploadSession.fileSize) {
+          throw new Error(`File size mismatch: expected ${uploadSession.fileSize}, got ${stats.size}`);
+        }
+        
+        logger.info(`Upload finalization successful for ${uploadSession.uploadId}`, {
+          fileName: uploadSession.fileName,
+          finalSize: stats.size,
+          expectedSize: uploadSession.fileSize
+        });
+      } catch (statError) {
+        throw new Error(`Final file verification failed: ${statError.message}`);
       }
 
+      // Update session status
       uploadSession.status = 'completed';
       uploadSession.completedAt = new Date();
       await this.saveUploadSession(uploadSession.uploadId, uploadSession);
 
+      // Clean up chunk files
       await this.cleanupUploadSession(uploadSession);
 
+      // Invalidate file cache
       if (uploadSession.userId) {
         try {
           await cacheService.deletePattern(`files:${uploadSession.userId}:*`);
         } catch (error) {
-          console.warn('Failed to invalidate cache:', error.message);
+          logger.warn('Failed to invalidate cache:', { 
+            error: error.message, 
+            uploadId: uploadSession.uploadId 
+          });
         }
       }
 
+      // Broadcast file creation via WebSocket
       if (global.wsManager) {
         try {
           const userDir = await ensureUserUploadDir(uploadSession.userId);
@@ -374,48 +514,191 @@ class ChunkedUploadController {
           });
 
           global.wsManager.broadcastFolderChanged(parentPath);
-        } catch (error) {
-          console.warn('Failed to broadcast WebSocket event:', error.message);
+        } catch (wsError) {
+          logger.warn('Failed to broadcast WebSocket event:', { 
+            error: wsError.message, 
+            uploadId: uploadSession.uploadId 
+          });
         }
       }
 
     } catch (error) {
-      writeStream.destroy();
-      await this.cleanupUploadSession(uploadSession);
+      logger.error(`Upload finalization failed for ${uploadSession.uploadId}:`, {
+        error: error.message,
+        fileName: uploadSession.fileName,
+        stack: error.stack
+      });
+
+      // Ensure cleanup happens even on failure
+      try {
+        await this.cleanupUploadSession(uploadSession);
+      } catch (cleanupError) {
+        logger.warn('Failed to cleanup after finalization error:', { 
+          error: cleanupError.message, 
+          uploadId: uploadSession.uploadId 
+        });
+      }
+
+      // Update session with error status
+      uploadSession.status = 'error';
+      uploadSession.errorMessage = error.message;
+      try {
+        await this.saveUploadSession(uploadSession.uploadId, uploadSession);
+      } catch (saveError) {
+        logger.warn('Failed to save error status to session:', {
+          error: saveError.message,
+          uploadId: uploadSession.uploadId
+        });
+      }
+
       throw error;
     }
   }
 
   async cleanupUploadSession(uploadSession) {
     try {
-      await fsp.rmdir(uploadSession.tempDir, { recursive: true });
+      // Check if temp directory exists before cleanup
+      await fsp.access(uploadSession.tempDir);
+      
+      // Count chunks before cleanup for logging
+      const chunkFiles = await fsp.readdir(uploadSession.tempDir);
+      const chunkCount = chunkFiles.length;
+      
+      // Get parent .chunks directory path
+      const chunksParentDir = dirname(uploadSession.tempDir);
+      
+      await fsp.rm(uploadSession.tempDir, { recursive: true, force: true });
+      
+      // Try to remove the parent .chunks directory if it's empty
+      try {
+        const remainingItems = await fsp.readdir(chunksParentDir);
+        if (remainingItems.length === 0) {
+          await fsp.rmdir(chunksParentDir);
+          logger.info(`Removed empty .chunks directory: ${chunksParentDir}`);
+        }
+      } catch (cleanupError) {
+        // Ignore errors when trying to clean up parent directory
+        // It might not be empty or might not exist
+        logger.debug(`Could not remove parent .chunks directory: ${cleanupError.message}`, {
+          chunksParentDir
+        });
+      }
+      
+      logger.info(`Cleaned up chunk directory for upload ${uploadSession.uploadId}`, {
+        tempDir: uploadSession.tempDir,
+        chunksRemoved: chunkCount,
+        fileName: uploadSession.fileName
+      });
     } catch (error) {
-      console.warn('Failed to cleanup temp directory:', error.message);
+      if (error.code === 'ENOENT') {
+        logger.debug(`Temp directory already removed for upload ${uploadSession.uploadId}`, {
+          tempDir: uploadSession.tempDir
+        });
+      } else {
+        logger.warn('Failed to cleanup temp directory:', { 
+          error: error.message, 
+          tempDir: uploadSession.tempDir,
+          uploadId: uploadSession.uploadId
+        });
+      }
     }
   }
 
   async saveUploadSession(uploadId, session) {
     const key = `upload_session:${session.userId}:${uploadId}`;
     session.uploadedChunks = Array.from(session.uploadedChunks);
-    await cacheService.set(key, session, UPLOAD_SESSION_TTL);
+    
+    const success = await cacheService.set(key, session, UPLOAD_SESSION_TTL);
+    
+    logger.debug(`Saving upload session ${uploadId}`, {
+      key,
+      success,
+      fileName: session.fileName,
+      uploadedChunks: session.uploadedChunks.length,
+      totalChunks: session.totalChunks,
+      status: session.status,
+      ttl: UPLOAD_SESSION_TTL
+    });
+    
+    if (!success) {
+      logger.warn(`Failed to save upload session ${uploadId}`, { key });
+    }
+    
+    return success;
   }
 
   async getUploadSession(uploadId) {
-    const keys = (await cacheService.keys(`upload_session:*:${uploadId}`)).map(stripCachePrefix);
-    if (keys.length === 0) return null;
-
-    const session = await cacheService.get(keys[0]);
-    if (session) {
-      session.uploadedChunks = new Set(session.uploadedChunks || []);
+    const pattern = `upload_session:*:${uploadId}`;
+    const keys = await cacheService.keys(pattern);
+    
+    logger.debug(`Looking for upload session ${uploadId}`, {
+      pattern,
+      keysFound: keys.length,
+      keys: keys.slice(0, 3) // Show first 3 keys for debugging
+    });
+    
+    if (keys.length === 0) {
+      logger.warn(`Upload session not found: ${uploadId}`, { pattern });
+      return null;
     }
+    
+    // Keys returned from cacheService.keys() include the prefix
+    // We need to remove the prefix to get the actual cache key for retrieval
+    const keyToUse = keys[0];
+    const prefix = process.env.CACHE_PREFIX || 'weppix';
+    const cacheKey = keyToUse.replace(`${prefix}:`, '');
+    
+    logger.debug(`Retrieving session with key: ${cacheKey}`, { originalKey: keyToUse });
+    
+    const session = await cacheService.get(cacheKey);
+    if (session) {
+      
+      // Fix the uploadedChunks conversion - handle both array and Set cases
+      if (Array.isArray(session.uploadedChunks)) {
+        session.uploadedChunks = new Set(session.uploadedChunks);
+      } else if (session.uploadedChunks && typeof session.uploadedChunks === 'object') {
+        // If it's an object (possibly serialized Set), try to convert it
+        session.uploadedChunks = new Set(Object.keys(session.uploadedChunks).filter(key => !isNaN(parseInt(key))).map(key => parseInt(key)));
+      } else {
+        session.uploadedChunks = new Set();
+      }
+      
+      logger.debug(`Session retrieved successfully for ${uploadId}`, {
+        fileName: session.fileName,
+        uploadedChunks: session.uploadedChunks.size,
+        totalChunks: session.totalChunks,
+        status: session.status
+      });
+    } else {
+      logger.warn(`Session key found but data is null for ${uploadId}`, { keyToUse, cacheKey });
+    }
+    
     return session;
   }
 
   async deleteUploadSession(uploadId) {
-    const keys = (await cacheService.keys(`upload_session:*:${uploadId}`)).map(stripCachePrefix);
+    const pattern = `upload_session:*:${uploadId}`;
+    const keys = await cacheService.keys(pattern);
+    const prefix = process.env.CACHE_PREFIX || 'weppix';
+    
+    logger.debug(`Deleting upload session ${uploadId}`, {
+      pattern,
+      keysFound: keys.length
+    });
+    
+    let deletedCount = 0;
     for (const key of keys) {
-      await cacheService.delete(key);
+      const cacheKey = key.replace(`${prefix}:`, '');
+      const deleted = await cacheService.delete(cacheKey);
+      if (deleted) deletedCount++;
     }
+    
+    logger.debug(`Deleted upload session ${uploadId}`, {
+      keysDeleted: deletedCount,
+      totalKeys: keys.length
+    });
+    
+    return deletedCount;
   }
 
   sanitizeFilename(name) {
