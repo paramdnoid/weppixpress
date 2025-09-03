@@ -121,10 +121,13 @@ if (process.env.NODE_ENV !== 'test') {
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
-      return req.path.startsWith('/api/health') || 
-             req.path.startsWith('/api-docs') ||
-             req.path.startsWith('/api/upload/chunked') || // Skip rate limiting for chunked uploads
-             req.path.startsWith('/api/chunked-upload'); // Legacy path support
+      const shouldSkip = req.path.startsWith('/api/health') || 
+                        req.path.startsWith('/api-docs') ||
+                        req.path.startsWith('/api/upload/chunked') || // Skip rate limiting for chunked uploads
+                        req.path.startsWith('/api/chunked-upload'); // Legacy path support
+      
+      
+      return shouldSkip;
     },
     handler: (req, res) => {
       logger.warn('Rate limit exceeded', {
@@ -174,6 +177,10 @@ if (process.env.NODE_ENV !== 'test') {
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: parseInt(process.env.RATE_LIMIT_UPLOAD_MAX) || 1000, // Increased for chunked uploads
+    skip: (req) => {
+      return req.path.startsWith('/chunked') || // Skip rate limiting for chunked uploads (path is already stripped)
+             req.path.startsWith('/api/chunked-upload'); // Legacy path support
+    },
     handler: (req, res) => {
       res.status(429).json({
         error: {

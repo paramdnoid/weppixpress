@@ -10,6 +10,27 @@ export function useChunkedUpload() {
   const scanResult = ref<FolderScanResult | null>(null)
   const folderScanner = ref<FolderScannerService | null>(null)
   const fileStore = useFileStore()
+  
+  // Debounce refresh to prevent excessive API calls when multiple uploads complete
+  let refreshTimeout: NodeJS.Timeout | null = null
+  
+  function debouncedRefresh() {
+    if (refreshTimeout) {
+      clearTimeout(refreshTimeout)
+    }
+    
+    refreshTimeout = setTimeout(() => {
+      try {
+        fileStore.refreshCurrentPath()
+        const treeRoot = document.getElementById('menu')
+        if (treeRoot) {
+          const targetPath = (fileStore as any)?.state?.value?.currentPath || '/'
+          treeRoot.dispatchEvent(new CustomEvent('tree:reorganize', { detail: { targetPath } }))
+        }
+      } catch {}
+      refreshTimeout = null
+    }, 1500) // Wait 1.5 seconds after last completion
+  }
 
   // Load persisted uploads on mount
   onMounted(async () => {
@@ -58,15 +79,8 @@ export function useChunkedUpload() {
     if (progress?.status === 'completed') {
       setTimeout(() => {
         removeUpload(uploadId)
-        // Fallback refresh in case WS didn't update the view
-        try { 
-          fileStore.refreshCurrentPath()
-          const treeRoot = document.getElementById('menu')
-          if (treeRoot) {
-            const targetPath = (fileStore as any)?.state?.value?.currentPath || '/'
-            treeRoot.dispatchEvent(new CustomEvent('tree:reorganize', { detail: { targetPath } }))
-          }
-        } catch {}
+        // Use debounced refresh to prevent excessive API calls
+        debouncedRefresh()
       }, 1000)
     }
   }
@@ -79,15 +93,10 @@ export function useChunkedUpload() {
     if (status === 'completed' || status === 'cancelled') {
       setTimeout(() => {
         removeUpload(uploadId)
-        // Fallback refresh in case WS didn't update the view
-        try { 
-          fileStore.refreshCurrentPath()
-          const treeRoot = document.getElementById('menu')
-          if (treeRoot) {
-            const targetPath = (fileStore as any)?.state?.value?.currentPath || '/'
-            treeRoot.dispatchEvent(new CustomEvent('tree:reorganize', { detail: { targetPath } }))
-          }
-        } catch {}
+        // Use debounced refresh to prevent excessive API calls
+        if (status === 'completed') {
+          debouncedRefresh()
+        }
       }, 1000)
     }
   }
@@ -173,7 +182,14 @@ export function useChunkedUpload() {
 
     isScanning.value = false
     
-    const promises = scanResult.value.files.map(async (fileEntry: FileEntry) => {
+    // Process files sequentially to avoid overwhelming the server
+    for (const fileEntry of scanResult.value.files) {
+      // Skip 0-byte files
+      if (fileEntry.file.size === 0) {
+        console.log(`Skipping 0-byte file: ${fileEntry.file.name}`)
+        continue
+      }
+      
       try {
         const uploadId = await chunkedUploadService.startUpload(fileEntry, basePath)
         
@@ -191,7 +207,6 @@ export function useChunkedUpload() {
           status: 'initialized'
         })
 
-        return uploadId
       } catch (error: any) {
         console.error(`Failed to start upload for ${fileEntry.file.name}:`, error)
         
@@ -203,18 +218,12 @@ export function useChunkedUpload() {
         } else {
           alert(`Failed to start upload for ${fileEntry.file.name}: ${error.message}`)
         }
-        
-        return null
       }
-    })
-
-    const uploadIds = await Promise.allSettled(promises)
+    }
     
     // Reset scanning state
     scanProgress.value = null
     scanResult.value = null
-
-    return uploadIds.filter(result => result.status === 'fulfilled' && result.value !== null)
   }
 
   function cancelScanning() {

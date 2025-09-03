@@ -24,11 +24,24 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor for token refresh
+// Response interceptor for token refresh and rate limiting
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
+    
+    // Handle rate limiting (429) with exponential backoff
+    if (error.response?.status === 429) {
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1
+      
+      if (originalRequest._retryCount <= 3) {
+        const delay = Math.pow(2, originalRequest._retryCount - 1) * 1000 // 1s, 2s, 4s
+        console.warn(`Rate limited. Retrying in ${delay}ms (attempt ${originalRequest._retryCount}/3)`)
+        
+        await new Promise(resolve => setTimeout(resolve, delay))
+        return api(originalRequest)
+      }
+    }
     
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
