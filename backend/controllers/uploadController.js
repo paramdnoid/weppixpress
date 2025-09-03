@@ -8,6 +8,7 @@ import cacheService from '../services/cacheService.js';
 import logger from '../utils/logger.js';
 import multer from 'multer';
 import crypto from 'crypto';
+import { createHash } from 'crypto';
 
 // Configuration constants
 const CHUNK_SIZE = parseInt(process.env.UPLOAD_CHUNK_SIZE) || (2 * 1024 * 1024); // 2MB chunks
@@ -89,6 +90,32 @@ const initUpload = multer({
 class UploadController {
   constructor() {
     this.activeUploads = new Map();
+    this.sessionLocks = new Map(); // Session ID -> Promise for atomic operations
+  }
+
+  // ===== SESSION LOCKING FUNCTIONALITY =====
+  
+  async acquireSessionLock(sessionId) {
+    // If there's already a lock, wait for it
+    if (this.sessionLocks.has(sessionId)) {
+      await this.sessionLocks.get(sessionId);
+    }
+    
+    // Create a new lock
+    let resolveLock;
+    const lockPromise = new Promise(resolve => {
+      resolveLock = resolve;
+    });
+    
+    lockPromise.resolve = resolveLock;
+    this.sessionLocks.set(sessionId, lockPromise);
+    
+    return {
+      release: () => {
+        resolveLock();
+        this.sessionLocks.delete(sessionId);
+      }
+    };
   }
 
   // ===== NORMAL UPLOAD FUNCTIONALITY =====
@@ -235,6 +262,8 @@ class UploadController {
         relativePath: dirOnlyPath,
         totalChunks: Math.ceil(fileSize / chunkSize),
         uploadedChunks: new Set(),
+        chunkChecksums: new Map(), // Store MD5 checksum for each chunk
+        expectedChecksum: null, // Expected final file checksum if provided
         createdAt: new Date(),
         lastActivity: new Date(),
         status: 'initialized'
@@ -271,8 +300,10 @@ class UploadController {
   }
 
   async uploadChunk(req, res, next) {
+    const { uploadId } = req.params;
+    const lock = await this.acquireSessionLock(uploadId);
+    
     try {
-      const { uploadId } = req.params;
       const { chunkIndex } = req.body;
       const chunkFile = req.file;
 
@@ -299,14 +330,31 @@ class UploadController {
         throw new ValidationError('Invalid chunk index');
       }
 
+      // Check for duplicate chunks (with lock protection)
       if (uploadSession.uploadedChunks.has(chunkIdx)) {
-        return res.json({ success: true, message: 'Chunk already uploaded' });
+        return res.json({ success: true, message: 'Chunk already uploaded', completed: false });
       }
 
+      // Validate chunk size
+      const expectedSize = chunkIdx === uploadSession.totalChunks - 1 
+        ? uploadSession.fileSize - (chunkIdx * uploadSession.chunkSize)
+        : uploadSession.chunkSize;
+      
+      if (chunkFile.size > expectedSize + 1024) { // Allow small buffer
+        throw new ValidationError(`Chunk size mismatch: expected ~${expectedSize}, got ${chunkFile.size}`);
+      }
+
+      // Calculate and verify chunk checksum
+      const chunkHash = createHash('md5');
+      chunkHash.update(chunkFile.buffer);
+      const chunkChecksum = chunkHash.digest('hex');
+      
       const chunkPath = join(uploadSession.tempDir, `chunk_${chunkIdx}`);
       await fsp.writeFile(chunkPath, chunkFile.buffer);
 
+      // Atomically update session with checksum
       uploadSession.uploadedChunks.add(chunkIdx);
+      uploadSession.chunkChecksums.set(chunkIdx, chunkChecksum);
       uploadSession.lastActivity = new Date();
       uploadSession.status = 'uploading';
 
@@ -361,6 +409,8 @@ class UploadController {
 
     } catch (error) {
       next(error);
+    } finally {
+      lock.release();
     }
   }
 
@@ -573,12 +623,26 @@ class UploadController {
     try {
       logger.info(`Starting finalization for upload ${uploadSession.uploadId}`);
 
-      // Verify all chunks are present before starting assembly
+      // Verify all chunks are present and validate checksums
       const missingChunks = [];
+      const corruptedChunks = [];
+      
       for (let i = 0; i < uploadSession.totalChunks; i++) {
         const chunkPath = join(uploadSession.tempDir, `chunk_${i}`);
         try {
           await fsp.access(chunkPath);
+          
+          // Verify chunk integrity if checksum exists
+          if (uploadSession.chunkChecksums && uploadSession.chunkChecksums.has && uploadSession.chunkChecksums.has(i)) {
+            const chunkBuffer = await fsp.readFile(chunkPath);
+            const actualChecksum = createHash('md5').update(chunkBuffer).digest('hex');
+            const expectedChecksum = uploadSession.chunkChecksums.get(i);
+            
+            if (actualChecksum !== expectedChecksum) {
+              corruptedChunks.push(i);
+              logger.warn(`Chunk ${i} checksum mismatch: expected ${expectedChecksum}, got ${actualChecksum}`);
+            }
+          }
         } catch {
           missingChunks.push(i);
         }
@@ -586,6 +650,10 @@ class UploadController {
 
       if (missingChunks.length > 0) {
         throw new Error(`Missing chunks: ${missingChunks.join(', ')}`);
+      }
+
+      if (corruptedChunks.length > 0) {
+        throw new Error(`Corrupted chunks detected: ${corruptedChunks.join(', ')}. Upload integrity compromised.`);
       }
 
       // Create write stream
@@ -766,7 +834,8 @@ class UploadController {
     // Create a copy for serialization, don't modify the original
     const sessionForStorage = {
       ...session,
-      uploadedChunks: Array.from(session.uploadedChunks)
+      uploadedChunks: Array.from(session.uploadedChunks),
+      chunkChecksums: session.chunkChecksums ? Object.fromEntries(session.chunkChecksums) : {}
     };
     
     const success = await cacheService.set(key, sessionForStorage, UPLOAD_SESSION_TTL);
@@ -775,7 +844,7 @@ class UploadController {
       key,
       success,
       fileName: session.fileName,
-      uploadedChunks: session.uploadedChunks.length,
+      uploadedChunks: session.uploadedChunks.size || session.uploadedChunks.length,
       totalChunks: session.totalChunks,
       status: session.status,
       ttl: UPLOAD_SESSION_TTL
@@ -815,6 +884,15 @@ class UploadController {
         session.uploadedChunks = new Set(Object.keys(session.uploadedChunks).filter(key => !isNaN(parseInt(key))).map(key => parseInt(key)));
       } else {
         session.uploadedChunks = new Set();
+      }
+
+      // Fix the chunkChecksums conversion
+      if (session.chunkChecksums && typeof session.chunkChecksums === 'object') {
+        if (!(session.chunkChecksums instanceof Map)) {
+          session.chunkChecksums = new Map(Object.entries(session.chunkChecksums).map(([k, v]) => [parseInt(k), v]));
+        }
+      } else {
+        session.chunkChecksums = new Map();
       }
       
       logger.debug(`Session retrieved successfully for ${uploadId}`, {

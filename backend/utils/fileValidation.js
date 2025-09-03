@@ -16,46 +16,116 @@ const ALLOWED_EXTENSIONS = [];
  */
 function validateFile(file, callback, options = {}) {
   const {
-    useWhitelist = false,
+    useWhitelist = true, // Default to whitelist for security
     allowedTypes = ALLOWED_EXTENSIONS,
-    blockedTypes = BLOCKED_EXTENSIONS
+    blockedTypes = BLOCKED_EXTENSIONS,
+    maxFileSize = 100 * 1024 * 1024 // 100MB default
   } = options;
 
   try {
-    // Filename validation
-    if (!file.originalname || file.originalname.length > 255) {
-      return callback(new ValidationError('Invalid filename'), false);
+    // Basic file validation
+    if (!file || !file.originalname || !file.buffer) {
+      return callback(new ValidationError('Invalid file data'), false);
     }
 
-    const fileExtension = file.originalname.toLowerCase().split('.').pop();
-    const fullExtension = '.' + fileExtension;
+    // Filename validation
+    if (file.originalname.length > 255) {
+      return callback(new ValidationError('Filename too long'), false);
+    }
+
+    // File size validation
+    if (file.size > maxFileSize) {
+      return callback(new ValidationError(`File size exceeds maximum allowed size`), false);
+    }
+
+    // Dangerous filename patterns
+    const dangerousPatterns = [
+      /\.\./g,           // Path traversal
+      /\//g,             // Directory separators  
+      /\\/g,             // Windows path separators
+      /[<>:"|?*]/g,      // Invalid filename characters
+      /\x00/g,           // Null bytes
+      /^\./,             // Hidden files
+      /~$/,              // Temp files
+      /\.(tmp|temp)$/i,  // Temporary files
+      /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i // Windows reserved names
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(file.originalname)) {
+        return callback(new ValidationError('Invalid filename format'), false);
+      }
+    }
+
+    // Extract file extension safely
+    const nameParts = file.originalname.toLowerCase().split('.');
+    if (nameParts.length < 2) {
+      return callback(new ValidationError('Files must have an extension'), false);
+    }
+    
+    const fileExtension = '.' + nameParts.pop();
+    const _filename = nameParts.join('.'); // Keep for potential future use
+
+    // Check for double extensions (e.g. file.txt.exe)
+    if (nameParts.length > 0) {
+      const secondExtension = '.' + nameParts[nameParts.length - 1];
+      if (BLOCKED_EXTENSIONS.includes(secondExtension)) {
+        return callback(new ValidationError('Double file extensions not allowed'), false);
+      }
+    }
 
     // Whitelist mode (recommended for production)
     if (useWhitelist) {
-      if (!allowedTypes.includes(fullExtension)) {
-        return callback(new ValidationError(`File type .${fileExtension} not allowed`), false);
+      if (!allowedTypes.includes(fileExtension)) {
+        return callback(new ValidationError(`File type ${fileExtension} not allowed`), false);
       }
     } else {
       // Blacklist mode
       if (BLOCKED_MIME_TYPES.includes(file.mimetype) ||
-        blockedTypes.includes(fullExtension)) {
+        blockedTypes.includes(fileExtension)) {
         return callback(new ValidationError('File type not allowed for security reasons'), false);
       }
     }
 
-    // Additional security checks
-    if (file.originalname.includes('..') || file.originalname.includes('/')) {
-      return callback(new ValidationError('Invalid filename characters'), false);
+    // MIME type validation (cross-check with extension)
+    if (file.mimetype) {
+      const suspiciousMimeTypes = [
+        'application/octet-stream', // Generic binary
+        'text/plain'               // Could hide executables
+      ];
+      
+      // Be extra careful with suspicious MIME types
+      if (suspiciousMimeTypes.includes(file.mimetype) && useWhitelist) {
+        // Only allow if extension is explicitly whitelisted
+        if (!allowedTypes.includes(fileExtension)) {
+          return callback(new ValidationError('MIME type and extension mismatch'), false);
+        }
+      }
     }
 
-    // Null byte protection
-    if (file.originalname.includes('\x00')) {
-      return callback(new ValidationError('Invalid filename format'), false);
+    // Magic byte validation for common file types
+    if (file.buffer && file.buffer.length >= 4) {
+      const magicBytes = Array.from(file.buffer.slice(0, 4))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+      
+      // Check for executable signatures
+      const executableSignatures = [
+        '4d5a',     // PE/MZ executable
+        '7f454c46', // ELF executable  
+        'cafebabe', // Java class file
+        '504b0304', // ZIP/JAR (could contain executables)
+        'ff',       // Many executable formats start with 0xFF
+      ];
+
+      if (executableSignatures.some(sig => magicBytes.startsWith(sig))) {
+        return callback(new ValidationError('File appears to be executable'), false);
+      }
     }
 
     callback(null, true);
-  } catch {
-    callback(new ValidationError('File validation failed'), false);
+  } catch (error) {
+    callback(new ValidationError(`File validation failed: ${error.message}`), false);
   }
 }
 

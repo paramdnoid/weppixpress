@@ -56,6 +56,8 @@ export class ChunkedUploadService {
 
   private maxConcurrentUploads = 3
   private uploadQueue: string[] = []
+  private isProcessingQueue = false
+  private queueProcessingMutex = Promise.resolve()
 
   async initializeUpload(file: File, relativePath: string = ''): Promise<UploadSession> {
 
@@ -136,46 +138,69 @@ export class ChunkedUploadService {
   }
 
   private async processQueue(): Promise<void> {
-    const uploads = Array.from(this.activeUploads.values())
-    const activeUploads = uploads.filter(upload => upload.currentChunk < upload.session.totalChunks && !upload.paused)
-    const activeCount = activeUploads.length
-
-    if (activeCount >= this.maxConcurrentUploads || this.uploadQueue.length === 0) {
-      return
-    }
-
-    const uploadId = this.uploadQueue.shift()
-    if (!uploadId || !this.queuedUploads.has(uploadId)) {
-      this.processQueue()
-      return
-    }
-
-    try {
-      const queuedInfo = this.queuedUploads.get(uploadId)!
-
-      // Move from queued to active
-      const uploadInfo = {
-        ...queuedInfo,
-        currentChunk: 0,
-        startTime: Date.now(),
-        lastProgressTime: Date.now(),
-        uploadedBytes: 0,
-        paused: false
+    // Acquire mutex to prevent concurrent queue processing
+    this.queueProcessingMutex = this.queueProcessingMutex.then(async () => {
+      if (this.isProcessingQueue) {
+        return // Already processing, skip
       }
 
-      this.activeUploads.set(uploadId, uploadInfo)
-      this.queuedUploads.delete(uploadId)
+      this.isProcessingQueue = true
 
+      try {
+        while (this.uploadQueue.length > 0) {
+          const uploads = Array.from(this.activeUploads.values())
+          const activeUploads = uploads.filter(upload => 
+            upload.currentChunk < upload.session.totalChunks && !upload.paused
+          )
+          const activeCount = activeUploads.length
 
-      // Start upload in background without blocking processQueue
-      this.startSingleUpload(uploadId)
+          if (activeCount >= this.maxConcurrentUploads) {
+            break // Wait for slots to free up
+          }
 
-      // Continue processing queue immediately
-      this.processQueue()
-    } catch (error) {
-      console.error(`ERROR in processQueue for ${uploadId}:`, error)
-      this.processQueue()
-    }
+          const uploadId = this.uploadQueue.shift()
+          if (!uploadId || !this.queuedUploads.has(uploadId)) {
+            continue // Skip invalid uploads
+          }
+
+          try {
+            const queuedInfo = this.queuedUploads.get(uploadId)!
+
+            // Move from queued to active atomically
+            const uploadInfo = {
+              ...queuedInfo,
+              currentChunk: 0,
+              startTime: Date.now(),
+              lastProgressTime: Date.now(),
+              uploadedBytes: 0,
+              paused: false
+            }
+
+            this.activeUploads.set(uploadId, uploadInfo)
+            this.queuedUploads.delete(uploadId)
+
+            // Start upload in background
+            this.startSingleUpload(uploadId).catch(error => {
+              console.error(`Upload failed for ${uploadId}:`, error)
+              this.handleUploadError(uploadId, error)
+              // Trigger queue processing again after error
+              setTimeout(() => this.processQueue(), 100)
+            })
+
+          } catch (error) {
+            console.error(`ERROR in processQueue for ${uploadId}:`, error)
+            // Continue processing other uploads
+          }
+
+          // Small delay to prevent tight loops
+          await new Promise(resolve => setTimeout(resolve, 10))
+        }
+      } finally {
+        this.isProcessingQueue = false
+      }
+    })
+
+    await this.queueProcessingMutex
   }
 
   private async startSingleUpload(uploadId: string): Promise<void> {
@@ -344,7 +369,11 @@ export class ChunkedUploadService {
 
     const cancelToken = uploadInfo?.cancelToken || queuedInfo?.cancelToken
     if (cancelToken) {
-      cancelToken.cancel('Upload cancelled by user')
+      try {
+        cancelToken.cancel('Upload cancelled by user')
+      } catch {
+        // Ignore cancellation errors
+      }
     }
 
     try {
@@ -353,9 +382,13 @@ export class ChunkedUploadService {
       console.error('Failed to cancel upload on server:', error)
     }
 
-    this.activeUploads.delete(uploadId)
-    this.queuedUploads.delete(uploadId)
     this.dispatchStatusEvent(uploadId, 'cancelled')
+    
+    // Clean up memory for cancelled upload
+    this.cleanupUploadMemory(uploadId)
+
+    // Process next uploads in queue
+    this.processQueue()
   }
 
   async cancelAllUploads(): Promise<void> {
@@ -451,11 +484,38 @@ export class ChunkedUploadService {
       eta: '0s'
     })
 
-    // Remove from activeUploads immediately to free up queue slot
-    this.activeUploads.delete(uploadId)
+    // Clean up memory immediately
+    this.cleanupUploadMemory(uploadId)
 
     // Process next uploads in queue immediately
     this.processQueue()
+  }
+
+  private cleanupUploadMemory(uploadId: string): void {
+    const uploadInfo = this.activeUploads.get(uploadId)
+    if (uploadInfo) {
+      // Cancel any pending operations
+      try {
+        uploadInfo.cancelToken.cancel('Upload completed or cancelled')
+      } catch {
+        // Ignore cancellation errors
+      }
+
+      // Clear file reference to free memory
+      // @ts-ignore - Force garbage collection
+      uploadInfo.file = null
+      uploadInfo.session = null
+    }
+
+    // Remove from both maps
+    this.activeUploads.delete(uploadId)
+    this.queuedUploads.delete(uploadId)
+
+    // Force garbage collection if available
+    if (typeof window !== 'undefined' && 'gc' in window) {
+      // @ts-ignore
+      window.gc()
+    }
   }
 
   private handleUploadError(uploadId: string, error: any): void {
@@ -478,13 +538,7 @@ export class ChunkedUploadService {
       eta: 'Error'
     })
 
-    // Remove failed upload from active uploads to prevent blocking the queue
-    this.activeUploads.delete(uploadId)
-
-    // Also remove from queued uploads if it exists there
-    this.queuedUploads.delete(uploadId)
-
-    // Show user-friendly error notification
+    // Show user-friendly error notification before cleanup
     if (typeof window !== 'undefined') {
       const errorMsg = error.message?.includes('Finalization failed')
         ? `Failed to finalize upload for ${uploadInfo.file.name}. Please try again.`
@@ -495,6 +549,12 @@ export class ChunkedUploadService {
         detail: { uploadId, fileName: uploadInfo.file.name, error: errorMsg }
       }))
     }
+
+    // Clean up memory for failed upload
+    this.cleanupUploadMemory(uploadId)
+
+    // Process next uploads in queue
+    this.processQueue()
   }
 
   private dispatchProgressEvent(uploadId: string, progress: UploadProgress): void {
