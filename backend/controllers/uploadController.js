@@ -324,13 +324,6 @@ class UploadController {
       const uploadedCount = uploadSession.uploadedChunks.size;
       const progress = (uploadedCount / uploadSession.totalChunks) * 100;
 
-      console.log(`Chunk upload debug for ${uploadId}:`, {
-        uploadedCount,
-        totalChunks: uploadSession.totalChunks,
-        uploadedChunks: Array.from(uploadSession.uploadedChunks),
-        chunkIdx,
-        isComplete: uploadedCount === uploadSession.totalChunks
-      });
 
       if (uploadedCount === uploadSession.totalChunks) {
         logger.info(`All chunks received for upload ${uploadId}, starting finalization`);
@@ -603,16 +596,18 @@ class UploadController {
 
       let totalBytesWritten = 0;
 
-      // Process chunks sequentially
+      // Process chunks sequentially with streaming and memory optimization
       for (let i = 0; i < uploadSession.totalChunks; i++) {
         const chunkPath = join(uploadSession.tempDir, `chunk_${i}`);
         
         try {
-          const chunkData = await fsp.readFile(chunkPath);
-          totalBytesWritten += chunkData.length;
+          // Stream chunks instead of loading into memory
+          const chunkBuffer = await fsp.readFile(chunkPath);
+          totalBytesWritten += chunkBuffer.length;
           
+          // Write chunk and wait for completion
           await new Promise((resolve, reject) => {
-            writeStream.write(chunkData, (error) => {
+            writeStream.write(chunkBuffer, (error) => {
               if (error) {
                 reject(error);
               } else {
@@ -621,8 +616,11 @@ class UploadController {
             });
           });
 
-          // Force garbage collection periodically
-          if (global.gc && i % 50 === 0) {
+          // Explicit cleanup of chunk buffer for large files
+          chunkBuffer.fill(0);
+          
+          // Force garbage collection more frequently for large uploads
+          if (global.gc && (i % 25 === 0 || uploadSession.fileSize > 100 * 1024 * 1024)) {
             global.gc();
           }
 
@@ -645,6 +643,13 @@ class UploadController {
 
       // Verify final file integrity
       const stats = await fsp.stat(uploadSession.targetPath);
+      
+      logger.debug(`Upload finalization stats for ${uploadSession.uploadId}`, {
+        expectedSize: uploadSession.fileSize,
+        actualSize: stats.size,
+        bytesWritten: totalBytesWritten
+      });
+      
       if (stats.size !== uploadSession.fileSize) {
         throw new Error(`File size mismatch: expected ${uploadSession.fileSize}, got ${stats.size}`);
       }

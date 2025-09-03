@@ -88,12 +88,12 @@ const {
   SORT_OPTIONS,
   VIEW_MODES,
   getItemKey,
-  handleItemClick,
-  handleItemDoubleClick,
+  // handleItemClick,
+  // handleItemDoubleClick,
   setViewMode,
   toggleSidebar,
   startDragging,
-  deleteSelectedFiles
+  // deleteSelectedFiles
 } = useFileManager()
 
 const authStore = useAuthStore()
@@ -441,9 +441,13 @@ onMounted(() => {
             const folders = items.filter(item => item.type === 'folder')
             treeData.value[0].items = folders
           })
-          .catch(() => {})
+          .catch((error) => {
+            console.error('Failed to load tree reorganize items:', error)
+          })
       }
-    } catch {}
+    } catch (error) {
+      console.error('Tree reorganize error:', error)
+    }
   }
 
   treeRoot.addEventListener('tree:reorganize', onTreeReorganize)
@@ -454,7 +458,9 @@ onMounted(() => {
     if (import.meta && import.meta.hot) {
       import.meta.hot.dispose(() => cleanup())
     }
-  } catch {}
+  } catch (error) {
+    console.error('Hot reload cleanup error:', error)
+  }
 })
 
 // New chunked upload handler
