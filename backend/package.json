@@ -6,12 +6,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "migrate": "node database/migrate.js",
-    "test": "NODE_ENV=test mocha tests/**/*.test.js --timeout 10000",
-    "test:watch": "npm test -- --watch",
     "lint": "eslint . --ext .js",
     "lint:fix": "eslint . --ext .js --fix",
-    "cleanup-folders": "node scripts/cleanup-nested-folders.js",
-    "make-admin": "node scripts/make-first-admin.js"
+    "cleanup-folders": "node scripts/cleanup-nested-folders.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

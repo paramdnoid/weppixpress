@@ -13,7 +13,8 @@ export async function setVerificationToken(email, token) {
   await pool.query('UPDATE users SET verification_token = ? WHERE email = ?', [token, email]);
 }
 export async function verifyUserByToken(token) {
-  await pool.query('UPDATE users SET is_verified = 1, verification_token = NULL WHERE verification_token = ?', [token]);
+  const result = await pool.query('UPDATE users SET is_verified = 1, verification_token = NULL WHERE verification_token = ?', [token]);
+  return result.affectedRows > 0;
 }
 export async function setResetToken(email, token, expires) {
   await pool.query('UPDATE users SET reset_token = ?, reset_token_expires_at = ? WHERE email = ?', [token, expires, email]);

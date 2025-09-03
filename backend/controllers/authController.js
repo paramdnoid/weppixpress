@@ -57,7 +57,10 @@ export async function verifyEmail(req, res, next) {
     if (!token) {
       return res.status(400).json({ message: 'Verification token is required' });
     }
-    await verifyUserByToken(token);
+    const verified = await verifyUserByToken(token);
+    if (!verified) {
+      return res.status(400).json({ message: 'Invalid or expired verification token' });
+    }
     res.json({ message: 'Email verified successfully' });
   } catch (err) {
     next(err);

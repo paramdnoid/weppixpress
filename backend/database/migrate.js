@@ -39,15 +39,30 @@ export async function runMigrations() {
           'utf8'
         );
         
-        // Split SQL statements by semicolon and execute each separately
-        const statements = sqlContent
+        // Remove comments and prepare SQL content
+        const cleanedContent = sqlContent
+          .split('\n')
+          .filter(line => !line.trim().startsWith('--'))
+          .join('\n')
+          .trim();
+        
+        // Split by semicolons for files that have multiple statements
+        const statements = cleanedContent
           .split(';')
           .map(stmt => stmt.trim())
-          .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+          .filter(stmt => stmt.length > 0);
         
-        for (const statement of statements) {
-          if (statement.trim()) {
+        // Execute each statement separately
+        for (let i = 0; i < statements.length; i++) {
+          const statement = statements[i];
+          console.log(`  Executing statement ${i + 1}/${statements.length}...`);
+          try {
             await pool.query(statement);
+            console.log(`  ✅ Statement executed successfully`);
+          } catch (error) {
+            console.error(`  ❌ Statement failed: ${error.message}`);
+            console.error(`  SQL: ${statement.substring(0, 200)}...`);
+            throw error;
           }
         }
         await pool.query(

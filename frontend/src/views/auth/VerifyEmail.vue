@@ -38,7 +38,7 @@ onMounted(async () => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
-      await axios.get(`/auth/verify-email?token=${token}`);
+      await axios.get(`/api/auth/verify-email?token=${token}`);
       verified.value = true;
       window.$toast && window.$toast('E-Mail bestätigt!', { type: 'success' });
       setTimeout(() => {

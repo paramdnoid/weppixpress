@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 // Configure base URL correctly - use proxy in development
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const API_BASE_URL = '/api'
 
 // Create axios instance
 const api = axios.create({
@@ -43,7 +43,7 @@ api.interceptors.response.use(
         // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
         return api(originalRequest)
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         // Refresh failed, logout through auth store
         console.warn('Token refresh failed:', refreshError.response?.data?.message || refreshError.message)
         
