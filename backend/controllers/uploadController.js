@@ -324,6 +324,14 @@ class UploadController {
       const uploadedCount = uploadSession.uploadedChunks.size;
       const progress = (uploadedCount / uploadSession.totalChunks) * 100;
 
+      console.log(`Chunk upload debug for ${uploadId}:`, {
+        uploadedCount,
+        totalChunks: uploadSession.totalChunks,
+        uploadedChunks: Array.from(uploadSession.uploadedChunks),
+        chunkIdx,
+        isComplete: uploadedCount === uploadSession.totalChunks
+      });
+
       if (uploadedCount === uploadSession.totalChunks) {
         logger.info(`All chunks received for upload ${uploadId}, starting finalization`);
 
@@ -749,9 +757,14 @@ class UploadController {
 
   async saveUploadSession(uploadId, session) {
     const key = `upload_session:${session.userId}:${uploadId}`;
-    session.uploadedChunks = Array.from(session.uploadedChunks);
     
-    const success = await cacheService.set(key, session, UPLOAD_SESSION_TTL);
+    // Create a copy for serialization, don't modify the original
+    const sessionForStorage = {
+      ...session,
+      uploadedChunks: Array.from(session.uploadedChunks)
+    };
+    
+    const success = await cacheService.set(key, sessionForStorage, UPLOAD_SESSION_TTL);
     
     logger.debug(`Saving upload session ${uploadId}`, {
       key,

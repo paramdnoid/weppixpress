@@ -123,7 +123,8 @@ if (process.env.NODE_ENV !== 'test') {
     skip: (req) => {
       return req.path.startsWith('/api/health') || 
              req.path.startsWith('/api-docs') ||
-             req.path.startsWith('/api/chunked-upload'); // Skip rate limiting for chunked uploads
+             req.path.startsWith('/api/upload/chunked') || // Skip rate limiting for chunked uploads
+             req.path.startsWith('/api/chunked-upload'); // Legacy path support
     },
     handler: (req, res) => {
       logger.warn('Rate limit exceeded', {

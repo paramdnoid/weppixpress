@@ -58,6 +58,8 @@ export class ChunkedUploadService {
   private uploadQueue: string[] = []
 
   async initializeUpload(file: File, relativePath: string = ''): Promise<UploadSession> {
+    console.log(`Initializing upload for ${file.name} (${file.size} bytes) to ${relativePath}`)
+    
     try {
       const formData = new FormData()
       formData.append('fileName', file.name)
@@ -65,47 +67,86 @@ export class ChunkedUploadService {
       formData.append('relativePath', relativePath)
       formData.append('chunkSize', (2 * 1024 * 1024).toString()) // 2MB chunks to match backend
 
+      console.log('Sending initialization request to /upload/chunked/init')
+      
       const response: AxiosResponse<{ success: boolean; data: UploadSession }> = 
-        await api.post('/chunked-upload/init', formData)
+        await api.post('/upload/chunked/init', formData)
+
+      console.log('Initialization response:', response.data)
 
       if (!response.data.success) {
         throw new Error('Failed to initialize upload')
       }
 
+      console.log(`Upload session created: ${response.data.data.uploadId}`)
       return response.data.data
     } catch (error: any) {
+      console.error('Upload initialization failed:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      })
+      
       if (error.response?.status === 401) {
         throw new Error('Authentication required. Please log in to upload files.')
       }
-      throw error
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown initialization error'
+      throw new Error(`Upload initialization failed: ${errorMessage}`)
     }
   }
 
   async startUpload(fileEntry: FileEntry, basePath?: string): Promise<string> {
-    // Prefix the relative path with current folder basePath if provided
-    let relativePath = fileEntry.relativePath || ''
-    if (basePath && basePath !== '/') {
-      const base = basePath.replace(/^\/+|\/+$/g, '')
-      relativePath = base ? `${base}/${relativePath}` : relativePath
+    try {
+      // Prefix the relative path with current folder basePath if provided
+      let relativePath = fileEntry.relativePath || ''
+      if (basePath && basePath !== '/') {
+        const base = basePath.replace(/^\/+|\/+$/g, '')
+        relativePath = base ? `${base}/${relativePath}` : relativePath
+      }
+
+      const session = await this.initializeUpload(fileEntry.file, relativePath)
+      const cancelToken = axios.CancelToken.source()
+
+      // Store in queued uploads, not active uploads
+      const queuedInfo = {
+        session,
+        file: fileEntry.file,
+        relativePath,
+        cancelToken
+      }
+
+      this.queuedUploads.set(session.uploadId, queuedInfo)
+      this.uploadQueue.push(session.uploadId)
+
+      this.processQueue()
+
+      return session.uploadId
+    } catch (error: any) {
+      console.error(`Failed to start upload for ${fileEntry.file.name}:`, error)
+      
+      // Generate a temporary uploadId for error state
+      const errorUploadId = crypto.randomUUID()
+      
+      // Emit error event
+      this.eventEmitter.emit('uploadError', {
+        uploadId: errorUploadId,
+        fileName: fileEntry.file.name,
+        error: error.message || 'Failed to initialize upload'
+      })
+
+      // Show user notification for authentication errors
+      if (error.message?.includes('Authentication required')) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('upload-auth-error', {
+            detail: { fileName: fileEntry.file.name, error: error.message }
+          }))
+        }
+      }
+      
+      throw error
     }
-
-    const session = await this.initializeUpload(fileEntry.file, relativePath)
-    const cancelToken = axios.CancelToken.source()
-
-    // Store in queued uploads, not active uploads
-    const queuedInfo = {
-      session,
-      file: fileEntry.file,
-      relativePath,
-      cancelToken
-    }
-
-    this.queuedUploads.set(session.uploadId, queuedInfo)
-    this.uploadQueue.push(session.uploadId)
-
-    this.processQueue()
-
-    return session.uploadId
   }
 
   private async processQueue(): Promise<void> {
@@ -131,41 +172,68 @@ export class ChunkedUploadService {
       return
     }
 
-    const queuedInfo = this.queuedUploads.get(uploadId)!
-    
-    // Move from queued to active
-    const uploadInfo = {
-      ...queuedInfo,
-      currentChunk: 0,
-      startTime: Date.now(),
-      lastProgressTime: Date.now(),
-      uploadedBytes: 0,
-      paused: false
-    }
-    
-    this.activeUploads.set(uploadId, uploadInfo)
-    this.queuedUploads.delete(uploadId)
-
-    console.log(`Starting upload for ${uploadInfo.file.name} (${uploadId})`)
-
     try {
+      console.log(`DEBUG: About to get queued info for ${uploadId}`)
+      const queuedInfo = this.queuedUploads.get(uploadId)!
+      console.log(`DEBUG: Got queued info, creating upload info`)
+      
+      // Move from queued to active
+      const uploadInfo = {
+        ...queuedInfo,
+        currentChunk: 0,
+        startTime: Date.now(),
+        lastProgressTime: Date.now(),
+        uploadedBytes: 0,
+        paused: false
+      }
+      
+      console.log(`DEBUG: Upload info created, setting to active`)
+      this.activeUploads.set(uploadId, uploadInfo)
+      this.queuedUploads.delete(uploadId)
+
+      console.log(`Starting upload for ${uploadInfo.file.name} (${uploadId})`)
+      console.log(`DEBUG: After first log, about to log upload info`)
+      console.log(`Upload info created:`, { uploadId, currentChunk: uploadInfo.currentChunk, totalChunks: uploadInfo.session.totalChunks })
+      console.log(`DEBUG: Upload info logged, moving to start upload`)
+
+      // Start upload in background without blocking processQueue
+      this.startSingleUpload(uploadId)
+
+      // Continue processing queue immediately
+      console.log(`Processing next in queue after starting ${uploadId}`)
+      this.processQueue()
+    } catch (error) {
+      console.error(`ERROR in processQueue for ${uploadId}:`, error)
+      this.processQueue()
+    }
+  }
+
+  private async startSingleUpload(uploadId: string): Promise<void> {
+    try {
+      console.log(`About to call uploadFileChunks for ${uploadId}`)
       await this.uploadFileChunks(uploadId)
+      console.log(`uploadFileChunks completed for ${uploadId}`)
     } catch (error) {
       console.error(`Upload failed for ${uploadId}:`, error)
       this.handleUploadError(uploadId, error)
     }
-
-    this.processQueue()
   }
 
   private async uploadFileChunks(uploadId: string): Promise<void> {
+    console.log(`Starting chunk upload for ${uploadId}`)
+    
     const uploadInfo = this.activeUploads.get(uploadId)
-    if (!uploadInfo) return
+    if (!uploadInfo) {
+      console.error(`Upload info not found for ${uploadId}`)
+      return
+    }
 
     const { session, file, cancelToken } = uploadInfo
+    console.log(`Uploading ${file.name}: ${session.totalChunks} chunks, ${session.chunkSize} bytes each`)
 
     while (uploadInfo.currentChunk < session.totalChunks && !uploadInfo.paused) {
       if (cancelToken.token.reason) {
+        console.log(`Upload ${uploadId} cancelled by token`)
         break
       }
 
@@ -174,13 +242,15 @@ export class ChunkedUploadService {
       const end = Math.min(start + session.chunkSize, file.size)
       const chunk = file.slice(start, end)
 
+      console.log(`Uploading chunk ${chunkIndex + 1}/${session.totalChunks} for ${file.name} (${chunk.size} bytes)`)
+
       const formData = new FormData()
       formData.append('chunk', chunk)
       formData.append('chunkIndex', chunkIndex.toString())
 
       try {
         const response = await api.post(
-          `/chunked-upload/chunk/${session.uploadId}`,
+          `/upload/chunked/chunk/${session.uploadId}`,
           formData,
           {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -192,6 +262,9 @@ export class ChunkedUploadService {
         )
 
         if (response.data.success) {
+          console.log(`Chunk ${chunkIndex + 1}/${session.totalChunks} uploaded successfully for ${file.name}`)
+          console.log(`Backend response:`, { success: response.data.success, completed: response.data.completed })
+          
           uploadInfo.currentChunk++
           uploadInfo.uploadedBytes += chunk.size
 
@@ -199,6 +272,8 @@ export class ChunkedUploadService {
             console.log(`Upload completed for ${uploadInfo.file.name}`)
             this.completeUpload(uploadId)
             break
+          } else {
+            console.log(`Upload NOT completed - continuing loop. Current chunk: ${uploadInfo.currentChunk}, Total: ${session.totalChunks}`)
           }
         } else {
           // Handle finalization errors specifically
@@ -211,10 +286,16 @@ export class ChunkedUploadService {
           }
         }
 
-      } catch (error) {
+      } catch (error: any) {
         if (axios.isCancel(error)) {
+          console.log(`Upload ${uploadId} cancelled`)
           break
         }
+        console.error(`Error uploading chunk ${chunkIndex + 1} for ${file.name}:`, {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        })
         throw error
       }
 
@@ -264,7 +345,7 @@ export class ChunkedUploadService {
     uploadInfo.cancelToken.cancel('Upload paused by user')
 
     try {
-      await api.post(`/chunked-upload/pause/${uploadId}`)
+      await api.post(`/upload/chunked/pause/${uploadId}`)
     } catch (error) {
       console.error('Failed to pause upload on server:', error)
     }
@@ -280,7 +361,7 @@ export class ChunkedUploadService {
     uploadInfo.cancelToken = axios.CancelToken.source()
 
     try {
-      const response = await api.post(`/chunked-upload/resume/${uploadId}`)
+      const response = await api.post(`/upload/chunked/resume/${uploadId}`)
       
       if (response.data.success) {
         const missingChunks = response.data.missingChunks || []
@@ -308,7 +389,7 @@ export class ChunkedUploadService {
     }
 
     try {
-      await api.delete(`/chunked-upload/cancel/${uploadId}`)
+      await api.delete(`/upload/chunked/cancel/${uploadId}`)
     } catch (error) {
       console.error('Failed to cancel upload on server:', error)
     }
@@ -335,7 +416,7 @@ export class ChunkedUploadService {
       this.uploadQueue = []
 
       // Cancel server-side sessions
-      await api.delete('/chunked-upload/active')
+      await api.delete('/upload/chunked/active')
     } catch (error) {
       console.error('Failed to cancel all uploads:', error)
       throw error
@@ -344,7 +425,7 @@ export class ChunkedUploadService {
 
   async getUploadStatus(uploadId: string): Promise<UploadProgress | null> {
     try {
-      const response = await api.get(`/chunked-upload/status/${uploadId}`)
+      const response = await api.get(`/upload/chunked/status/${uploadId}`)
       
       if (response.data.success) {
         return {
@@ -361,7 +442,7 @@ export class ChunkedUploadService {
 
   async listActiveUploads(): Promise<ActiveUpload[]> {
     try {
-      const response = await api.get('/chunked-upload/active')
+      const response = await api.get('/upload/chunked/active')
       return response.data.success ? response.data.data : []
     } catch (error) {
       console.error('Failed to list active uploads:', error)
@@ -390,10 +471,8 @@ export class ChunkedUploadService {
       eta: '0s'
     })
 
-    // Remove from activeUploads after showing completed status briefly
-    setTimeout(() => {
-      this.activeUploads.delete(uploadId)
-    }, 5000)
+    // Remove from activeUploads immediately to free up queue slot
+    this.activeUploads.delete(uploadId)
 
     // Process next uploads in queue immediately
     this.processQueue()
@@ -419,6 +498,12 @@ export class ChunkedUploadService {
       eta: 'Error'
     })
 
+    // Remove failed upload from active uploads to prevent blocking the queue
+    this.activeUploads.delete(uploadId)
+    
+    // Also remove from queued uploads if it exists there
+    this.queuedUploads.delete(uploadId)
+
     // Show user-friendly error notification
     if (typeof window !== 'undefined') {
       const errorMsg = error.message?.includes('Finalization failed') 
@@ -433,6 +518,13 @@ export class ChunkedUploadService {
   }
 
   private dispatchProgressEvent(uploadId: string, progress: UploadProgress): void {
+    console.log(`Dispatching progress event for ${uploadId}:`, { 
+      progress: progress.progress, 
+      status: progress.status,
+      uploadedChunks: progress.uploadedChunks,
+      totalChunks: progress.totalChunks
+    })
+    
     window.dispatchEvent(new CustomEvent('upload-progress', {
       detail: { uploadId, progress }
     }))
