@@ -37,7 +37,7 @@ const EXT_MAP: Record<string, string> = {
   jpeg: 'bi:filetype-jpg',
   png: 'bi:filetype-png',
   gif: 'bi:filetype-gif',
-  webp: 'bi:filetype-webp',
+  webp: 'bi:image',
   svg: 'bi:filetype-svg',
   heic: 'bi:image',
   avif: 'bi:image',

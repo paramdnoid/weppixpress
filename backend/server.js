@@ -1,23 +1,23 @@
-import { runMigrations } from './database/migrate.js';
-import { errorHandler, notFound } from './middleware/errorHandler.js';
-import { securityMiddlewareStack } from './middleware/inputSanitization.js';
-import { errorMonitoring, requestMonitoring } from './middleware/monitoring.js';
-import { apiVersioning, corsPreflightHandler, requestContext, requestTimeout } from './middleware/requestContext.js';
-import adminRoutes from './routes/admin.js';
-import authRoutes from './routes/auth.js';
-import dashboardRoutes from './routes/dashboard.js';
-import fileRoutes from './routes/files.js';
-import healthRoutes from './routes/health.js';
-import uploadRoutes from './routes/upload.js';
-import websiteInfoRoutes from './routes/websiteInfo.js';
-import cacheService from './services/cacheService.js';
-import databaseService from './services/databaseService.js';
-import monitoringService from './services/monitoringService.js';
-import { setupSwagger } from './swagger/swagger.js';
-import circuitBreakerRegistry from './utils/circuitBreaker.js';
-import logger from './utils/logger.js';
-import { WebSocketManager } from './services/websocketService.js';
-import uploadCleanupService from './services/uploadCleanupService.js';
+import { runMigrations } from './src/core/database/migrate.js';
+import { errorHandler, notFound } from './src/api/middleware/errorHandler.js';
+import { securityMiddlewareStack } from './src/api/middleware/inputSanitization.js';
+import { errorMonitoring, requestMonitoring } from './src/api/middleware/monitoring.js';
+import { apiVersioning, corsPreflightHandler, requestContext, requestTimeout } from './src/api/middleware/requestContext.js';
+import adminRoutes from './src/api/routes/admin.js';
+import authRoutes from './src/api/routes/auth.js';
+import dashboardRoutes from './src/api/routes/dashboard.js';
+import fileRoutes from './src/api/routes/files.js';
+import healthRoutes from './src/api/routes/health.js';
+import uploadRoutes from './src/api/routes/upload.js';
+import websiteInfoRoutes from './src/api/routes/websiteInfo.js';
+import cacheService from './src/core/services/cacheService.js';
+import databaseService from './src/core/services/databaseService.js';
+import monitoringService from './src/core/services/monitoringService.js';
+// Swagger disabled - docs directory removed in new architecture
+import circuitBreakerRegistry from './src/shared/utils/circuitBreaker.js';
+import logger from './src/shared/utils/logger.js';
+import { WebSocketManager } from './src/core/services/websocketService.js';
+import uploadCleanupService from './src/core/services/uploadCleanupService.js';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -198,7 +198,7 @@ if (process.env.NODE_ENV !== 'test') {
   app.use('/api/chunked-upload', uploadLimiter);
 }
 
-setupSwagger(app);
+// setupSwagger(app); // Disabled - docs directory removed
 
 // Serve dashboard static files with optimized caching
 app.use('/dashboard', express.static(path.join(__dirname, 'public/dashboard'), {
