@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import chunkedUploadController from '../controllers/chunkedUploadController.js';
+import uploadController from '../controllers/uploadController.js';
 import logger from '../utils/logger.js';
 
 class UploadCleanupService {
@@ -51,7 +51,7 @@ class UploadCleanupService {
     try {
       logger.info('Starting periodic upload cleanup...');
       
-      const cleanedCount = await chunkedUploadController.cleanupExpiredSessions();
+      const cleanedCount = await uploadController.cleanupExpiredSessions();
       
       const duration = Date.now() - startTime;
       logger.info(`Upload cleanup completed: ${cleanedCount} expired sessions cleaned in ${duration}ms`);

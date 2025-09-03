@@ -1,10 +1,10 @@
 import { expect } from 'chai';
-import chunkedUploadController from '../controllers/chunkedUploadController.js';
+import uploadController from '../controllers/uploadController.js';
 import cacheService from '../services/cacheService.js';
 
 // Test cleanup of expired upload sessions
 
-describe('ChunkedUploadController.cleanupExpiredSessions', () => {
+describe('UploadController.cleanupExpiredSessions', () => {
   it('removes expired sessions', async () => {
     const prefix = `${process.env.CACHE_PREFIX || 'weppix'}:`;
     const prefixedKey = `${prefix}upload_session:user1:123`;
@@ -18,7 +18,7 @@ describe('ChunkedUploadController.cleanupExpiredSessions', () => {
     const origKeys = cacheService.keys;
     const origGet = cacheService.get;
     const origDelete = cacheService.delete;
-    const origCleanup = chunkedUploadController.cleanupUploadSession;
+    const origCleanup = uploadController.cleanupUploadSession;
 
     let deletedKey;
 
@@ -31,11 +31,11 @@ describe('ChunkedUploadController.cleanupExpiredSessions', () => {
       deletedKey = key;
       return true;
     };
-    chunkedUploadController.cleanupUploadSession = async (sess) => {
+    uploadController.cleanupUploadSession = async (sess) => {
       expect(sess).to.equal(session);
     };
 
-    const removed = await chunkedUploadController.cleanupExpiredSessions();
+    const removed = await uploadController.cleanupExpiredSessions();
 
     expect(removed).to.equal(1);
     expect(deletedKey).to.equal('upload_session:user1:123');
@@ -43,6 +43,6 @@ describe('ChunkedUploadController.cleanupExpiredSessions', () => {
     cacheService.keys = origKeys;
     cacheService.get = origGet;
     cacheService.delete = origDelete;
-    chunkedUploadController.cleanupUploadSession = origCleanup;
+    uploadController.cleanupUploadSession = origCleanup;
   });
 });
