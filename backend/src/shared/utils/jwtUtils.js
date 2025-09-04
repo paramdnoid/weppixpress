@@ -8,11 +8,47 @@ import jwt from 'jsonwebtoken';
 // Token configuration
 const ACCESS_TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_TOKEN_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+// JWT Secret validation with detailed error handling
+let JWT_SECRET, JWT_REFRESH_SECRET;
 
-if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
-  throw new Error('JWT secrets must be configured in environment variables');
+try {
+  JWT_SECRET = process.env.JWT_SECRET;
+  JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  
+  if (!JWT_REFRESH_SECRET) {
+    throw new Error('JWT_REFRESH_SECRET environment variable is required');
+  }
+
+  // Validate secret strength
+  if (JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long');
+  }
+  
+  if (JWT_REFRESH_SECRET.length < 32) {
+    throw new Error('JWT_REFRESH_SECRET must be at least 32 characters long');
+  }
+  
+  // Ensure secrets are different
+  if (JWT_SECRET === JWT_REFRESH_SECRET) {
+    throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must be different');
+  }
+
+} catch (error) {
+  // Log error for debugging but don't expose sensitive details
+  console.error('JWT Configuration Error:', error.message);
+  
+  // In production, we might want to use default values or exit gracefully
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Critical: JWT secrets not properly configured. Application cannot start.');
+    process.exit(1);
+  } else {
+    // In development, provide helpful error message
+    throw new Error(`JWT Configuration Error: ${error.message}. Please check your environment variables.`);
+  }
 }
 
 /**

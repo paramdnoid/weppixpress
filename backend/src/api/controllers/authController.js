@@ -1,5 +1,7 @@
 import sendMail from '../../shared/utils/mail.js';
 import logger from '../../shared/utils/logger.js';
+import { sendValidationError, sendUnauthorizedError, sendNotFoundError, sendConflictError, sendInternalServerError, sendSuccessResponse, handleValidationErrors } from '../../shared/utils/httpResponses.js';
+import { validateEmail } from '../../shared/utils/commonValidation.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';
@@ -20,18 +22,17 @@ import {
 } from '../../shared/utils/jwtUtils.js';
 
 export async function register(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+  if (handleValidationErrors(validationResult(req), res)) {
+    return;
   }
   try {
     const { first_name, last_name, email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return sendValidationError(res, 'Email and password are required');
     }
     const existing = await findUserByEmail(email);
     if (existing) {
-      return res.status(409).json({ message: 'User already exists' });
+      return sendConflictError(res, 'User already exists');
     }
     const hash = await bcrypt.hash(password, 12);
     await createUser(first_name, last_name, email, hash);
@@ -55,11 +56,11 @@ export async function verifyEmail(req, res, next) {
   try {
     const { token } = req.query;
     if (!token) {
-      return res.status(400).json({ message: 'Verification token is required' });
+      return sendValidationError(res, 'Verification token is required');
     }
     const verified = await verifyUserByToken(token);
     if (!verified) {
-      return res.status(400).json({ message: 'Invalid or expired verification token' });
+      return sendValidationError(res, 'Invalid or expired verification token');
     }
     res.json({ message: 'Email verified successfully' });
   } catch (err) {
@@ -68,18 +69,17 @@ export async function verifyEmail(req, res, next) {
 }
 
 export async function login(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+  if (handleValidationErrors(validationResult(req), res)) {
+    return;
   }
   try {
     const { email, password } = req.body;
     const user = await findUserByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return sendUnauthorizedError(res, 'Invalid credentials');
     }
     if (!user.is_verified) {
-      return res.status(401).json({ message: 'Please verify your email before logging in' });
+      return sendUnauthorizedError(res, 'Please verify your email before logging in');
     }
     if (user.is_2fa_enabled) {
       return res.json({ requires2FA: true, userId: user.id });
@@ -102,9 +102,8 @@ export async function login(req, res, next) {
 }
 
 export async function verify2FA(req, res) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+  if (handleValidationErrors(validationResult(req), res)) {
+    return;
   }
   const { userId, code } = req.body;
   const user = await getUserById(userId);
@@ -131,20 +130,19 @@ export async function verify2FA(req, res) {
 export async function setup2FA(req, res) {
   const user = await getUserById(req.user.userId);
   if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+    return sendNotFoundError(res, 'User not found');
   }
   const secret = speakeasy.generateSecret({ name: `DemoApp (${user.email})` });
   const qr = await QRCode.toDataURL(secret.otpauth_url);
   res.json({ secret: secret.base32, qr });
 }
 export async function enable2FAController(req, res) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+  if (handleValidationErrors(validationResult(req), res)) {
+    return;
   }
   const user = await getUserById(req.user.userId);
   if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+    return sendNotFoundError(res, 'User not found');
   }
   if (user.is_2fa_enabled) {
     return res.status(400).json({ message: '2FA is already enabled' });
@@ -163,9 +161,8 @@ export async function disable2FAController(req, res) {
 }
 
 export async function forgotPassword(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+  if (handleValidationErrors(validationResult(req), res)) {
+    return;
   }
   try {
     const { email } = req.body;
@@ -183,9 +180,8 @@ export async function forgotPassword(req, res, next) {
   }
 }
 export async function resetPassword(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+  if (handleValidationErrors(validationResult(req), res)) {
+    return;
   }
   try {
     const { token, password } = req.body;
@@ -262,6 +258,6 @@ export async function getProfile(req, res) {
     });
   } catch (err) {
     logger.error('Get profile error', { action: 'get_profile', ip: req.ip, error: err.message });
-    return res.status(500).json({ error: 'Internal server error' });
+    return sendInternalServerError(res, 'Internal server error', req);
   }
 }

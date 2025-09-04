@@ -101,7 +101,16 @@ class DatabaseService {
 
       return result;
     } catch (error) {
-      try { await connection.rollback(); } catch (_) {}
+      try { 
+        await connection.rollback(); 
+        logger.debug('Transaction rolled back successfully');
+      } catch (rollbackError) {
+        logger.error('Failed to rollback transaction', {
+          originalError: error.message,
+          rollbackError: rollbackError.message
+        });
+        // Don't mask the original error, but ensure connection is released
+      }
       const duration = Date.now() - startTime;
       logger.error('Transaction rolled back', {
         error: error.message,
@@ -109,7 +118,15 @@ class DatabaseService {
       });
       throw error;
     } finally {
-      connection.release();
+      if (connection && typeof connection.release === 'function') {
+        try {
+          connection.release();
+        } catch (releaseError) {
+          logger.error('Failed to release database connection', {
+            error: releaseError.message
+          });
+        }
+      }
     }
   }
 
@@ -136,11 +153,25 @@ class DatabaseService {
         const placeholders = columns.map(() => '?').join(', ');
         const values = batch.flatMap((record) => columns.map((col) => record[col]));
 
-        let q = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES `;
+        // Validate table name to prevent SQL injection
+        const validTableNamePattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+        if (!validTableNamePattern.test(tableName)) {
+          throw new Error(`Invalid table name: ${tableName}`);
+        }
+        
+        // Validate column names to prevent SQL injection
+        const validColumnNamePattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+        for (const col of columns) {
+          if (!validColumnNamePattern.test(col)) {
+            throw new Error(`Invalid column name: ${col}`);
+          }
+        }
+
+        let q = `INSERT INTO \`${tableName}\` (${columns.map(col => `\`${col}\``).join(', ')}) VALUES `;
         q += batch.map(() => `(${placeholders})`).join(', ');
 
         if (onDuplicateKeyUpdate) {
-          const updateClause = columns.map((col) => `${col} = VALUES(${col})`).join(', ');
+          const updateClause = columns.map((col) => `\`${col}\` = VALUES(\`${col}\`)`).join(', ');
           q += ` ON DUPLICATE KEY UPDATE ${updateClause}`;
         }
 

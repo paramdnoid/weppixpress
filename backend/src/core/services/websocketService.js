@@ -93,16 +93,80 @@ class WebSocketManager {
     const clientInfo = this.clients.get(ws);
     if (!clientInfo) return;
 
+    // Rate limiting: Track messages per client
+    const now = Date.now();
+    if (!clientInfo.messageCount) {
+      clientInfo.messageCount = 0;
+      clientInfo.lastMessageReset = now;
+    }
+
+    // Reset counter every minute
+    if (now - clientInfo.lastMessageReset > 60000) {
+      clientInfo.messageCount = 0;
+      clientInfo.lastMessageReset = now;
+    }
+
+    clientInfo.messageCount++;
+
+    // Rate limit: max 100 messages per minute per client
+    if (clientInfo.messageCount > 100) {
+      logger.warn(`Rate limit exceeded for client ${clientInfo.id}`);
+      this.sendToClient(ws, {
+        type: 'error',
+        message: 'Rate limit exceeded'
+      });
+      return;
+    }
+
+    // Message size validation
+    if (data.length > 1024) { // 1KB limit
+      logger.warn(`Message too large from client ${clientInfo.id}: ${data.length} bytes`);
+      this.sendToClient(ws, {
+        type: 'error',
+        message: 'Message too large'
+      });
+      return;
+    }
+
     try {
       const message = JSON.parse(data.toString());
-      logger.debug(`Message from client ${clientInfo.id}:`, message);
+      
+      // Input validation
+      if (typeof message !== 'object' || message === null) {
+        throw new Error('Message must be an object');
+      }
+      
+      if (typeof message.type !== 'string') {
+        throw new Error('Message type must be a string');
+      }
+      
+      if (message.type.length > 50) {
+        throw new Error('Message type too long');
+      }
+
+      logger.debug(`Message from client ${clientInfo.id}:`, {
+        type: message.type,
+        hasPath: !!message.path
+      });
 
       switch (message.type) {
         case 'subscribe':
+          if (typeof message.path !== 'string') {
+            throw new Error('Subscribe path must be a string');
+          }
+          if (message.path.length > 500) {
+            throw new Error('Path too long');
+          }
           this.handleSubscription(ws, message.path);
           break;
           
         case 'unsubscribe':
+          if (typeof message.path !== 'string') {
+            throw new Error('Unsubscribe path must be a string');
+          }
+          if (message.path.length > 500) {
+            throw new Error('Path too long');
+          }
           this.handleUnsubscription(ws, message.path);
           break;
           
@@ -112,9 +176,16 @@ class WebSocketManager {
           
         default:
           logger.warn(`Unknown message type: ${message.type}`, { clientId: clientInfo.id });
+          this.sendToClient(ws, {
+            type: 'error',
+            message: 'Unknown message type'
+          });
       }
     } catch (error) {
-      logger.error(`Error parsing message from client ${clientInfo.id}:`, error);
+      logger.error(`Error processing message from client ${clientInfo.id}:`, {
+        error: error.message,
+        messageLength: data.length
+      });
       this.sendToClient(ws, {
         type: 'error',
         message: 'Invalid message format'

@@ -64,7 +64,6 @@ function validateFile(file, callback, options = {}) {
     }
     
     const fileExtension = '.' + nameParts.pop();
-    const _filename = nameParts.join('.'); // Keep for potential future use
 
     // Check for double extensions (e.g. file.txt.exe)
     if (nameParts.length > 0) {
@@ -133,13 +132,13 @@ function validateFile(file, callback, options = {}) {
  * Express/Multer-compatible file filter (configurable)
  */
 function fileFilter(options = {}) {
-  return (req, file, cb) => validateFile(file, cb, options);
+  return (_req, file, cb) => validateFile(file, cb, options);
 }
 
 /**
  * Strict file filter for critical areas (whitelist only)
  */
-function strictFileFilter(req, file, cb) {
+function strictFileFilter(_req, file, cb) {
   return validateFile(file, cb, { useWhitelist: true });
 }
 

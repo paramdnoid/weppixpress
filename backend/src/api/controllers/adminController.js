@@ -1,5 +1,7 @@
 import { getAllUsers, getUserById, updateUserRole } from '../../core/models/userModel.js';
 import logger from '../../shared/utils/logger.js';
+import { sendValidationError, sendNotFoundError, sendInternalServerError, sendSuccessResponse, handleValidationErrors } from '../../shared/utils/httpResponses.js';
+import { validateRole } from '../../shared/utils/commonValidation.js';
 import { validationResult } from 'express-validator';
 
 /**
@@ -28,32 +30,28 @@ export async function getUsers(req, res, next) {
  * Update user role (admin only)
  */
 export async function updateUserRoleController(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+  if (handleValidationErrors(validationResult(req), res)) {
+    return;
   }
 
   try {
     const { userId, role } = req.body;
 
     // Validate role
-    if (!['user', 'admin'].includes(role)) {
-      return res.status(400).json({ 
-        message: 'Invalid role. Must be either "user" or "admin"' 
-      });
+    const roleValidation = validateRole(role);
+    if (!roleValidation.isValid) {
+      return sendValidationError(res, roleValidation.error);
     }
 
     // Check if user exists
     const user = await getUserById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return sendNotFoundError(res, 'User not found');
     }
 
     // Prevent admin from demoting themselves
     if (req.user.userId === userId && role === 'user') {
-      return res.status(400).json({ 
-        message: 'You cannot remove your own admin privileges' 
-      });
+      return sendValidationError(res, 'You cannot remove your own admin privileges');
     }
 
     await updateUserRole(userId, role);
@@ -92,11 +90,11 @@ export async function makeAdmin(req, res, next) {
 
     const user = await getUserById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return sendNotFoundError(res, 'User not found');
     }
 
     if (user.role === 'admin') {
-      return res.status(400).json({ message: 'User is already an admin' });
+      return sendValidationError(res, 'User is already an admin');
     }
 
     await updateUserRole(userId, 'admin');
@@ -133,18 +131,16 @@ export async function removeAdmin(req, res, next) {
 
     // Prevent admin from removing their own privileges
     if (req.user.userId === userId) {
-      return res.status(400).json({ 
-        message: 'You cannot remove your own admin privileges' 
-      });
+      return sendValidationError(res, 'You cannot remove your own admin privileges');
     }
 
     const user = await getUserById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return sendNotFoundError(res, 'User not found');
     }
 
     if (user.role !== 'admin') {
-      return res.status(400).json({ message: 'User is not an admin' });
+      return sendValidationError(res, 'User is not an admin');
     }
 
     await updateUserRole(userId, 'user');

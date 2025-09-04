@@ -1,6 +1,9 @@
-import cacheService from '../../core/services/cacheService.js';
+import { FileCache } from '../../shared/utils/fileCache.js';
 import logger from '../../shared/utils/logger.js';
 import { getUserDirectory, sanitizeUploadPath, secureResolve } from '../../shared/utils/pathSecurity.js';
+import { getUniquePath, pathExists, ensureDirectory } from '../../shared/utils/fileOperations.js';
+import { sendErrorResponse, sendUnauthorizedError, sendInternalServerError } from '../../shared/utils/httpResponses.js';
+import { validateUserId } from '../../shared/utils/commonValidation.js';
 import dotenv from 'dotenv';
 import { filesize } from 'filesize';
 import { promises as fsp } from 'fs';
@@ -9,51 +12,15 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 
-// Cache utility functions for backward compatibility
-const FileCache = {
-  async getFileList(userId, path) {
-    const key = `files:${userId}:${(path || '/').replace(/\//g, '_')}`;
-    return await cacheService.get(key);
-  },
-  async setFileList(userId, path, fileList) {
-    const key = `files:${userId}:${(path || '/').replace(/\//g, '_')}`;
-    return await cacheService.set(key, fileList, 10); // 10 seconds TTL
-  },
-  async invalidateUserFiles(userId) {
-    return await cacheService.deletePattern(`files:${userId}:*`);
-  },
-  async invalidateFilePath(userId, path) {
-    const key = `files:${userId}:${(path || '/').replace(/\//g, '_')}`;
-    return await cacheService.delete(key);
-  }
-};
+// FileCache is now imported from shared utilities
 const __dirname = dirname(__filename);
 
 dotenv.config();
 
 const baseDir = _resolve(process.env.UPLOAD_DIR || join(__dirname, '../..', 'uploads'));
 
-async function pathExists(p) {
-  try { await fsp.access(p); return true; } catch { return false; }
-}
-/**
- * Generates a unique path by appending a number suffix if the desired name already exists
- * @param {string} dir - The absolute directory path
- * @param {string} desiredName - The desired filename or folder name
- * @returns {Promise<string>} A unique absolute path
- */
-async function getUniquePath(dir, desiredName) {
-  const idx = desiredName.lastIndexOf('.');
-  const hasExt = idx > 0 && desiredName.indexOf('.') !== 0; // ignore dotfiles
-  const base = hasExt ? desiredName.slice(0, idx) : desiredName;
-  const ext = hasExt ? desiredName.slice(idx) : '';
-  let candidate = desiredName;
-  let i = 1;
-  while (await pathExists(join(dir, candidate))) {
-    candidate = `${base} (${i++})${ext}`;
-  }
-  return join(dir, candidate);
-}
+// pathExists is now imported from fileOperations utility
+// getUniquePath is now imported from fileOperations utility
 
 /**
  * Non-recursively reads a file system item and returns its metadata (flat listing only).
@@ -165,6 +132,8 @@ async function getFolderSize(folderPath, options = {}) {
     try {
       const entries = await fsp.readdir(path, { withFileTypes: true });
       let size = 0;
+      let processedInBatch = 0;
+      const batchSize = 50; // Process 50 entries at a time
 
       for (const entry of entries) {
         const fullPath = join(path, entry.name);
@@ -182,6 +151,13 @@ async function getFolderSize(folderPath, options = {}) {
             logger.debug(`Error getting stats for file ${fullPath}: ${error.message}`);
             errors.push(`Cannot read file: ${fullPath}`);
           }
+        }
+        
+        // Yield control to event loop every batchSize entries
+        processedInBatch++;
+        if (processedInBatch >= batchSize) {
+          processedInBatch = 0;
+          await new Promise(resolve => setImmediate(resolve));
         }
       }
       
@@ -216,8 +192,8 @@ async function getFolderSize(folderPath, options = {}) {
  */
 export async function getFolderFiles(req, res) {
   const userId = req.user?.userId;
-  if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized: Missing user ID' });
+  if (validateUserId(req, res)) {
+    return;
   }
 
   const sanitizedPath = sanitizeUploadPath(req.query.path || '');
@@ -240,7 +216,7 @@ export async function getFolderFiles(req, res) {
   try {
     targetPath = secureResolve(baseDirUser, sanitizedPath);
   } catch (error) {
-    return res.status(400).json({ error: 'Invalid path: ' + error.message });
+    return sendErrorResponse(res, 400, 'Invalid path: ' + error.message);
   }
 
   try {
@@ -296,7 +272,7 @@ export async function getFolderFiles(req, res) {
     res.json(response);
   } catch (err) {
     logger.error(`Error fetching folder files: ${err.stack || err}`);
-    res.status(500).json({ error: 'Failed to read directory' });
+    return sendInternalServerError(res, 'Failed to read directory', req);
   }
 }
 
@@ -307,12 +283,7 @@ export async function getFolderFiles(req, res) {
  */
 export async function ensureUserUploadDir(userId) {
   const userDir = getUserDirectory(userId, baseDir);
-  try {
-    await fsp.access(userDir);
-  } catch {
-    await fsp.mkdir(userDir, { recursive: true });
-  }
-  return userDir;
+  return await ensureDirectory(userDir);
 }
 
 /**
@@ -323,8 +294,8 @@ export async function ensureUserUploadDir(userId) {
  */
 export async function deleteFiles(req, res, next) {
   try {
-    if (!req.user?.userId) {
-      return res.status(401).json({ error: 'Unauthorized: Missing user ID' });
+    if (validateUserId(req, res)) {
+      return;
     }
 
     const { paths } = req.body;
@@ -332,7 +303,7 @@ export async function deleteFiles(req, res, next) {
     const baseDirUser = await ensureUserUploadDir(userId);
 
     if (!Array.isArray(paths)) {
-      return res.status(400).json({ error: 'Paths must be an array' });
+      return sendErrorResponse(res, 400, 'Paths must be an array');
     }
 
     const deletedItems = [];
@@ -392,7 +363,7 @@ export async function moveFiles(req, res, next) {
       const sanitizedDest = sanitizeUploadPath(destination);
       destPath = secureResolve(baseDirUser, sanitizedDest);
     } catch (error) {
-      return res.status(400).json({ error: 'Invalid destination path: ' + error.message });
+      return sendErrorResponse(res, 400, 'Invalid destination path: ' + error.message);
     }
 
     await fsp.mkdir(destPath, { recursive: true });
@@ -485,12 +456,12 @@ export async function createFolder(req, res, next) {
     const baseDirUser = await ensureUserUploadDir(userId);
 
     if (!name || typeof name !== 'string') {
-      return res.status(400).json({ error: 'Folder name is required' });
+      return sendErrorResponse(res, 400, 'Folder name is required');
     }
 
     const safeName = name.replace(/[<>:"|?*\\x00-\\x1F]/g, '').trim();
     if (!safeName) {
-      return res.status(400).json({ error: 'Invalid folder name' });
+      return sendErrorResponse(res, 400, 'Invalid folder name');
     }
 
     let targetDir;
@@ -500,7 +471,7 @@ export async function createFolder(req, res, next) {
       
       logger.debug('Creating folder', { name, path, sanitizedPath, targetDir });
     } catch (error) {
-      return res.status(400).json({ error: 'Invalid path: ' + error.message });
+      return sendErrorResponse(res, 400, 'Invalid path: ' + error.message);
     }
     
     // Generate a unique folder path to avoid conflicts
@@ -540,14 +511,14 @@ export async function createFolder(req, res, next) {
  */
 export async function renameItem(req, res, next) {
   try {
-    if (!req.user?.userId) {
-      return res.status(401).json({ error: 'Unauthorized: Missing user ID' });
+    if (validateUserId(req, res)) {
+      return;
     }
 
     const { oldPath, newName: rawNewName } = req.body;
     const safeNewName = String(rawNewName || '').replace(/[<>:"|?*\\x00-\\x1F]/g, '').trim();
     if (!safeNewName) {
-      return res.status(400).json({ error: 'Invalid new name' });
+      return sendErrorResponse(res, 400, 'Invalid new name');
     }
 
     const userId = req.user.userId;
@@ -558,7 +529,7 @@ export async function renameItem(req, res, next) {
       const sanitizedOldPath = sanitizeUploadPath(oldPath);
       fullOldPath = secureResolve(baseDirUser, sanitizedOldPath);
     } catch (error) {
-      return res.status(400).json({ error: 'Invalid old path: ' + error.message });
+      return sendErrorResponse(res, 400, 'Invalid old path: ' + error.message);
     }
     
     const parentDirAbs = dirname(fullOldPath);
@@ -617,7 +588,7 @@ export async function copyFiles(req, res, next) {
       const sanitizedDest = sanitizeUploadPath(destination || '');
       destPath = secureResolve(baseDirUser, sanitizedDest);
     } catch (error) {
-      return res.status(400).json({ error: 'Invalid destination path: ' + error.message });
+      return sendErrorResponse(res, 400, 'Invalid destination path: ' + error.message);
     }
     
     await fsp.mkdir(destPath, { recursive: true });

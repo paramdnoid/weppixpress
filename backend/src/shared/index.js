@@ -13,6 +13,12 @@ export { default as mail } from './utils/mail.js';
 export { default as pathSecurity } from './utils/pathSecurity.js';
 export { secureResolve, getUserDirectory, sanitizeUploadPath } from './utils/pathSecurity.js';
 
+// New utilities for reduced code duplication
+export * from './utils/fileOperations.js';
+export * from './utils/httpResponses.js';
+export * from './utils/commonValidation.js';
+export { FileCache } from './utils/fileCache.js';
+
 // Validation
 export { default as validateRequest } from './validation/validateRequest.js';
 export * from './validation/schemas/authSchemas.js';

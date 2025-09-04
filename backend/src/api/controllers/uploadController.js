@@ -1,9 +1,13 @@
-import { promises as fsp, createWriteStream } from 'fs';
+import { promises as fsp, createWriteStream, createReadStream } from 'fs';
 import { join, dirname, basename, extname, relative } from 'path';
 import { ValidationError } from '../../shared/utils/errors.js';
 import { fileFilter } from '../../shared/utils/fileValidation.js';
 import { sanitizeUploadPath, secureResolve } from '../../shared/utils/pathSecurity.js';
+import { sanitizeFilename, getUniquePath, pathExists } from '../../shared/utils/fileOperations.js';
+import { sendErrorResponse, sendValidationError, sendInternalServerError, sendSuccessResponse, sendCreatedResponse } from '../../shared/utils/httpResponses.js';
+import { validateUserId, validateRequiredFields, validateNumericParam, validateFileSize, validateChunkIndex } from '../../shared/utils/commonValidation.js';
 import { ensureUserUploadDir } from './fileController.js';
+import { FileCache } from '../../shared/utils/fileCache.js';
 import cacheService from '../../core/services/cacheService.js';
 import logger from '../../shared/utils/logger.js';
 import multer from 'multer';
@@ -22,39 +26,9 @@ const maxFileSize =
 const CACHE_PREFIX = `${process.env.CACHE_PREFIX || 'weppix'}:`;
 const stripCachePrefix = (key) => key.startsWith(CACHE_PREFIX) ? key.slice(CACHE_PREFIX.length) : key;
 
-// Cache utility functions for backward compatibility
-const FileCache = {
-  async invalidateUserFiles(userId) {
-    return await cacheService.deletePattern(`files:${userId}:*`);
-  },
-  async invalidateFilePath(userId, path) {
-    const key = `files:${userId}:${(path || '/').replace(/\//g, '_')}`;
-    return await cacheService.delete(key);
-  }
-};
+// FileCache is now imported from shared utilities
 
-// Helper functions
-const pathExists = async (p) => {
-  try { await fsp.access(p); return true; } catch { return false; }
-};
-
-const sanitizeFilename = (name) => {
-  const base = basename(name || '');
-  return base.replace(/[\u0000-\u001F<>:"/\\|?*]+/g, '').trim() || 'unnamed';
-};
-
-const getUniquePath = async (dir, desiredName) => {
-  const idx = desiredName.lastIndexOf('.');
-  const hasExt = idx > 0 && desiredName.indexOf('.') !== 0;
-  const base = hasExt ? desiredName.slice(0, idx) : desiredName;
-  const ext = hasExt ? desiredName.slice(idx) : '';
-  let candidate = desiredName;
-  let i = 1;
-  while (await pathExists(join(dir, candidate))) {
-    candidate = `${base} (${i++})${ext}`;
-  }
-  return join(dir, candidate);
-};
+// Helper functions are now imported from fileOperations utility
 
 // Simple multer memory storage for normal uploads
 const storage = multer.memoryStorage();
@@ -212,13 +186,16 @@ class UploadController {
     try {
       const { fileName, fileSize, relativePath = '', chunkSize = CHUNK_SIZE } = req.body;
 
-      if (!fileName || !fileSize) {
-        throw new ValidationError('fileName and fileSize are required');
+      // Validate required fields
+      const fieldsValidation = validateRequiredFields(req.body, ['fileName', 'fileSize']);
+      if (!fieldsValidation.isValid) {
+        throw new ValidationError(fieldsValidation.error);
       }
 
-      if (fileSize > MAX_FILE_SIZE) {
-        const maxSizeGB = Math.round(MAX_FILE_SIZE / (1024 * 1024 * 1024));
-        throw new ValidationError(`File size exceeds maximum allowed size (${maxSizeGB}GB)`);
+      // Validate file size
+      const sizeValidation = validateFileSize(fileSize, MAX_FILE_SIZE);
+      if (!sizeValidation.isValid) {
+        throw new ValidationError(sizeValidation.error);
       }
 
       const userDir = await ensureUserUploadDir(req.user.userId);
@@ -238,7 +215,7 @@ class UploadController {
       await fsp.mkdir(targetDir, { recursive: true });
 
       const uploadId = crypto.randomUUID();
-      const uniquePath = await this.getUniquePath(targetDir, safeName);
+      const uniquePath = await getUniquePath(targetDir, safeName);
       
       // Create temp directory for chunks (using the correct parent directory)
       const tempDir = join(targetDir, '.chunks', uploadId);
@@ -325,10 +302,12 @@ class UploadController {
         throw new ValidationError('Unauthorized access to upload session');
       }
 
-      const chunkIdx = parseInt(chunkIndex);
-      if (chunkIdx < 0 || chunkIdx >= uploadSession.totalChunks) {
-        throw new ValidationError('Invalid chunk index');
+      // Validate chunk index
+      const chunkValidation = validateChunkIndex(chunkIndex, uploadSession.totalChunks);
+      if (!chunkValidation.isValid) {
+        throw new ValidationError(chunkValidation.error);
       }
+      const chunkIdx = chunkValidation.value;
 
       // Check for duplicate chunks (with lock protection)
       if (uploadSession.uploadedChunks.has(chunkIdx)) {
@@ -669,27 +648,41 @@ class UploadController {
         const chunkPath = join(uploadSession.tempDir, `chunk_${i}`);
         
         try {
-          // Stream chunks instead of loading into memory
-          const chunkBuffer = await fsp.readFile(chunkPath);
-          totalBytesWritten += chunkBuffer.length;
+          // Use streaming instead of loading entire chunk into memory
+          const readStream = createReadStream(chunkPath, {
+            highWaterMark: 16 * 1024 // 16KB buffers to reduce memory usage
+          });
           
-          // Write chunk and wait for completion
+          let chunkBytesWritten = 0;
+          
+          // Stream chunk data directly without loading into memory
           await new Promise((resolve, reject) => {
-            writeStream.write(chunkBuffer, (error) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve();
+            readStream.on('data', (data) => {
+              chunkBytesWritten += data.length;
+              if (!writeStream.write(data)) {
+                // Back-pressure handling - pause reading until drain
+                readStream.pause();
+                writeStream.once('drain', () => {
+                  readStream.resume();
+                });
               }
             });
+            
+            readStream.on('end', resolve);
+            readStream.on('error', reject);
+            writeStream.on('error', reject);
           });
-
-          // Explicit cleanup of chunk buffer for large files
-          chunkBuffer.fill(0);
           
-          // Force garbage collection more frequently for large uploads
-          if (global.gc && (i % 25 === 0 || uploadSession.fileSize > 100 * 1024 * 1024)) {
+          totalBytesWritten += chunkBytesWritten;
+          
+          // Force garbage collection less frequently but more strategically
+          if (global.gc && i % 50 === 0 && uploadSession.fileSize > 500 * 1024 * 1024) {
             global.gc();
+          }
+          
+          // Yield control to event loop every 10 chunks
+          if (i % 10 === 0) {
+            await new Promise(resolve => setImmediate(resolve));
           }
 
         } catch (chunkError) {
@@ -933,18 +926,7 @@ class UploadController {
     return deletedCount;
   }
 
-  async getUniquePath(dir, desiredName) {
-    const ext = extname(desiredName);
-    const baseName = basename(desiredName, ext);
-    let candidate = desiredName;
-    let counter = 1;
-
-    while (await pathExists(join(dir, candidate))) {
-      candidate = `${baseName} (${counter++})${ext}`;
-    }
-
-    return join(dir, candidate);
-  }
+  // getUniquePath method removed - now using imported utility
 
   calculateAverageChunkTime(uploadSession) {
     if (uploadSession.uploadedChunks.size === 0) return 0;
