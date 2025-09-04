@@ -56,9 +56,14 @@ api.interceptors.response.use(
         // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
         return api(originalRequest)
-      } catch (refreshError: any) {
+      } catch (refreshError: unknown) {
         // Refresh failed, logout through auth store
-        console.warn('Token refresh failed:', refreshError.response?.data?.message || refreshError.message)
+        const hasResponse = (e: unknown): e is { response?: { data?: { message?: string } }, message?: string } =>
+          typeof e === 'object' && e !== null
+        const message = hasResponse(refreshError)
+          ? (refreshError.response?.data?.message || refreshError.message)
+          : String(refreshError)
+        console.warn('Token refresh failed:', message)
         
         const { useAuthStore } = await import('@/stores/auth')
         const authStore = useAuthStore()

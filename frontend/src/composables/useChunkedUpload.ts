@@ -45,22 +45,44 @@ export function useChunkedUpload() {
   async function loadPersistedUploads() {
     try {
       const activeUploads = await chunkedUploadService.listActiveUploads()
+      const restoredIds = new Set<string>()
       
+      // First, restore all uploads from IndexedDB (both queued and active)
+      await chunkedUploadService.restoreAndStartAllUploads()
+      
+      // Get the list of restored upload IDs to avoid duplicates
+      const persistedIds = await chunkedUploadService.getAllPersistedUploads()
+      persistedIds.forEach(id => restoredIds.add(id))
+      
+      // Add restored uploads to UI (they are now in the queue)
+      for (const uploadId of persistedIds) {
+        // Check if already in uploads array
+        const existingUpload = uploads.value.find(u => u.uploadId === uploadId)
+        if (!existingUpload) {
+          const status = await chunkedUploadService.getUploadStatus(uploadId)
+          if (status) {
+            // This upload was restored from IndexedDB and is in the queue
+            status.status = 'uploading'
+            uploads.value.push(status)
+          }
+        }
+      }
+      
+      // Only load server uploads that weren't restored from IndexedDB
       for (const upload of activeUploads) {
+        if (restoredIds.has(upload.uploadId)) {
+          // Skip uploads that were restored from IndexedDB (already handled above)
+          continue
+        }
+        
         const status = await chunkedUploadService.getUploadStatus(upload.uploadId)
         if (status) {
-          // Try to restore from local storage if available
-          let restored = false
-          if (status.status === 'uploading' || status.status === 'paused') {
-            restored = await chunkedUploadService.restoreUploadFromStorage(upload.uploadId)
-            
-            if (!restored) {
-              // Mark server-persisted uploads as unable to resume without file data
-              status.status = 'error'
-            }
+          // Server-only upload without local file data
+          status.status = 'error'
+          const existingUpload = uploads.value.find(u => u.uploadId === upload.uploadId)
+          if (!existingUpload) {
+            uploads.value.push(status)
           }
-          
-          uploads.value.push(status)
         }
       }
     } catch (error) {
@@ -197,26 +219,28 @@ export function useChunkedUpload() {
     for (const fileEntry of scanResult.value.files) {
       // Skip 0-byte files
       if (fileEntry.file.size === 0) {
-        console.log(`Skipping 0-byte file: ${fileEntry.file.name}`)
         continue
       }
       
       try {
         const uploadId = await chunkedUploadService.startUpload(fileEntry, basePath)
         
-        // Add initial progress entry
-        uploads.value.push({
-          uploadId,
-          fileName: fileEntry.file.name,
-          progress: 0,
-          uploadedChunks: 0,
-          totalChunks: 0,
-          uploadedSize: 0,
-          totalSize: fileEntry.file.size,
-          remainingSize: fileEntry.file.size,
-          estimatedTimeRemaining: 0,
-          status: 'initialized'
-        })
+        // Add initial progress entry (check for duplicates first)
+        const existingUpload = uploads.value.find(u => u.uploadId === uploadId)
+        if (!existingUpload) {
+          uploads.value.push({
+            uploadId,
+            fileName: fileEntry.file.name,
+            progress: 0,
+            uploadedChunks: 0,
+            totalChunks: 0,
+            uploadedSize: 0,
+            totalSize: fileEntry.file.size,
+            remainingSize: fileEntry.file.size,
+            estimatedTimeRemaining: 0,
+            status: 'initialized'
+          })
+        }
 
       } catch (error: any) {
         console.error(`Failed to start upload for ${fileEntry.file.name}:`, error)

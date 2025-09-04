@@ -118,7 +118,7 @@ export class ChunkedUploadService {
         statusText: error.response?.statusText,
         data: error.response?.data,
         message: error.message
-      }, 0)
+      })
 
       if (error.response?.status === 401) {
         throw new Error('Authentication required. Please log in to upload files.')
@@ -164,7 +164,7 @@ export class ChunkedUploadService {
         ).catch(error => {
           console.error('Failed to persist upload data:', error)
           // Continue anyway - upload can still work without persistence
-        }, 0)
+        })
       }, 0)
 
       this.processQueue()
@@ -178,7 +178,7 @@ export class ChunkedUploadService {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('upload-auth-error', {
             detail: { fileName: fileEntry.file.name, error: error.message }
-          }, 0))
+          }))
         }
       }
 
@@ -206,14 +206,10 @@ export class ChunkedUploadService {
           )
           const activeCount = activeUploads.length
 
-          console.log(`Queue processing: ${this.uploadQueue.length} queued, ${activeCount}/${this.maxConcurrentUploads} active`)
-
           if (activeCount >= this.maxConcurrentUploads) {
-            console.log('Queue full, scheduling retry...')
             // Schedule retry when uploads complete
             setTimeout(() => {
               if (this.uploadQueue.length > 0 && !this.isProcessingQueue) {
-                console.log('Retrying queue processing...')
                 this.processQueue()
               }
             }, 2000) // Check again in 2 seconds
@@ -228,17 +224,22 @@ export class ChunkedUploadService {
           try {
             const queuedInfo = this.queuedUploads.get(uploadId)!
 
-            console.log(`Starting upload: ${queuedInfo.file.name}`)
-
             // Move from queued to active atomically
+            // Check if this was a restored upload with progress
+            const currentChunk = (queuedInfo as any).restoredChunk || 0
+            const uploadedBytes = (queuedInfo as any).restoredBytes || 0
+            
             const uploadInfo = {
-              ...queuedInfo,
-              currentChunk: 0,
+              session: queuedInfo.session,
+              file: queuedInfo.file,
+              relativePath: queuedInfo.relativePath,
+              cancelToken: queuedInfo.cancelToken,
+              currentChunk,
               startTime: Date.now(),
               lastProgressTime: Date.now(),
-              uploadedBytes: 0,
+              uploadedBytes,
               paused: false,
-              lastPersistedChunk: -1
+              lastPersistedChunk: currentChunk - 1
             }
 
             this.activeUploads.set(uploadId, uploadInfo)
@@ -248,7 +249,7 @@ export class ChunkedUploadService {
             this.startSingleUpload(uploadId).catch(error => {
               console.error(`Upload failed for ${uploadId}:`, error)
               this.handleUploadError(uploadId, error)
-            }, 0)
+            })
 
           } catch (error) {
             console.error(`ERROR in processQueue for ${uploadId}:`, error)
@@ -261,7 +262,7 @@ export class ChunkedUploadService {
       } finally {
         this.isProcessingQueue = false
       }
-    }, 0)
+    })
 
     await this.queueProcessingMutex
   }
@@ -285,6 +286,21 @@ export class ChunkedUploadService {
 
     const { session, file, cancelToken } = uploadInfo
 
+    // Update status to uploading when starting
+    this.dispatchStatusEvent(uploadId, 'uploading')
+    this.dispatchProgressEvent(uploadId, {
+      uploadId,
+      fileName: file.name,
+      progress: 0,
+      uploadedChunks: uploadInfo.currentChunk,
+      totalChunks: session.totalChunks,
+      uploadedSize: uploadInfo.uploadedBytes,
+      totalSize: file.size,
+      remainingSize: file.size - uploadInfo.uploadedBytes,
+      estimatedTimeRemaining: 0,
+      status: 'uploading'
+    })
+    
     while (uploadInfo.currentChunk < session.totalChunks && !uploadInfo.paused) {
       if (cancelToken.token.reason) {
         break
@@ -328,14 +344,13 @@ export class ChunkedUploadService {
                 uploadInfo.uploadedBytes
               ).catch(error => {
                 console.error('Failed to update persisted progress:', error)
-              }, 0)
+              })
             }, 0)
           }
 
           if (response.data.completed) {
             this.completeUpload(uploadId)
             break
-          } else {
           }
         } else {
           // Handle finalization errors specifically
@@ -356,7 +371,7 @@ export class ChunkedUploadService {
           status: error.response?.status,
           data: error.response?.data,
           message: error.message
-        }, 0)
+        })
         throw error
       }
 
@@ -393,7 +408,7 @@ export class ChunkedUploadService {
         status: 'uploading',
         speed,
         eta: this.formatTime(eta)
-      }, 0)
+      })
 
       uploadInfo.lastProgressTime = now
     }
@@ -436,7 +451,7 @@ export class ChunkedUploadService {
         this.startSingleUpload(uploadId).catch(error => {
           console.error(`Upload failed for ${uploadId}:`, error)
           this.handleUploadError(uploadId, error)
-        }, 0)
+        })
         
         this.dispatchStatusEvent(uploadId, 'uploading')
       }
@@ -473,7 +488,7 @@ export class ChunkedUploadService {
     setTimeout(() => {
       filePersistenceService.removeUpload(uploadId).catch(error => {
         console.error('Failed to remove cancelled upload from storage:', error)
-      }, 0)
+      })
     }, 0)
     
     // Clean up memory for cancelled upload
@@ -485,7 +500,6 @@ export class ChunkedUploadService {
     // Fallback: ensure queue continues processing
     setTimeout(() => {
       if (this.uploadQueue.length > 0 && !this.isProcessingQueue) {
-        console.log('Fallback: restarting queue processing after cancel')
         this.processQueue()
       }
     }, 500)
@@ -502,7 +516,7 @@ export class ChunkedUploadService {
         setTimeout(() => {
           filePersistenceService.removeUpload(uploadId).catch(error => {
             console.error('Failed to remove upload from storage:', error)
-          }, 0)
+          })
         }, 0)
       }
       for (const [uploadId, info] of this.queuedUploads.entries()) {
@@ -512,7 +526,7 @@ export class ChunkedUploadService {
         setTimeout(() => {
           filePersistenceService.removeUpload(uploadId).catch(error => {
             console.error('Failed to remove upload from storage:', error)
-          }, 0)
+          })
         }, 0)
       }
 
@@ -581,8 +595,6 @@ export class ChunkedUploadService {
     const uploadInfo = this.activeUploads.get(uploadId)
     if (!uploadInfo) return
 
-    console.log(`Upload completed: ${uploadInfo.file.name}`)
-
     // Mark as completed immediately so processQueue() doesn't count it as active
     uploadInfo.currentChunk = uploadInfo.session.totalChunks
 
@@ -598,13 +610,13 @@ export class ChunkedUploadService {
       estimatedTimeRemaining: 0,
       status: 'completed',
       eta: '0s'
-    }, 0)
+    })
 
     // Remove from persisted storage (deferred)
     setTimeout(() => {
       filePersistenceService.removeUpload(uploadId).catch(error => {
         console.error('Failed to remove completed upload from storage:', error)
-      }, 0)
+      })
     }, 0)
 
     // Clean up memory immediately
@@ -616,7 +628,6 @@ export class ChunkedUploadService {
     // Fallback: ensure queue continues processing
     setTimeout(() => {
       if (this.uploadQueue.length > 0 && !this.isProcessingQueue) {
-        console.log('Fallback: restarting queue processing after completion')
         this.processQueue()
       }
     }, 500)
@@ -632,20 +643,21 @@ export class ChunkedUploadService {
         // Ignore cancellation errors
       }
 
-      // Clear file reference to free memory
-      // @ts-ignore - Force garbage collection
-      uploadInfo.file = null as any
-      uploadInfo.session = null as any
+      // Clear references by removing from maps below; browser GC will reclaim memory
     }
 
     // Remove from both maps
     this.activeUploads.delete(uploadId)
     this.queuedUploads.delete(uploadId)
 
-    // Force garbage collection if available
-    if (typeof window !== 'undefined' && 'gc' in window) {
-      // @ts-ignore
-      window.gc()
+    // Force garbage collection if available (non-standard, dev-only)
+    if (typeof window !== 'undefined') {
+      try {
+        // declare global Window.gc for type-safety without ts-ignore
+        (window as Window & { gc?: () => void }).gc?.()
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -667,7 +679,7 @@ export class ChunkedUploadService {
       estimatedTimeRemaining: 0,
       status: 'error',
       eta: 'Error'
-    }, 0)
+    })
 
     // Show user-friendly error notification before cleanup
     if (typeof window !== 'undefined') {
@@ -678,7 +690,7 @@ export class ChunkedUploadService {
       // Dispatch custom event for error notifications
       window.dispatchEvent(new CustomEvent('upload-error', {
         detail: { uploadId, fileName: uploadInfo.file.name, error: errorMsg }
-      }, 0))
+      }))
     }
 
     // Clean up memory for failed upload
@@ -690,7 +702,6 @@ export class ChunkedUploadService {
     // Fallback: ensure queue continues processing
     setTimeout(() => {
       if (this.uploadQueue.length > 0 && !this.isProcessingQueue) {
-        console.log('Fallback: restarting queue processing after error')
         this.processQueue()
       }
     }, 500)
@@ -700,13 +711,13 @@ export class ChunkedUploadService {
 
     window.dispatchEvent(new CustomEvent('upload-progress', {
       detail: { uploadId, progress }
-    }, 0))
+    }))
   }
 
   private dispatchStatusEvent(uploadId: string, status: UploadProgress['status']): void {
     window.dispatchEvent(new CustomEvent('upload-status-change', {
       detail: { uploadId, status }
-    }, 0))
+    }))
   }
 
   private formatTime(seconds: number): string {
@@ -716,9 +727,6 @@ export class ChunkedUploadService {
     return `${Math.round(seconds / 3600)}h ${Math.round((seconds % 3600) / 60)}m`
   }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
-  }
 
   getActiveUploadsCount(): number {
     return this.activeUploads.size
@@ -743,21 +751,20 @@ export class ChunkedUploadService {
       const file = await filePersistenceService.restoreFileFromUpload(persistedUpload)
       const cancelToken = axios.CancelToken.source()
 
-      // Add to active uploads with restored progress
-      const uploadInfo = {
+      // Always add to queue for proper concurrency management
+      const queuedInfo = {
         session: persistedUpload.session,
         file,
         relativePath: persistedUpload.relativePath,
-        currentChunk: persistedUpload.currentChunk,
         cancelToken,
-        startTime: Date.now(),
-        lastProgressTime: Date.now(),
-        uploadedBytes: persistedUpload.uploadedBytes,
-        paused: false,
-        lastPersistedChunk: persistedUpload.currentChunk
+        // Store the progress info for when it starts
+        restoredChunk: persistedUpload.currentChunk,
+        restoredBytes: persistedUpload.uploadedBytes
       }
-
-      this.activeUploads.set(uploadId, uploadInfo)
+      
+      this.queuedUploads.set(uploadId, queuedInfo)
+      this.uploadQueue.push(uploadId)
+      
       return true
     } catch (error) {
       console.error('Failed to restore upload from storage:', error)
@@ -774,6 +781,22 @@ export class ChunkedUploadService {
     } catch (error) {
       console.error('Failed to get persisted uploads:', error)
       return []
+    }
+  }
+
+  async restoreAndStartAllUploads(): Promise<void> {
+    const persistedIds = await this.getAllPersistedUploads()
+    
+    for (const uploadId of persistedIds) {
+      await this.restoreUploadFromStorage(uploadId)
+    }
+    
+    // After restoring all uploads, start processing the queue once
+    if (this.uploadQueue.length > 0) {
+      // Small delay to ensure all restoration is complete
+      setTimeout(() => {
+        this.processQueue()
+      }, 100)
     }
   }
 }

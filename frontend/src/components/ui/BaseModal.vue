@@ -50,7 +50,7 @@ interface Props {
   modelValue: boolean
   title?: string
   confirmText?: string
-  confirmVariant?: string
+  confirmVariant?: 'link' | 'success' | 'info' | 'warning' | 'primary' | 'secondary' | 'danger' | 'light' | 'dark'
   size?: 'sm' | 'md' | 'lg' | 'xl'
   fullscreen?: boolean
   hideHeader?: boolean

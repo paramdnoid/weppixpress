@@ -14,6 +14,12 @@ interface UploadOptions {
   onUploadProgress?: (progress: { loaded: number; total: number }) => void
 }
 
+interface UploadResponse {
+  success?: boolean
+  message?: string
+  data?: unknown
+}
+
 export const fileApi = {
   async list(path: string, options: ListOptions = {}): Promise<PaginatedResponse<FileItem>> {
     const response = await api.get('/files', {
@@ -22,7 +28,7 @@ export const fileApi = {
     return response.data
   },
 
-  async upload(formData: FormData, options: UploadOptions = {}): Promise<any> {
+  async upload(formData: FormData, options: UploadOptions = {}): Promise<UploadResponse> {
     const response = await api.post('/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: options.onUploadProgress ? (progressEvent) => {

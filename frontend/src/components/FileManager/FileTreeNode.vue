@@ -14,9 +14,16 @@
 
     <nav v-if="node.hasSubfolders" class="nav nav-vertical ms-3 tree-level tree-children" v-show="isOpen"
       :id="collapseId" role="group" :aria-labelledby="`node-${node.path}`">
-      <TreeNode v-for="child in sortedChildren" :key="child.path" :node="child" :selectedPath="selectedPath"
-        :loadChildren="loadChildren" :toggleNode="toggleNode" @nodeToggle="handleChildToggle"
-        @selectNode="handleChildSelect" />
+      <TreeNode
+        v-for="child in sortedChildren"
+        :key="child.path"
+        :node="child"
+        :selected-path="selectedPath"
+        :load-children="loadChildren"
+        :toggle-node="toggleNode"
+        @node-toggle="handleChildToggle"
+        @select-node="handleChildSelect"
+      />
 
       <div v-if="loading" class="ps-3 text-muted small d-flex align-items-center">
         <div class="spinner-border spinner-border-sm me-2" role="status">
@@ -42,7 +49,7 @@ import { useFileStore } from '@/stores/files'
 
 const scheduleIdle = (cb: () => void) => {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-    ; (window as any).requestIdleCallback(cb)
+    window.requestIdleCallback?.(cb)
   } else {
     setTimeout(cb, 0)
   }

@@ -635,18 +635,21 @@ export const useFileStore = defineStore('files', () => {
       }
 
       switch (state.value.sorting.key) {
-        case 'size':
-          const aSize = toBytes((a as any).size)
-          const bSize = toBytes((b as any).size)
+        case 'size': {
+          const aSize = toBytes((a as unknown as { size?: unknown }).size)
+          const bSize = toBytes((b as unknown as { size?: unknown }).size)
           return (aSize - bSize) * sortMultiplier
-        case 'modified':
+        }
+        case 'modified': {
           const aTime = new Date(a.modified || a.created || 0).getTime()
           const bTime = new Date(b.modified || b.created || 0).getTime()
           return (aTime - bTime) * sortMultiplier
-        case 'extension':
+        }
+        case 'extension': {
           const extA = a.extension || ''
           const extB = b.extension || ''
           return extA.localeCompare(extB) * sortMultiplier
+        }
         case 'name':
         default:
           return a.name.localeCompare(b.name, undefined, { numeric: true }) * sortMultiplier

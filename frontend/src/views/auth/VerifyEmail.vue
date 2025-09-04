@@ -40,14 +40,18 @@ onMounted(async () => {
     if (token) {
       await axios.get(`/api/auth/verify-email?token=${token}`);
       verified.value = true;
-      window.$toast && window.$toast('E-Mail bestätigt!', { type: 'success' });
+      if (window.$toast) {
+        window.$toast('E-Mail bestätigt!', { type: 'success' });
+      }
       setTimeout(() => {
         router.push('/login');
       }, 3000);
     }
   } catch (err) {
     console.error('VerifyEmail error:', err);
-    window.$toast && window.$toast('Fehler bei E-Mail-Verifizierung', { type: 'danger' });
+    if (window.$toast) {
+      window.$toast('Fehler bei E-Mail-Verifizierung', { type: 'danger' });
+    }
   }
 });
 </script>

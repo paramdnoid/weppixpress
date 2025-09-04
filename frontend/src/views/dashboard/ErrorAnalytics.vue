@@ -33,7 +33,7 @@
           title="Total Errors"
           :value="errorData?.summary?.totalErrors || 0"
           icon="tabler:alert-circle"
-          :status="getErrorStatus(errorData?.summary?.totalErrors)"
+          :status="getErrorStatus(errorData?.summary?.totalErrors ?? 0)"
           :trend="calculateTrend('total')"
           subtitle="All error types"
         />
@@ -119,10 +119,10 @@
                       <div class="progress" style="height: 4px;">
                         <div 
                           class="progress-bar bg-danger"
-                          :style="{ width: ((count / errorData.summary.totalErrors) * 100) + '%' }"
+                          :style="{ width: ((count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100) + '%' }"
                         ></div>
                       </div>
-                      <small class="text-muted">{{ ((count / errorData.summary.totalErrors) * 100).toFixed(1) }}%</small>
+                      <small class="text-muted">{{ ((count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100).toFixed(1) }}%</small>
                     </td>
                   </tr>
                 </tbody>
@@ -157,10 +157,10 @@
                       <div class="progress" style="height: 4px;">
                         <div 
                           class="progress-bar bg-warning"
-                          :style="{ width: ((count / errorData.summary.totalErrors) * 100) + '%' }"
+                          :style="{ width: ((count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100) + '%' }"
                         ></div>
                       </div>
-                      <small class="text-muted">{{ ((count / errorData.summary.totalErrors) * 100).toFixed(1) }}%</small>
+                      <small class="text-muted">{{ ((count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100).toFixed(1) }}%</small>
                     </td>
                   </tr>
                 </tbody>
@@ -212,11 +212,11 @@
                       <div class="progress" style="height: 6px;">
                         <div 
                           class="progress-bar bg-danger"
-                          :style="{ width: ((error.count / errorData.topErrors[0].count) * 100) + '%' }"
+                          :style="{ width: ((error.count / Math.max((errorData?.topErrors?.[0]?.count || 0), 1)) * 100) + '%' }"
                         ></div>
                       </div>
                       <small class="text-muted">
-                        {{ ((error.count / errorData.summary.totalErrors) * 100).toFixed(1) }}% of total
+                        {{ ((error.count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100).toFixed(1) }}% of total
                       </small>
                     </td>
                   </tr>
@@ -265,7 +265,7 @@ interface ErrorData {
   healthStatus: {
     status: string
     issues: string[]
-    metrics: any
+    metrics: Record<string, unknown>
   }
 }
 
@@ -275,12 +275,13 @@ const isLoading = ref(false)
 const error = ref('')
 const errorDistributionChart = ref<HTMLCanvasElement>()
 
-const errorRate = computed(() => {
+const errorRate = computed<number>(() => {
   if (!errorData.value) return 0
   // This would come from request metrics in a real implementation
   // For now, calculate a basic rate based on time window
   const timeWindowHours = errorData.value.summary.timeWindow / (1000 * 60 * 60)
-  return (errorData.value.summary.totalErrors / Math.max(timeWindowHours, 1) / 100).toFixed(2)
+  const raw = errorData.value.summary.totalErrors / Math.max(timeWindowHours, 1) / 100
+  return Math.round(raw * 100) / 100
 })
 
 const timelineData = computed(() => {
@@ -306,8 +307,8 @@ const getErrorStatus = (count: number) => {
 }
 
 const getErrorRateStatus = (rate: number) => {
-  if (parseFloat(rate) > 5) return 'danger'
-  if (parseFloat(rate) > 2) return 'warning'
+  if (rate > 5) return 'danger'
+  if (rate > 2) return 'warning'
   return 'success'
 }
 
@@ -393,8 +394,11 @@ const refreshData = async () => {
     nextTick(() => {
       drawErrorDistribution()
     })
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load error data'
+  } catch (err: unknown) {
+    const message = typeof err === 'object' && err && 'response' in err
+      ? (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to load error data'
+      : 'Failed to load error data'
+    error.value = message
     console.error('Error analytics error:', err)
   } finally {
     isLoading.value = false

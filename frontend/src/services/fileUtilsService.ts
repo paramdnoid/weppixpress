@@ -267,18 +267,20 @@ export class FileUtilsService {
       if (isAFolder !== isBFolder) return isAFolder ? -1 : 1
 
       switch (key) {
-        case 'size':
+        case 'size': {
           if (a.type === 'file' && b.type === 'file') {
             const sizeA = Number(a.size) || 0
             const sizeB = Number(b.size) || 0
             return (sizeA - sizeB) * multiplier
           }
           break
-        case 'modified':
+        }
+        case 'modified': {
           const aTime = a.modified ? new Date(a.modified).getTime() : 0
           const bTime = b.modified ? new Date(b.modified).getTime() : 0
           return (aTime - bTime) * multiplier
-        case 'extension':
+        }
+        case 'extension': {
           if (a.type === 'file' && b.type === 'file') {
             const extA = FileUtilsService.getExtension(a)
             const extB = FileUtilsService.getExtension(b)
@@ -286,7 +288,8 @@ export class FileUtilsService {
             if (extComparison !== 0) return extComparison * multiplier
           }
           break
-        case 'type':
+        }
+        case 'type': {
           if (a.type === 'file' && b.type === 'file') {
             // Simple type comparison based on extension groups
             const extA = FileUtilsService.getExtension(a)
@@ -306,6 +309,7 @@ export class FileUtilsService {
             if (typeComparison !== 0) return typeComparison * multiplier
           }
           break
+        }
       }
 
       // Default to name comparison
