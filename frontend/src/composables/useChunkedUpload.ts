@@ -49,6 +49,17 @@ export function useChunkedUpload() {
       for (const upload of activeUploads) {
         const status = await chunkedUploadService.getUploadStatus(upload.uploadId)
         if (status) {
+          // Try to restore from local storage if available
+          let restored = false
+          if (status.status === 'uploading' || status.status === 'paused') {
+            restored = await chunkedUploadService.restoreUploadFromStorage(upload.uploadId)
+            
+            if (!restored) {
+              // Mark server-persisted uploads as unable to resume without file data
+              status.status = 'error'
+            }
+          }
+          
           uploads.value.push(status)
         }
       }
@@ -246,6 +257,24 @@ export function useChunkedUpload() {
 
   async function resumeUpload(uploadId: string) {
     try {
+      // Check if upload exists in service's active uploads (has file data)
+      let hasFileData = chunkedUploadService.hasActiveUpload(uploadId)
+      
+      if (!hasFileData) {
+        // Try to restore from IndexedDB
+        hasFileData = await chunkedUploadService.restoreUploadFromStorage(uploadId)
+      }
+      
+      if (!hasFileData) {
+        // Upload cannot be resumed - no file data available
+        const upload = uploads.value.find(u => u.uploadId === uploadId)
+        if (upload) {
+          upload.status = 'error'
+          alert(`Cannot resume upload "${upload.fileName}" - file data not available. Please restart the upload.`)
+        }
+        return
+      }
+      
       await chunkedUploadService.resumeUpload(uploadId)
     } catch (error) {
       console.error(`Failed to resume upload ${uploadId}:`, error)

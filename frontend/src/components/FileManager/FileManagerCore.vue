@@ -501,6 +501,6 @@ async function handleNewFileUpload(items) {
 
 .splitter:hover,
 .splitter:focus {
-  background-color: var(--tblr-primary);
+  background-color: var(--tblr-gray-100);
 }
 </style>
