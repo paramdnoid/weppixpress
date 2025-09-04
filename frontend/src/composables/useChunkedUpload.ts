@@ -61,8 +61,9 @@ export function useChunkedUpload() {
         if (!existingUpload) {
           const status = await chunkedUploadService.getUploadStatus(uploadId)
           if (status) {
-            // This upload was restored from IndexedDB and is in the queue
-            status.status = 'uploading'
+            // Check if upload is actively processing or just queued
+            const isActivelyUploading = chunkedUploadService.hasActiveUpload(uploadId)
+            status.status = isActivelyUploading ? 'uploading' : 'paused'
             uploads.value.push(status)
           }
         }
@@ -107,15 +108,6 @@ export function useChunkedUpload() {
   function handleUploadProgress(event: CustomEvent) {
     const { uploadId, progress } = event.detail
     updateUploadProgress(uploadId, progress)
-
-    // If the progress marks the upload as completed, auto-remove shortly after
-    if (progress?.status === 'completed') {
-      setTimeout(() => {
-        removeUpload(uploadId)
-        // Use debounced refresh to prevent excessive API calls
-        debouncedRefresh()
-      }, 1000)
-    }
   }
 
   function handleStatusChange(event: CustomEvent) {

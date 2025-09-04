@@ -71,6 +71,16 @@ export class ChunkedUploadService {
       // Clean up old uploads on startup
       await filePersistenceService.clearOldUploads()
       
+      // Clean up any completed uploads from IndexedDB
+      try {
+        const cleanedCount = await filePersistenceService.cleanupCompletedUploads()
+        if (cleanedCount > 0) {
+          console.log(`Cleaned up ${cleanedCount} completed uploads from IndexedDB`)
+        }
+      } catch (error) {
+        console.error('Failed to cleanup completed uploads:', error)
+      }
+      
       // Start queue watchdog
       this.startQueueWatchdog()
       
@@ -153,6 +163,21 @@ export class ChunkedUploadService {
 
       this.queuedUploads.set(session.uploadId, queuedInfo)
       this.uploadQueue.push(session.uploadId)
+
+      // Dispatch status event immediately to prevent "Initializing..." stuck state
+      this.dispatchStatusEvent(session.uploadId, 'uploading')
+      this.dispatchProgressEvent(session.uploadId, {
+        uploadId: session.uploadId,
+        fileName: fileEntry.file.name,
+        progress: 0,
+        uploadedChunks: 0,
+        totalChunks: session.totalChunks,
+        uploadedSize: 0,
+        totalSize: fileEntry.file.size,
+        remainingSize: fileEntry.file.size,
+        estimatedTimeRemaining: 0,
+        status: 'uploading'
+      })
 
       // Persist file data to IndexedDB (non-blocking, optimized)
       setTimeout(() => {
@@ -612,12 +637,12 @@ export class ChunkedUploadService {
       eta: '0s'
     })
 
-    // Remove from persisted storage (deferred)
-    setTimeout(() => {
-      filePersistenceService.removeUpload(uploadId).catch(error => {
-        console.error('Failed to remove completed upload from storage:', error)
-      })
-    }, 0)
+    this.dispatchStatusEvent(uploadId, 'completed')
+
+    // Remove from persisted storage immediately
+    filePersistenceService.removeUpload(uploadId).catch(error => {
+      console.error('Failed to remove completed upload from storage:', error)
+    })
 
     // Clean up memory immediately
     this.cleanupUploadMemory(uploadId)
@@ -765,6 +790,21 @@ export class ChunkedUploadService {
       this.queuedUploads.set(uploadId, queuedInfo)
       this.uploadQueue.push(uploadId)
       
+      // Dispatch status event for restored upload to show it's queued
+      this.dispatchStatusEvent(uploadId, 'paused')
+      this.dispatchProgressEvent(uploadId, {
+        uploadId,
+        fileName: file.name,
+        progress: Math.round((persistedUpload.currentChunk / persistedUpload.session.totalChunks) * 100),
+        uploadedChunks: persistedUpload.currentChunk,
+        totalChunks: persistedUpload.session.totalChunks,
+        uploadedSize: persistedUpload.uploadedBytes,
+        totalSize: file.size,
+        remainingSize: file.size - persistedUpload.uploadedBytes,
+        estimatedTimeRemaining: 0,
+        status: 'paused'
+      })
+      
       return true
     } catch (error) {
       console.error('Failed to restore upload from storage:', error)
@@ -791,10 +831,17 @@ export class ChunkedUploadService {
       await this.restoreUploadFromStorage(uploadId)
     }
     
-    // After restoring all uploads, start processing the queue once
+    // After restoring all uploads, start processing the queue and auto-resume paused uploads
     if (this.uploadQueue.length > 0) {
       // Small delay to ensure all restoration is complete
       setTimeout(() => {
+        // First, resume all paused uploads (they were restored as paused)
+        const pausedUploads = Array.from(this.queuedUploads.keys())
+        for (const uploadId of pausedUploads) {
+          this.dispatchStatusEvent(uploadId, 'uploading')
+        }
+        
+        // Then process the queue
         this.processQueue()
       }, 100)
     }

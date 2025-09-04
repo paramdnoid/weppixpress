@@ -197,6 +197,33 @@ export class FilePersistenceService {
     }
     return { used: 0, quota: 0 }
   }
+
+  async cleanupCompletedUploads(): Promise<number> {
+    if (!this.db) return 0
+
+    const uploads = await this.getAllUploads()
+    let cleanedCount = 0
+
+    // Import api service dynamically to avoid circular imports
+    const { default: api } = await import('@/api/axios')
+
+    for (const upload of uploads) {
+      // Remove uploads that are likely completed (no session on server means completed/expired)
+      try {
+        await api.get(`/upload/chunked/status/${upload.uploadId}`)
+        // If we get here, upload session still exists on server, keep it
+      } catch (error: any) {
+        // If upload session not found on server (404) or unauthorized (401), remove it
+        if (error.response?.status === 404 || error.response?.status === 401) {
+          await this.removeUpload(upload.uploadId)
+          cleanedCount++
+        }
+        // For other errors (network issues, etc), keep the upload
+      }
+    }
+
+    return cleanedCount
+  }
 }
 
 export const filePersistenceService = new FilePersistenceService()
