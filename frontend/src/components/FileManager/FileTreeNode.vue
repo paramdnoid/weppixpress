@@ -7,7 +7,7 @@
       :aria-expanded="isOpen" :aria-selected="isExactActive"
       :aria-label="`${node.type === 'folder' ? 'Folder' : 'File'}: ${node.name}`">
       <Icon :icon="nodeIcon" :class="nodeIconClass" width="18" height="18" />
-      <span v-text="node.name"></span>
+      <span v-text="node.name" class="text-truncate"></span>
       <Icon v-if="node.hasSubfolders" :icon="isOpen ? 'mdi:chevron-down' : 'mdi:chevron-right'" class="nav-link-toggle"
         width="16" height="16" />
     </a>
