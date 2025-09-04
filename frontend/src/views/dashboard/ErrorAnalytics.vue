@@ -234,8 +234,8 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '@/api/axios'
-import MetricsCard from '../components/MetricsCard.vue'
-import ErrorChart from '../components/ErrorChart.vue'
+import MetricsCard from '@/components/base/MetricsCard.vue'
+import ErrorChart from '@/components/base/ErrorChart.vue'
 
 interface ErrorData {
   summary: {

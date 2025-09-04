@@ -11,14 +11,14 @@ const routes: RouteRecordRaw[] = [
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/auth/ForgotPassword.vue') },
   { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/auth/ResetPassword.vue') },
   
-  { path: '/files', name: 'Files', component: () => import('@/views/Files.vue'), meta: { requiresAuth: true } },
-  { path: '/flows', name: 'Flows', component: () => import('@/views/Flows.vue'), meta: { requiresAuth: true } },
-  { path: '/mails', name: 'Mails', component: () => import('@/views/Mails.vue'), meta: { requiresAuth: true } },
-  { path: '/meetings', name: 'Meetings', component: () => import('@/views/Meetings.vue'), meta: { requiresAuth: true } },
-  { path: '/profile', name: 'Profile', component: () => import('@/views/Profile.vue'), meta: { requiresAuth: true } },
-  { path: '/dashboard', name: 'Dashboard', component: () => import('@/views/Dashboard.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-  { path: '/error-analytics', name: 'ErrorAnalytics', component: () => import('@/views/ErrorAnalytics.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-  { path: '/admin/users', name: 'UserManagement', component: () => import('@/views/UserManagement.vue'), meta: { requiresAuth: true, requiresAdmin: true } }
+  { path: '/files', name: 'Files', component: () => import('@/views/files/Files.vue'), meta: { requiresAuth: true } },
+  { path: '/flows', name: 'Flows', component: () => import('@/views/workflow/Flows.vue'), meta: { requiresAuth: true } },
+  { path: '/mails', name: 'Mails', component: () => import('@/views/communication/Mails.vue'), meta: { requiresAuth: true } },
+  { path: '/meetings', name: 'Meetings', component: () => import('@/views/communication/Meetings.vue'), meta: { requiresAuth: true } },
+  { path: '/profile', name: 'Profile', component: () => import('@/views/profile/Profile.vue'), meta: { requiresAuth: true } },
+  { path: '/dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/Dashboard.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/error-analytics', name: 'ErrorAnalytics', component: () => import('@/views/dashboard/ErrorAnalytics.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/admin/users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { requiresAuth: true, requiresAdmin: true } }
 ]
 
 const router = createRouter({

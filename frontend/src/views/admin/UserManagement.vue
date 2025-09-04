@@ -158,7 +158,7 @@ import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '@/api/axios'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '@/stores/auth'
 
 interface User {
   id: string

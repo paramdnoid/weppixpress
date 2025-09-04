@@ -59,7 +59,7 @@
 
 <script setup>
 import AuthLayout from '@/layouts/AuthLayout.vue';
-import PasswordInput from '@/components/form/PasswordInput.vue';
+import PasswordInput from '@/components/forms/PasswordInput.vue';
 
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';

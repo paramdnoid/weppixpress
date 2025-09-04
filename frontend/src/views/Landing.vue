@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import HeroShowcase from '@/components/HeroShowcase.vue'
+import HeroShowcase from '@/components/base/HeroShowcase.vue'
 import logo from '@/assets/images/logo-dark.svg'
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'

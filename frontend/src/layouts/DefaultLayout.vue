@@ -35,8 +35,8 @@
 </template>
 
 <script setup>
-import Navbar from '@/components/Navbar.vue'
-import UserDropdown from '@/components/UserDropdown.vue';
+import Navbar from '@/components/base/Navbar.vue'
+import UserDropdown from '@/components/base/UserDropdown.vue';
 import logo from '@/assets/images/logo-light.svg'
 
 // Assets and components
