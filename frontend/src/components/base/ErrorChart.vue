@@ -1,26 +1,51 @@
 <template>
   <div class="card">
     <div class="card-header">
-      <h3 class="card-title">{{ title }}</h3>
+      <h3 class="card-title">
+        {{ title }}
+      </h3>
       <div class="card-options">
-        <select v-model="chartType" class="form-select form-select-sm" @change="updateChart">
-          <option value="line">Line Chart</option>
-          <option value="bar">Bar Chart</option>
-          <option value="area">Area Chart</option>
+        <select
+          v-model="chartType"
+          class="form-select form-select-sm"
+          @change="updateChart"
+        >
+          <option value="line">
+            Line Chart
+          </option>
+          <option value="bar">
+            Bar Chart
+          </option>
+          <option value="area">
+            Area Chart
+          </option>
         </select>
       </div>
     </div>
     <div class="card-body">
-      <div v-if="isLoading" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
+      <div
+        v-if="isLoading"
+        class="text-center py-4"
+      >
+        <div
+          class="spinner-border text-primary"
+          role="status"
+        >
           <span class="visually-hidden">Loading...</span>
         </div>
       </div>
-      <div v-else-if="error" class="alert alert-danger">
+      <div
+        v-else-if="error"
+        class="alert alert-danger"
+      >
         {{ error }}
       </div>
       <div v-else>
-        <canvas ref="chartCanvas" width="400" height="200"></canvas>
+        <canvas
+          ref="chartCanvas"
+          width="400"
+          height="200"
+        />
       </div>
     </div>
   </div>

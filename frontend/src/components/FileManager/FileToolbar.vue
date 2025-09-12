@@ -1,36 +1,81 @@
 <template>
   <div class="topbar d-flex justify-content-between align-items-center py-1 px-1 bg-body gap-1">
-    <nav class="d-flex align-items-center flex-fill gap-1" role="toolbar">
+    <nav
+      class="d-flex align-items-center flex-fill gap-1"
+      role="toolbar"
+    >
       <!-- Sidebar Toggle -->
-      <button type="button" class="btn btn-sm nav-link-sized" @click="$emit('toggleSidebar')"
-        :aria-label="isSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'">
-        <Icon icon="mdi:file-tree" width="20" height="20" />
+      <button
+        type="button"
+        class="btn btn-sm nav-link-sized"
+        :aria-label="isSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'"
+        @click="$emit('toggleSidebar')"
+      >
+        <Icon
+          icon="mdi:file-tree"
+          width="20"
+          height="20"
+        />
         <span class="d-none d-lg-inline ms-1">Toggle Sidebar</span>
       </button>
 
       <!-- Hidden File Input for Upload -->
-      <input ref="fileInput" type="file" multiple class="d-none" @change="handleFileUpload"
-        :disabled="isLoading" webkitdirectory />
+      <input
+        ref="fileInput"
+        type="file"
+        multiple
+        class="d-none"
+        :disabled="isLoading"
+        webkitdirectory
+        @change="handleFileUpload"
+      >
 
       <!-- Menu Dropdown -->
       <div class="position-relative">
-        <button type="button" class="btn btn-sm nav-link-sized" data-bs-toggle="dropdown" aria-expanded="false"
-          aria-label="Menu">
-          <Icon icon="mdi:menu" width="20" height="20" />
+        <button
+          type="button"
+          class="btn btn-sm nav-link-sized"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+          aria-label="Menu"
+        >
+          <Icon
+            icon="mdi:menu"
+            width="20"
+            height="20"
+          />
           <span class="d-none d-lg-inline ms-1">Menu</span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
           <li>
-            <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('createFolder')"
-              :disabled="isLoading">
-              <Icon icon="mdi:folder-plus" width="16" height="16" class="me-2" />
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center"
+              :disabled="isLoading"
+              @click="$emit('createFolder')"
+            >
+              <Icon
+                icon="mdi:folder-plus"
+                width="16"
+                height="16"
+                class="me-2"
+              />
               New Folder
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item d-flex align-items-center"
-              @click="triggerFileUpload" :disabled="isLoading">
-              <Icon icon="mdi:upload" width="16" height="16" class="me-2" />
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center"
+              :disabled="isLoading"
+              @click="triggerFileUpload"
+            >
+              <Icon
+                icon="mdi:upload"
+                width="16"
+                height="16"
+                class="me-2"
+              />
               <span class="flex-fill">Upload Files/Folders</span>
             </button>
           </li>
@@ -38,34 +83,70 @@
             <hr class="dropdown-divider">
           </li>
           <li v-if="selectedCount > 0">
-            <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('copySelected')"
-              :disabled="isLoading">
-              <Icon icon="mdi:content-copy" width="16" height="16" class="me-2" />
-              Copy (<span v-text="selectedCount"></span>)
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center"
+              :disabled="isLoading"
+              @click="$emit('copySelected')"
+            >
+              <Icon
+                icon="mdi:content-copy"
+                width="16"
+                height="16"
+                class="me-2"
+              />
+              Copy (<span v-text="selectedCount" />)
             </button>
           </li>
           <li v-if="selectedCount > 0">
-            <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('cutSelected')"
-              :disabled="isLoading">
-              <Icon icon="mdi:content-cut" width="16" height="16" class="me-2" />
-              Cut (<span v-text="selectedCount"></span>)
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center"
+              :disabled="isLoading"
+              @click="$emit('cutSelected')"
+            >
+              <Icon
+                icon="mdi:content-cut"
+                width="16"
+                height="16"
+                class="me-2"
+              />
+              Cut (<span v-text="selectedCount" />)
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item d-flex align-items-center" @click="$emit('pasteItems')"
-              :disabled="isLoading || (!clipboardHasItems && clipboardItemCount === 0)">
-              <Icon icon="mdi:content-paste" width="16" height="16" class="me-2" />
-              Paste<span v-if="clipboardItemCount > 0"> (<span v-text="clipboardItemCount"></span>)</span>
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center"
+              :disabled="isLoading || (!clipboardHasItems && clipboardItemCount === 0)"
+              @click="$emit('pasteItems')"
+            >
+              <Icon
+                icon="mdi:content-paste"
+                width="16"
+                height="16"
+                class="me-2"
+              />
+              Paste<span v-if="clipboardItemCount > 0"> (<span v-text="clipboardItemCount" />)</span>
             </button>
           </li>
           <li v-if="selectedCount > 0">
             <hr class="dropdown-divider">
           </li>
           <li v-if="selectedCount > 0">
-            <button type="button" class="dropdown-item d-flex align-items-center text-danger"
-              @click="$emit('deleteSelected')" :disabled="isLoading">
-              <Icon icon="mdi:delete" width="16" height="16" class="me-2" />
-              Delete (<span v-text="selectedCount"></span>)
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center text-danger"
+              :disabled="isLoading"
+              @click="$emit('deleteSelected')"
+            >
+              <Icon
+                icon="mdi:delete"
+                width="16"
+                height="16"
+                class="me-2"
+              />
+              Delete (<span v-text="selectedCount" />)
             </button>
           </li>
         </ul>
@@ -73,32 +154,75 @@
 
       <!-- Search Input -->
       <div class="input-icon position-relative flex-fill">
-        <input ref="searchInput" v-model="searchQuery" type="text" class="form-control form-control-sm shadow-none"
-          placeholder="Search in files…" @input="handleSearchInput" @keydown.escape="clearSearch"
-          aria-label="Search files and folders" />
-        <span class="input-icon-addon" aria-hidden="true">
-          <Icon v-if="!searchQuery" icon="mdi:magnify" width="20" height="20" />
-          <button v-else type="button" class="btn btn-sm p-0 border-0 bg-transparent" @click="clearSearch"
-            aria-label="Clear search">
-            <Icon icon="mdi:close" width="16" height="16" />
+        <input
+          ref="searchInput"
+          v-model="searchQuery"
+          type="text"
+          class="form-control form-control-sm shadow-none"
+          placeholder="Search in files…"
+          aria-label="Search files and folders"
+          @input="handleSearchInput"
+          @keydown.escape="clearSearch"
+        >
+        <span
+          class="input-icon-addon"
+          aria-hidden="true"
+        >
+          <Icon
+            v-if="!searchQuery"
+            icon="mdi:magnify"
+            width="20"
+            height="20"
+          />
+          <button
+            v-else
+            type="button"
+            class="btn btn-sm p-0 border-0 bg-transparent"
+            aria-label="Clear search"
+            @click="clearSearch"
+          >
+            <Icon
+              icon="mdi:close"
+              width="16"
+              height="16"
+            />
           </button>
         </span>
       </div>
 
       <!-- Sort Options -->
       <div class="position-relative">
-        <button type="button" class="btn btn-sm nav-link-sized" data-bs-toggle="dropdown" aria-expanded="false"
-          aria-label="Sort options">
-          <Icon icon="mdi:sort-variant" width="20" height="20" />
+        <button
+          type="button"
+          class="btn btn-sm nav-link-sized"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+          aria-label="Sort options"
+        >
+          <Icon
+            icon="mdi:sort-variant"
+            width="20"
+            height="20"
+          />
           <span class="d-none d-lg-inline ms-1">Sort By</span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
-          <li v-for="option in sortOptions" :key="option.value">
-            <button type="button" class="dropdown-item d-flex align-items-center justify-content-between"
-              @click="$emit('sort', option.value)">
-              <span v-text="option.label"></span>
-              <Icon v-if="sortKey === option.value" :icon="sortDir === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                width="16" height="16" />
+          <li
+            v-for="option in sortOptions"
+            :key="option.value"
+          >
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center justify-content-between"
+              @click="$emit('sort', option.value)"
+            >
+              <span v-text="option.label" />
+              <Icon
+                v-if="sortKey === option.value"
+                :icon="sortDir === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
+                width="16"
+                height="16"
+              />
             </button>
           </li>
         </ul>
@@ -106,12 +230,29 @@
     </nav>
 
     <!-- View Mode Selector -->
-    <nav class="nav nav-segmented nav-sm" role="tablist">
-      <button v-for="mode in viewModes" :key="mode.key" type="button" class="nav-link"
-        :class="{ active: viewMode === mode.key }" :aria-selected="viewMode === mode.key"
-        @click="$emit('viewMode', mode.key)" :title="mode.title">
-        <Icon :icon="mode.icon" width="20" height="20" />
-        <span class="d-none d-lg-inline ms-1" v-text="mode.label"></span>
+    <nav
+      class="nav nav-segmented nav-sm"
+      role="tablist"
+    >
+      <button
+        v-for="mode in viewModes"
+        :key="mode.key"
+        type="button"
+        class="nav-link"
+        :class="{ active: viewMode === mode.key }"
+        :aria-selected="viewMode === mode.key"
+        :title="mode.title"
+        @click="$emit('viewMode', mode.key)"
+      >
+        <Icon
+          :icon="mode.icon"
+          width="20"
+          height="20"
+        />
+        <span
+          class="d-none d-lg-inline ms-1"
+          v-text="mode.label"
+        />
       </button>
     </nav>
   </div>

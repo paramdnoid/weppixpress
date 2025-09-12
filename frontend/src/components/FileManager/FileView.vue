@@ -1,23 +1,45 @@
 <template>
-  <main class="resizable-grid border-start" tabindex="0" @keydown="handleKeydown" 
-        @drop="handleDrop" @dragover="handleDragOver" @dragenter="handleDragEnter" @dragleave="handleDragLeave">
+  <main
+    class="resizable-grid border-start"
+    tabindex="0"
+    @keydown="handleKeydown" 
+    @drop="handleDrop"
+    @dragover="handleDragOver"
+    @dragenter="handleDragEnter"
+    @dragleave="handleDragLeave"
+  >
     <!-- File Content Area -->
     <div class="d-flex flex-column position-relative file-view">
       <div class="content-scroll overflow-auto flex-grow-1">
-
         <!-- Navigation Bar (moved from FileGrid) -->
         <div class="nav-scroller bg-body p-1 border-bottom">
-          <nav class="nav me-1" aria-label="Secondary navigation">
+          <nav
+            class="nav me-1"
+            aria-label="Secondary navigation"
+          >
             <!-- Breadcrumbs -->
             <nav aria-label="Breadcrumb">
               <ol class="breadcrumb breadcrumb-muted breadcrumb-arrows ps-2">
-                <li v-for="(item, idx) in breadcrumbs" :key="item.path || idx" class="breadcrumb-item"
-                    :class="{ active: idx === breadcrumbs.length - 1 }">
-                  <button v-if="item.path && idx < breadcrumbs.length - 1" type="button"
-                          class="btn btn-link p-0 m-0 border-0" :title="item.name" :aria-label="`Navigate to ${item.name}`"
-                          @click.stop.prevent="$emit('navigate', item)" v-text="item.name">
-                  </button>
-                  <span v-else :title="item.name" v-text="item.name"></span>
+                <li
+                  v-for="(item, idx) in breadcrumbs"
+                  :key="item.path || idx"
+                  class="breadcrumb-item"
+                  :class="{ active: idx === breadcrumbs.length - 1 }"
+                >
+                  <button
+                    v-if="item.path && idx < breadcrumbs.length - 1"
+                    type="button"
+                    class="btn btn-link p-0 m-0 border-0"
+                    :title="item.name"
+                    :aria-label="`Navigate to ${item.name}`"
+                    @click.stop.prevent="$emit('navigate', item)"
+                    v-text="item.name"
+                  />
+                  <span
+                    v-else
+                    :title="item.name"
+                    v-text="item.name"
+                  />
                 </li>
               </ol>
             </nav>
@@ -25,29 +47,63 @@
         </div>
 
         <!-- Loading State -->
-        <div v-if="isLoading" class="text-center text-muted py-6">
-          <div class="spinner-border spinner-border-sm mb-2" role="status">
+        <div
+          v-if="isLoading"
+          class="text-center text-muted py-6"
+        >
+          <div
+            class="spinner-border spinner-border-sm mb-2"
+            role="status"
+          >
             <span class="visually-hidden">Loading...</span>
           </div>
           <div>Loading files...</div>
         </div>
 
         <!-- Error State -->
-        <div v-else-if="error" class="text-center text-danger py-6">
-          <Icon icon="mdi:alert-circle" class="empty-icon mb-2" />
-          <div v-text="error"></div>
-          <button type="button" class="btn btn-sm btn-outline-primary mt-2" @click="$emit('retry')">
-            <Icon icon="mdi:refresh" width="16" height="16" class="me-1" />
+        <div
+          v-else-if="error"
+          class="text-center text-danger py-6"
+        >
+          <Icon
+            icon="mdi:alert-circle"
+            class="empty-icon mb-2"
+          />
+          <div v-text="error" />
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary mt-2"
+            @click="$emit('retry')"
+          >
+            <Icon
+              icon="mdi:refresh"
+              width="16"
+              height="16"
+              class="me-1"
+            />
             Try Again
           </button>
         </div>
 
         <!-- Empty State -->
-        <div v-else-if="items.length === 0" class="text-center text-muted py-6">
-          <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
-          <div v-text="emptyMessage"></div>
-          <div v-if="searchQuery" class="small mt-1">
-            <button type="button" class="btn btn-link btn-sm p-0" @click="clearSearch">
+        <div
+          v-else-if="items.length === 0"
+          class="text-center text-muted py-6"
+        >
+          <Icon
+            icon="tabler:folder-off"
+            class="empty-icon mb-2"
+          />
+          <div v-text="emptyMessage" />
+          <div
+            v-if="searchQuery"
+            class="small mt-1"
+          >
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0"
+              @click="clearSearch"
+            >
               Clear search to see all files
             </button>
           </div>
@@ -55,25 +111,42 @@
 
         <!-- Folder Scan Modal -->
         <FolderScanModal
-          :isVisible="isScanning"
+          :is-visible="isScanning"
           :progress="scanProgress"
-          :scanResult="scanResult"
+          :scan-result="scanResult"
           @cancel="cancelScanning"
           @start="startUploadsHere"
         />
 
         <!-- Grid View -->
-        <FileGrid v-if="viewMode === 'grid' && !isLoading && !error && items.length > 0" :items="items"
-          :itemKey="itemKey" :breadcrumbs="breadcrumbs" :sortKey="sortKey" :sortDir="sortDir" :selectedItems="selectedItems" :loading="isLoading"
-          :emptyMessage="emptyMessage"
-          @itemDoubleClick="item => $emit('item-dbl-click', item)" @navigate="item => $emit('navigate', item)"
-          @selectionChange="(items, additive) => $emit('selection-change', items, additive)" />
+        <FileGrid
+          v-if="viewMode === 'grid' && !isLoading && !error && items.length > 0"
+          :items="items"
+          :item-key="itemKey"
+          :breadcrumbs="breadcrumbs"
+          :sort-key="sortKey"
+          :sort-dir="sortDir"
+          :selected-items="selectedItems"
+          :loading="isLoading"
+          :empty-message="emptyMessage"
+          @item-double-click="item => $emit('item-dbl-click', item)"
+          @navigate="item => $emit('navigate', item)"
+          @selection-change="(items, additive) => $emit('selection-change', items, additive)"
+        />
 
         <!-- Table View -->
-        <FileTable v-else-if="(viewMode === 'list' || viewMode === 'table') && !isLoading && !error && items.length > 0"
-          :items="items" :itemKey="itemKey" :sortKey="sortKey" :sortDir="sortDir" :selectedItems="selectedItems"
-          :loading="isLoading" :emptyMessage="emptyMessage"
-          @itemDoubleClick="item => $emit('item-dbl-click', item)" @sort="$emit('sort', $event)" />
+        <FileTable
+          v-else-if="(viewMode === 'list' || viewMode === 'table') && !isLoading && !error && items.length > 0"
+          :items="items"
+          :item-key="itemKey"
+          :sort-key="sortKey"
+          :sort-dir="sortDir"
+          :selected-items="selectedItems"
+          :loading="isLoading"
+          :empty-message="emptyMessage"
+          @item-double-click="item => $emit('item-dbl-click', item)"
+          @sort="$emit('sort', $event)"
+        />
       </div>
     </div>
 
@@ -84,10 +157,10 @@
       @resume="resumeUpload" 
       @cancel="cancelUpload"
       @remove="removeUpload"
-      @pauseAll="pauseAllUploads"
-      @resumeAll="resumeAllUploads"
-      @clearCompleted="clearCompleted"
-      @clearAll="clearAllUploads"
+      @pause-all="pauseAllUploads"
+      @resume-all="resumeAllUploads"
+      @clear-completed="clearCompleted"
+      @clear-all="clearAllUploads"
     />
   </main>
 </template>

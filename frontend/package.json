@@ -16,7 +16,7 @@
     "clean": "rimraf dist node_modules/.vite",
     "optimize:images": "imagemin 'src/assets/images/**/*' --out-dir=src/assets/images/optimized",
     "generate:icons": "pwa-asset-generator src/assets/images/logo-dark.svg public --icon-only --favicon --mstile --opaque false",
-    "worker:build": "vite build --config vite.config.ts"
+    "worker:build": "vite build --config vite.config.js"
   },
   "dependencies": {
     "@iconify/vue": "^4.1.1",

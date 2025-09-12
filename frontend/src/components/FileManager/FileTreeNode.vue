@@ -1,19 +1,52 @@
 <template>
   <div :data-path="node.path">
-    <a ref="nodeLink" :id="`node-${node.path}`" :class="['nav-link', { active: isActive, selected: isExactActive, 'long-pressing': isLongPressing && longPressItem === node }]"
-      href="#" role="treeitem" :aria-controls="collapseId" :data-path="node.path" @click.prevent="handleNodeClick"
-      @keydown="handleKeyDown" @mousedown="(event) => handleMouseDown(node, event)" @mouseup="(event) => handleMouseUp(node, event)" @mouseleave="() => handleMouseLeave(node)"
-      @touchstart.passive="(event) => handleTouchStart(node, event)" @touchend="() => handleTouchEnd(node)" @touchmove.passive="() => handleTouchMove(node)"
-      :aria-expanded="isOpen" :aria-selected="isExactActive"
-      :aria-label="`${node.type === 'folder' ? 'Folder' : 'File'}: ${node.name}`">
-      <Icon :icon="nodeIcon" :class="nodeIconClass" width="18" height="18" />
-      <span v-text="node.name" class="text-truncate"></span>
-      <Icon v-if="node.hasSubfolders" :icon="isOpen ? 'mdi:chevron-down' : 'mdi:chevron-right'" class="nav-link-toggle"
-        width="16" height="16" />
+    <a
+      :id="`node-${node.path}`"
+      ref="nodeLink"
+      :class="['nav-link', { active: isActive, selected: isExactActive, 'long-pressing': isLongPressing && longPressItem === node }]"
+      href="#"
+      role="treeitem"
+      :aria-controls="collapseId"
+      :data-path="node.path"
+      :aria-expanded="isOpen"
+      @click.prevent="handleNodeClick"
+      :aria-selected="isExactActive"
+      @keydown="handleKeyDown"
+      :aria-label="`${node.type === 'folder' ? 'Folder' : 'File'}: ${node.name}`"
+      @mousedown="(event) => handleMouseDown(node, event)"
+      @mouseup="(event) => handleMouseUp(node, event)"
+      @mouseleave="() => handleMouseLeave(node)"
+      @touchstart.passive="(event) => handleTouchStart(node, event)"
+      @touchend="() => handleTouchEnd(node)"
+      @touchmove.passive="() => handleTouchMove(node)"
+    >
+      <Icon
+        :icon="nodeIcon"
+        :class="nodeIconClass"
+        width="18"
+        height="18"
+      />
+      <span
+        class="text-truncate"
+        v-text="node.name"
+      />
+      <Icon
+        v-if="node.hasSubfolders"
+        :icon="isOpen ? 'mdi:chevron-down' : 'mdi:chevron-right'"
+        class="nav-link-toggle"
+        width="16"
+        height="16"
+      />
     </a>
 
-    <nav v-if="node.hasSubfolders" class="nav nav-vertical ms-3 tree-level tree-children" v-show="isOpen"
-      :id="collapseId" role="group" :aria-labelledby="`node-${node.path}`">
+    <nav
+      v-if="node.hasSubfolders"
+      v-show="isOpen"
+      :id="collapseId"
+      class="nav nav-vertical ms-3 tree-level tree-children"
+      role="group"
+      :aria-labelledby="`node-${node.path}`"
+    >
       <TreeNode
         v-for="child in sortedChildren"
         :key="child.path"
@@ -25,15 +58,29 @@
         @select-node="handleChildSelect"
       />
 
-      <div v-if="loading" class="ps-3 text-muted small d-flex align-items-center">
-        <div class="spinner-border spinner-border-sm me-2" role="status">
+      <div
+        v-if="loading"
+        class="ps-3 text-muted small d-flex align-items-center"
+      >
+        <div
+          class="spinner-border spinner-border-sm me-2"
+          role="status"
+        >
           <span class="visually-hidden">Loading...</span>
         </div>
         Loading…
       </div>
 
-      <div v-else-if="loadError" class="ps-3 text-danger small">
-        <Icon icon="mdi:alert-circle" class="me-1" width="14" height="14" />
+      <div
+        v-else-if="loadError"
+        class="ps-3 text-danger small"
+      >
+        <Icon
+          icon="mdi:alert-circle"
+          class="me-1"
+          width="14"
+          height="14"
+        />
         Failed to load
       </div>
     </nav>

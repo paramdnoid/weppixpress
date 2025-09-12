@@ -1,133 +1,183 @@
 <template>
   <div v-if="uploads.length > 0">
-    <!-- Toast (Tabler UI) -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1080">
-      <div class="toast show shadow upload-toast" role="status" aria-live="polite" aria-atomic="true">
-        <div class="toast-header" @click="toggleCollapsed">
-          <Icon icon="mdi:cloud-upload" width="18" height="18" class="me-2" />
-          <strong class="me-auto">Uploads ({{ activeUploadsCount }})</strong>
-          <div class="d-flex align-items-center gap-2 ms-2">
+    <!-- Upload Toast (matching FolderScanModal design) -->
+    <div
+      class="toast-container position-fixed bottom-0 end-0 p-3"
+      style="z-index: 1080"
+    >
+      <div
+        class="toast show shadow-sm upload-toast"
+        role="alert"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div
+          class="toast-header d-flex align-items-center cursor-pointer"
+          @click="toggleCollapsed"
+        >
+          <Icon
+            icon="mdi:cloud-upload"
+            width="20"
+            height="20"
+            class="me-2 text-primary"
+          />
+          <small class="me-auto">Uploads</small>
+          <small
+            v-if="hasActiveUploads"
+            class="text-muted me-2"
+          >{{ Math.round(getTotalProgress()) }}%</small>
+          <div class="d-flex align-items-center gap-1">
             <button
               v-if="hasActiveUploads"
               type="button"
-              class="btn btn-icon"
+              class="btn btn-icon btn-sm"
               :class="{ 'btn-ghost-warning': !allPaused, 'btn-ghost-success': allPaused }"
-              @click.stop="toggleAllUploads"
               :title="allPaused ? 'Resume all' : 'Pause all'"
-              aria-label="Toggle all uploads"
+              @click.stop="toggleAllUploads"
             >
-              <Icon :icon="allPaused ? 'mdi:play' : 'mdi:pause'" width="16" height="16" />
+              <Icon
+                :icon="allPaused ? 'mdi:play' : 'mdi:pause'"
+                width="14"
+                height="14"
+              />
             </button>
-            <button type="button" class="btn-close" aria-label="Close" @click.stop="isCollapsed = true"></button>
+            <button 
+              type="button" 
+              class="btn-close ms-1" 
+              aria-label="Minimize"
+              @click.stop="isCollapsed = true"
+            />
           </div>
         </div>
 
-        <div class="toast-body p-0">
-          <div v-show="!isCollapsed" class="queue-content">
-            <div class="upload-items">
-              <div
-                v-for="upload in uploads"
-                :key="upload.uploadId"
-                class="upload-item list-group-item"
-                :class="{
-                  'bg-success-lt': upload.status === 'completed',
-                  'bg-danger-lt': upload.status === 'error',
-                  'bg-warning-lt': upload.status === 'paused'
-                }"
-              >
-                <div class="upload-info">
-                  <div class="file-icon text-primary">
-                    <Icon :icon="getFileIcon(upload.fileName)" width="20" height="20" />
-                  </div>
-                  <div class="file-details">
-                    <div class="file-name" :title="upload.fileName">{{ upload.fileName }}</div>
-                    <div class="file-stats text-secondary">
-                      <span class="file-size">{{ formatFileSize(upload.totalSize) }}</span>
-                      <span class="separator">•</span>
-                      <span class="upload-speed" v-if="upload.speed && upload.status === 'uploading'">
-                        {{ formatSpeed(upload.speed) }}
-                      </span>
-                      <span class="upload-eta" v-if="upload.eta && upload.status === 'uploading'">
-                        {{ upload.eta }} left
-                      </span>
-                      <span class="upload-status" v-if="upload.status !== 'uploading'">
-                        {{ getStatusText(upload.status) }}
-                      </span>
-                    </div>
-                  </div>
+        <div
+          v-show="!isCollapsed"
+          class="toast-body"
+        >
+          <div class="upload-info">
+            <div
+              v-for="upload in uploads"
+              :key="upload.uploadId"
+              class="upload-item"
+            >
+              <div class="info-row">
+                <div class="file-info">
+                  <Icon
+                    :icon="getFileIcon(upload.fileName)"
+                    width="16"
+                    height="16"
+                    class="me-2 text-primary"
+                  />
+                  <span
+                    class="file-name text-truncate"
+                    :title="upload.fileName"
+                  >{{ upload.fileName }}</span>
                 </div>
-
-                <div class="upload-progress">
-                  <div class="progress" style="height: 4px; width: 100%">
-                    <div
-                      class="progress-bar"
-                      :class="{
-                        'bg-success': upload.status === 'completed',
-                        'bg-danger': upload.status === 'error',
-                        'bg-warning': upload.status === 'paused',
-                        'bg-primary': upload.status === 'uploading' || upload.status === 'initialized'
-                      }"
-                      role="progressbar"
-                      :style="{ width: upload.progress + '%' }"
-                      :aria-valuenow="Math.round(upload.progress)"
-                      aria-valuemin="0"
-                      aria-valuemax="100"
-                    ></div>
-                  </div>
-                  <div class="progress-text">{{ Math.round(upload.progress) }}%</div>
-                </div>
-
                 <div class="upload-actions">
+                  <small class="text-muted me-2">{{ Math.round(upload.progress) }}%</small>
                   <button
                     v-if="upload.status === 'uploading'"
                     type="button"
-                    class="btn btn-icon btn-ghost-warning"
+                    class="btn btn-icon btn-sm btn-ghost-warning"
+                    title="Pause"
                     @click="pauseUpload(upload.uploadId)"
-                    title="Pause upload"
-                    aria-label="Pause upload"
                   >
-                    <Icon icon="mdi:pause" width="14" height="14" />
+                    <Icon
+                      icon="mdi:pause"
+                      width="12"
+                      height="12"
+                    />
                   </button>
                   <button
                     v-else-if="upload.status === 'paused'"
                     type="button"
-                    class="btn btn-icon btn-ghost-success"
+                    class="btn btn-icon btn-sm btn-ghost-success"
+                    title="Resume"
                     @click="resumeUpload(upload.uploadId)"
-                    title="Resume upload"
-                    aria-label="Resume upload"
                   >
-                    <Icon icon="mdi:play" width="14" height="14" />
+                    <Icon
+                      icon="mdi:play"
+                      width="12"
+                      height="12"
+                    />
                   </button>
                   <button
                     v-if="upload.status !== 'completed'"
                     type="button"
-                    class="btn btn-icon btn-ghost-danger"
+                    class="btn btn-icon btn-sm btn-ghost-danger"
+                    :title="upload.status === 'error' ? 'Remove' : 'Cancel'"
                     @click="cancelUpload(upload.uploadId)"
-                    :title="upload.status === 'error' ? 'Remove' : 'Cancel upload'"
-                    aria-label="Cancel or remove upload"
                   >
-                    <Icon icon="mdi:close" width="14" height="14" />
+                    <Icon
+                      icon="mdi:close"
+                      width="12"
+                      height="12"
+                    />
                   </button>
                   <button
                     v-if="upload.status === 'completed'"
                     type="button"
-                    class="btn btn-icon btn-ghost-success"
+                    class="btn btn-icon btn-sm btn-ghost-success"
+                    title="Remove"
                     @click="removeCompleted(upload.uploadId)"
-                    title="Remove from list"
-                    aria-label="Remove from list"
                   >
-                    <Icon icon="mdi:check" width="14" height="14" />
+                    <Icon
+                      icon="mdi:check"
+                      width="12"
+                      height="12"
+                    />
                   </button>
                 </div>
+              </div>
+              
+              <div class="file-details">
+                <small class="text-muted">
+                  {{ formatFileSize(upload.totalSize) }}
+                  <span v-if="upload.speed && upload.status === 'uploading'">
+                    • {{ formatSpeed(upload.speed) }}
+                  </span>
+                  <span v-if="upload.eta && upload.status === 'uploading'">
+                    • {{ upload.eta }} left
+                  </span>
+                  <span v-if="upload.status !== 'uploading'">
+                    • {{ getStatusText(upload.status) }}
+                  </span>
+                </small>
+              </div>
+
+              <div
+                class="progress mt-1"
+                style="height: 4px;"
+              >
+                <div
+                  class="progress-bar"
+                  :class="{
+                    'bg-success': upload.status === 'completed',
+                    'bg-danger': upload.status === 'error',
+                    'bg-warning': upload.status === 'paused',
+                    'bg-primary': upload.status === 'uploading' || upload.status === 'initialized'
+                  }"
+                  :style="{ width: upload.progress + '%' }"
+                  role="progressbar"
+                />
               </div>
             </div>
           </div>
 
-          <div class="border-top p-2 d-flex justify-content-end gap-2" v-if="uploads.length > 0">
-            <button type="button" class="btn btn-outline-secondary btn-sm" @click="clearAll">
+          <div class="d-flex justify-content-end align-items-center gap-2">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              @click="clearAll"
+            >
               Clear All
             </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" v-if="hasCompletedUploads" @click="clearCompleted">
+            <button
+              v-if="hasCompletedUploads"
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              @click="clearCompleted"
+            >
               Clear Completed
             </button>
           </div>
@@ -288,89 +338,124 @@ function formatFileSize(bytes: number): string {
 function formatSpeed(bytesPerSecond: number): string {
   return `${formatFileSize(bytesPerSecond)}/s`
 }
+
+function getTotalProgress(): number {
+  const activeUploads = props.uploads.filter(u => u.status !== 'completed' && u.status !== 'cancelled')
+  if (activeUploads.length === 0) return 100
+  return activeUploads.reduce((sum, upload) => sum + upload.progress, 0) / activeUploads.length
+}
 </script>
 
 <style scoped>
-.upload-toast {
-  width: 360px;
-  max-width: 360px;
-}
-@media (max-width: 576px) {
-  .upload-toast {
-    width: calc(100vw - 1.25rem);
-    max-width: calc(100vw - 1.25rem);
-  }
+/* Keep it compact like a toast - matching FolderScanModal */
+.upload-toast { 
+  width: 380px; 
+  max-width: 90vw; 
 }
 
-.queue-content {
-  display: flex;
-  flex-direction: column;
-  max-height: 40vh;
-}
-@media (max-width: 576px) {
-  .queue-content { max-height: 50vh; }
+.toast-header { 
+  padding: .5rem .75rem; 
 }
 
-.upload-items {
-  flex: 1;
+.toast-body { 
+  padding: 0; 
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.upload-info { 
+  background: var(--tblr-bg-surface-secondary); 
+  border-radius: 6px; 
+  padding: .5rem .625rem;
+  max-height: 35vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .upload-item {
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  border-bottom: 1px solid var(--tblr-border-color-translucent);
+  margin-bottom: .75rem;
 }
-.upload-item:last-child { border-bottom: none; }
 
-.upload-info {
-  flex: 1;
+.upload-item:last-child {
+  margin-bottom: 0;
+}
+
+.info-row { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  gap: .5rem; 
+  margin-bottom: .25rem; 
+}
+
+.file-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  flex: 1;
   min-width: 0;
 }
 
-.file-details { flex: 1; min-width: 0; }
 .file-name {
   font-weight: 500;
   color: var(--tblr-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
+  max-width: 200px;
 }
-.file-stats {
+
+.upload-actions {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  color: var(--tblr-text-muted);
-  margin-top: 0.25rem;
-  white-space: nowrap;
-  overflow: hidden;
+  gap: .25rem;
+  flex-shrink: 0;
 }
-.separator { opacity: 0.5; }
 
-.upload-progress {
-  width: 100px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
+.file-details {
+  margin-top: .25rem;
+  padding-left: 2rem;
 }
+
+.progress { 
+  height: 4px; 
+  border-radius: 3px; 
+  background: var(--tblr-bg-surface-secondary); 
+  overflow: hidden; 
+  margin-left: 2rem;
+}
+
+.progress-bar { 
+  transition: width .25s ease; 
+}
+
+/* Custom scrollbar for upload info */
+.upload-info::-webkit-scrollbar {
+  width: 4px;
+}
+
+.upload-info::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.upload-info::-webkit-scrollbar-thumb {
+  background: var(--tblr-border-color);
+  border-radius: 2px;
+}
+
+.upload-info::-webkit-scrollbar-thumb:hover {
+  background: var(--tblr-border-color-dark);
+}
+
 @media (max-width: 576px) {
-  .upload-progress { width: 72px; }
+  .upload-toast { 
+    width: 95vw; 
+  }
+  
+  .file-name {
+    max-width: 150px;
+  }
+  
+  .upload-info {
+    max-height: 40vh;
+  }
 }
-.progress-text {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--tblr-text-muted);
-  line-height: 1;
-}
-
-.upload-actions { display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0; }
-.upload-actions .btn { width: 28px; height: 28px; padding: 0; }
 </style>

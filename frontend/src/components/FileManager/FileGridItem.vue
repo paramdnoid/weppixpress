@@ -4,13 +4,6 @@
     role="gridcell"
     :tabindex="tabIndex"
     :data-index="index"
-    @dblclick="handleDoubleClick"
-    @mousedown="(event) => handleMouseDown(props.item, event)"
-    @mouseup="(event) => handleMouseUp(props.item, event)"
-    @mouseleave="() => handleMouseLeave(props.item)"
-    @touchstart.passive="(event) => handleTouchStart(props.item, event)"
-    @touchend="() => handleTouchEnd(props.item)"
-    @touchmove.passive="() => handleTouchMove(props.item)"
     :title="tooltip"
     :aria-label="ariaLabel"
     :aria-selected="isSelected"
@@ -18,11 +11,25 @@
       selected: isSelected,
       'long-pressing': isLongPressing && longPressItem === props.item
     }"
+    @dblclick="handleDoubleClick"
+    @mousedown="(event) => handleMouseDown(props.item, event)"
+    @mouseup="(event) => handleMouseUp(props.item, event)"
+    @mouseleave="() => handleMouseLeave(props.item)"
+    @touchstart.passive="(event) => handleTouchStart(props.item, event)"
+    @touchend="() => handleTouchEnd(props.item)"
+    @touchmove.passive="() => handleTouchMove(props.item)"
   >
     <div class="icon-wrap">
-      <Icon :icon="icon" class="explorer-icon" :class="`text-${iconClass}`" />
+      <Icon
+        :icon="icon"
+        class="explorer-icon"
+        :class="`text-${iconClass}`"
+      />
     </div>
-    <div class="explorer-label" v-text="name"></div>
+    <div
+      class="explorer-label"
+      v-text="name"
+    />
   </div>
 </template>
 

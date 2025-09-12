@@ -8,10 +8,10 @@
     }"
     :tabindex="tabIndex"
     :data-index="index"
-    @dblclick="handleDoubleClick"
-    @keydown.space.prevent="$emit('select', $event)"
     :aria-label="ariaLabel"
     :aria-selected="isSelected"
+    @dblclick="handleDoubleClick"
+    @keydown.space.prevent="$emit('select', $event)"
   >
     <td class="file-name-cell">
       <div class="d-flex align-items-center">
@@ -23,8 +23,11 @@
           class="me-2 flex-shrink-0" 
           aria-hidden="true"
         />
-        <span class="file-name text-truncate" :title="item.name" v-text="item.name">
-        </span>
+        <span
+          class="file-name text-truncate"
+          :title="item.name"
+          v-text="item.name"
+        />
       </div>
     </td>
     <td class="w-0 text-muted file-date-cell">
@@ -33,13 +36,15 @@
         :datetime="item.modified"
         :title="fullDateString"
       >
-        <span v-text="formattedDate"></span>
+        <span v-text="formattedDate" />
       </time>
       <span v-else>-</span>
     </td>
     <td class="text-end text-muted file-size-cell">
-      <span :title="sizeTooltip" v-text="formattedSize">
-      </span>
+      <span
+        :title="sizeTooltip"
+        v-text="formattedSize"
+      />
     </td>
   </tr>
 </template>

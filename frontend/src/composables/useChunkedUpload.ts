@@ -59,6 +59,13 @@ export function useChunkedUpload() {
         // Check if already in uploads array
         const existingUpload = uploads.value.find(u => u.uploadId === uploadId)
         if (!existingUpload) {
+          // Check if this is a pre-stored upload (temporary ID from scan phase)
+          const persistedUpload = await chunkedUploadService.getPersistedUpload(uploadId)
+          if (persistedUpload?.isPreStored) {
+            // Skip pre-stored uploads - they haven't been initialized on server yet
+            continue
+          }
+          
           const status = await chunkedUploadService.getUploadStatus(uploadId)
           if (status) {
             // Check if upload is actively processing or just queued
@@ -191,6 +198,9 @@ export function useChunkedUpload() {
       const result = await folderScanner.value.scanFiles(items)
       scanResult.value = result
       
+      // Pre-persist files to IndexedDB during scan phase for better resilience
+      await preStoreScannedFiles(result.files)
+      
       // Scanning completed successfully
       return result
     } catch (error) {
@@ -215,7 +225,8 @@ export function useChunkedUpload() {
       }
       
       try {
-        const uploadId = await chunkedUploadService.startUpload(fileEntry, basePath)
+        // Check if file was pre-stored during scan and use existing data if available
+        const uploadId = await chunkedUploadService.startUploadWithPreStorage(fileEntry, basePath)
         
         // Add initial progress entry (check for duplicates first)
         const existingUpload = uploads.value.find(u => u.uploadId === uploadId)
@@ -253,7 +264,29 @@ export function useChunkedUpload() {
     scanResult.value = null
   }
 
-  function cancelScanning() {
+  async function preStoreScannedFiles(files: FileEntry[]) {
+    try {
+      // Store scanned files in IndexedDB before upload initialization
+      for (const fileEntry of files) {
+        if (fileEntry.file.size === 0) continue // Skip 0-byte files
+        
+        // Generate a temporary upload ID for pre-storage
+        const tempUploadId = crypto.randomUUID()
+        
+        try {
+          await chunkedUploadService.preStoreFileData(tempUploadId, fileEntry)
+        } catch (error) {
+          console.warn(`Failed to pre-store file ${fileEntry.file.name}:`, error)
+          // Continue with other files even if one fails
+        }
+      }
+    } catch (error) {
+      console.error('Failed to pre-store scanned files:', error)
+      // Don't throw - allow uploads to continue without pre-storage
+    }
+  }
+
+  async function cancelScanning() {
     if (folderScanner.value) {
       folderScanner.value.cancel()
     }
@@ -261,6 +294,16 @@ export function useChunkedUpload() {
     isScanning.value = false
     scanProgress.value = null
     scanResult.value = null
+    
+    // Clean up any pre-stored files from cancelled scan
+    try {
+      const cleaned = await chunkedUploadService.filePersistenceService.clearPreStoredUploads()
+      if (cleaned > 0) {
+        console.log(`Cleaned up ${cleaned} pre-stored files from cancelled scan`)
+      }
+    } catch (error) {
+      console.error('Failed to cleanup pre-stored files:', error)
+    }
   }
 
   async function pauseUpload(uploadId: string) {

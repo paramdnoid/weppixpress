@@ -1,14 +1,23 @@
 <template>
-  <th :scope="scope" :class="thClass" class="py-0">
+  <th
+    :scope="scope"
+    :class="thClass"
+    class="py-0"
+  >
     <button 
       class="btn btn-action p-0 d-flex align-items-center"
       :class="buttonClass"
-      @click="$emit('sort', sortKey)"
       :aria-label="ariaLabel"
       type="button"
+      @click="$emit('sort', sortKey)"
     >
-      <Icon :icon="icon" class="me-2" width="16" height="16" />
-      <span v-text="label"></span>
+      <Icon
+        :icon="icon"
+        class="me-2"
+        width="16"
+        height="16"
+      />
+      <span v-text="label" />
       <Icon 
         v-if="isActive" 
         :icon="sortIcon"

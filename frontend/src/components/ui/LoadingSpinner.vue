@@ -1,12 +1,23 @@
 <template>
   <div :class="containerClasses">
-    <div v-if="overlay" class="loading-overlay">
+    <div
+      v-if="overlay"
+      class="loading-overlay"
+    >
       <div class="loading-content">
-        <div :class="spinnerClasses"></div>
-        <p v-if="message" class="loading-message mt-3">{{ message }}</p>
+        <div :class="spinnerClasses" />
+        <p
+          v-if="message"
+          class="loading-message mt-3"
+        >
+          {{ message }}
+        </p>
       </div>
     </div>
-    <div v-else :class="spinnerClasses"></div>
+    <div
+      v-else
+      :class="spinnerClasses"
+    />
   </div>
 </template>
 

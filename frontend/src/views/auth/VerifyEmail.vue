@@ -12,10 +12,18 @@
       <div class="card-body p-0">
         <div class="px-3 py-3">
           <div class="text-center">
-            <h2 class="mb-0">Erstelle dein Konto</h2>
-            <p class="text-muted mt-2">Schnell, sicher und kostenlos registrieren.</p>
-            <div v-if="verified">E-Mail bestätigt! Du wirst weitergeleitet...</div>
-            <div v-else>Lade...</div>
+            <h2 class="mb-0">
+              Erstelle dein Konto
+            </h2>
+            <p class="text-muted mt-2">
+              Schnell, sicher und kostenlos registrieren.
+            </p>
+            <div v-if="verified">
+              E-Mail bestätigt! Du wirst weitergeleitet...
+            </div>
+            <div v-else>
+              Lade...
+            </div>
           </div>
         </div>
       </div>

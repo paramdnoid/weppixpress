@@ -1,21 +1,38 @@
 <template>
   <div class="file-table-container">
     <!-- Loading State -->
-    <div v-if="loading" class="text-center py-5">
-      <div class="spinner-border spinner-border-sm mb-2" role="status">
+    <div
+      v-if="loading"
+      class="text-center py-5"
+    >
+      <div
+        class="spinner-border spinner-border-sm mb-2"
+        role="status"
+      >
         <span class="visually-hidden">Loading...</span>
       </div>
-      <div class="text-muted">Loading files...</div>
+      <div class="text-muted">
+        Loading files...
+      </div>
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="sortedItems.length === 0" class="text-center py-5 text-muted">
-      <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
-      <div v-text="emptyMessage || 'No files or folders found'"></div>
+    <div
+      v-else-if="sortedItems.length === 0"
+      class="text-center py-5 text-muted"
+    >
+      <Icon
+        icon="tabler:folder-off"
+        class="empty-icon mb-2"
+      />
+      <div v-text="emptyMessage || 'No files or folders found'" />
     </div>
 
     <!-- Table -->
-    <div v-else class="table-responsive">
+    <div
+      v-else
+      class="table-responsive"
+    >
       <table 
         class="table table-hover table-nowrap" 
         role="table"
@@ -63,7 +80,7 @@
             :is-focused="index === focusedRowIndex"
             :tab-index="index === 0 ? 0 : -1"
             @select="$emit('itemSelect', item, $event)"
-            @doubleClick="$emit('itemDoubleClick', item)"
+            @double-click="$emit('itemDoubleClick', item)"
           />
         </tbody>
       </table>

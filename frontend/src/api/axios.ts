@@ -3,6 +3,17 @@ import axios from 'axios'
 // Configure base URL correctly - use proxy in development
 const API_BASE_URL = '/api'
 
+// Auth handlers will be injected by auth store to avoid circular dependency
+let authHandlers: {
+  refresh: () => Promise<void>
+  logout: () => Promise<void>
+  getAccessToken: () => string | null
+} | null = null
+
+export const setAuthHandlers = (handlers: typeof authHandlers) => {
+  authHandlers = handlers
+}
+
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -47,14 +58,18 @@ api.interceptors.response.use(
       originalRequest._retry = true
       
       try {
-        // Use auth store for proper refresh handling
-        const { useAuthStore } = await import('@/stores/auth')
-        const authStore = useAuthStore()
+        // Use injected auth handlers
+        if (!authHandlers) {
+          throw new Error('Auth handlers not initialized')
+        }
         
-        await authStore.refresh()
+        await authHandlers.refresh()
         
         // Retry original request with new token
-        originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
+        const token = authHandlers.getAccessToken()
+        if (token) {
+          originalRequest.headers.Authorization = `Bearer ${token}`
+        }
         return api(originalRequest)
       } catch (refreshError: unknown) {
         // Refresh failed, logout through auth store
@@ -65,9 +80,9 @@ api.interceptors.response.use(
           : String(refreshError)
         console.warn('Token refresh failed:', message)
         
-        const { useAuthStore } = await import('@/stores/auth')
-        const authStore = useAuthStore()
-        await authStore.logout()
+        if (authHandlers) {
+          await authHandlers.logout()
+        }
         
         // If we're not already on login page, redirect
         if (!window.location.pathname.includes('/login')) {

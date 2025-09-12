@@ -3,18 +3,39 @@
     <div class="page-header d-print-none">
       <div class="row align-items-center">
         <div class="col">
-          <h2 class="page-title">Error Analytics</h2>
-          <div class="text-muted mt-1">Detailed error analysis and trends</div>
+          <h2 class="page-title">
+            Error Analytics
+          </h2>
+          <div class="text-muted mt-1">
+            Detailed error analysis and trends
+          </div>
         </div>
         <div class="col-auto ms-auto d-print-none">
           <div class="btn-list">
-            <select v-model="selectedTimeRange" class="form-select" @change="refreshData">
-              <option value="last_minute">Last Minute</option>
-              <option value="last_hour">Last Hour</option>
-              <option value="last_day">Last Day</option>
+            <select
+              v-model="selectedTimeRange"
+              class="form-select"
+              @change="refreshData"
+            >
+              <option value="last_minute">
+                Last Minute
+              </option>
+              <option value="last_hour">
+                Last Hour
+              </option>
+              <option value="last_day">
+                Last Day
+              </option>
             </select>
-            <button class="btn btn-primary" @click="refreshData" :disabled="isLoading">
-              <Icon icon="tabler:refresh" class="me-1" />
+            <button
+              class="btn btn-primary"
+              :disabled="isLoading"
+              @click="refreshData"
+            >
+              <Icon
+                icon="tabler:refresh"
+                class="me-1"
+              />
               {{ isLoading ? 'Loading...' : 'Refresh' }}
             </button>
           </div>
@@ -22,7 +43,10 @@
       </div>
     </div>
 
-    <div v-if="error" class="alert alert-danger">
+    <div
+      v-if="error"
+      class="alert alert-danger"
+    >
       {{ error }}
     </div>
 
@@ -83,10 +107,16 @@
       <div class="col-md-4">
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">Error Distribution</h3>
+            <h3 class="card-title">
+              Error Distribution
+            </h3>
           </div>
           <div class="card-body">
-            <canvas ref="errorDistributionChart" width="300" height="200"></canvas>
+            <canvas
+              ref="errorDistributionChart"
+              width="300"
+              height="200"
+            />
           </div>
         </div>
       </div>
@@ -97,7 +127,9 @@
       <div class="col-md-6">
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">Errors by Type</h3>
+            <h3 class="card-title">
+              Errors by Type
+            </h3>
           </div>
           <div class="card-body p-0">
             <div class="table-responsive">
@@ -110,17 +142,23 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(count, type) in errorData?.breakdown?.byType" :key="type">
+                  <tr
+                    v-for="(count, type) in errorData?.breakdown?.byType"
+                    :key="type"
+                  >
                     <td>
                       <span class="badge bg-danger">{{ type }}</span>
                     </td>
                     <td><strong>{{ count }}</strong></td>
                     <td>
-                      <div class="progress" style="height: 4px;">
+                      <div
+                        class="progress"
+                        style="height: 4px;"
+                      >
                         <div 
                           class="progress-bar bg-danger"
                           :style="{ width: ((count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100) + '%' }"
-                        ></div>
+                        />
                       </div>
                       <small class="text-muted">{{ ((count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100).toFixed(1) }}%</small>
                     </td>
@@ -135,7 +173,9 @@
       <div class="col-md-6">
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">Errors by Code</h3>
+            <h3 class="card-title">
+              Errors by Code
+            </h3>
           </div>
           <div class="card-body p-0">
             <div class="table-responsive">
@@ -148,17 +188,23 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(count, code) in errorData?.breakdown?.byCode" :key="code">
+                  <tr
+                    v-for="(count, code) in errorData?.breakdown?.byCode"
+                    :key="code"
+                  >
                     <td>
                       <code>{{ code }}</code>
                     </td>
                     <td><strong>{{ count }}</strong></td>
                     <td>
-                      <div class="progress" style="height: 4px;">
+                      <div
+                        class="progress"
+                        style="height: 4px;"
+                      >
                         <div 
                           class="progress-bar bg-warning"
                           :style="{ width: ((count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100) + '%' }"
-                        ></div>
+                        />
                       </div>
                       <small class="text-muted">{{ ((count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100).toFixed(1) }}%</small>
                     </td>
@@ -176,7 +222,9 @@
       <div class="col-12">
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">Most Frequent Errors</h3>
+            <h3 class="card-title">
+              Most Frequent Errors
+            </h3>
           </div>
           <div class="card-body p-0">
             <div class="table-responsive">
@@ -192,8 +240,14 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="error in errorData?.topErrors" :key="`${error.type}-${error.code}-${error.message}`">
-                    <td class="text-truncate" style="max-width: 400px;">
+                  <tr
+                    v-for="error in errorData?.topErrors"
+                    :key="`${error.type}-${error.code}-${error.message}`"
+                  >
+                    <td
+                      class="text-truncate"
+                      style="max-width: 400px;"
+                    >
                       <strong>{{ error.message }}</strong>
                     </td>
                     <td>
@@ -209,11 +263,14 @@
                       {{ formatTimestamp(error.lastOccurrence) }}
                     </td>
                     <td>
-                      <div class="progress" style="height: 6px;">
+                      <div
+                        class="progress"
+                        style="height: 6px;"
+                      >
                         <div 
                           class="progress-bar bg-danger"
                           :style="{ width: ((error.count / Math.max((errorData?.topErrors?.[0]?.count || 0), 1)) * 100) + '%' }"
-                        ></div>
+                        />
                       </div>
                       <small class="text-muted">
                         {{ ((error.count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100).toFixed(1) }}% of total

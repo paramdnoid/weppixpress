@@ -33,22 +33,27 @@
         :selected-path="fileStore.state.currentPath" 
         :load-children="loadTreeChildren" 
         :toggle-node="toggleNode"
-        @nodeSelect="handleTreeNodeSelect"
+        @node-select="handleTreeNodeSelect"
       />
 
-      <div v-show="!isCollapsed" class="splitter" @mousedown="startDragging" role="separator" />
+      <div
+        v-show="!isCollapsed"
+        class="splitter"
+        role="separator"
+        @mousedown="startDragging"
+      />
 
       <FileView 
+        ref="fileViewRef" 
         :items="fileStore.currentItems" 
         :item-key="getItemKey" 
         :breadcrumbs="fileStore.breadcrumbs" 
         :view-mode="viewMode" 
         :sort-key="fileStore.state.sorting.key" 
-        :sort-dir="fileStore.state.sorting.order" 
-        :selected-items="fileStore.state.selectedIds"
+        :sort-dir="fileStore.state.sorting.order"
+        :selected-items="fileStore.state.selectedIds" 
         :is-loading="fileStore.state.isLoading" 
         :error="fileStore.state.error" 
-        ref="fileViewRef" 
         :empty-message="emptyStateMessage" 
         @navigate="handleBreadcrumbNavigate"
         @item-dbl-click="handleItemDoubleClickLocal"

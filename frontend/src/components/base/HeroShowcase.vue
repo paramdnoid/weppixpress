@@ -2,15 +2,15 @@
   <!-- Text Content -->
   <div class="col-12 col-md-5 order-2 order-md-1">
     <h1 
+      :key="`main-${currentIndex}`" 
       class="display-6 fw-bold mb-4 text-dark hero-main-text" 
-      data-aos="fade-right" 
+      data-aos="fade-right"
       v-html="mainTexts[currentIndex]"
-      :key="`main-${currentIndex}`"
-    ></h1>
+    />
     <p 
-      class="fs-5 mb-4 text-muted hero-sub-text" 
+      :key="`sub-${currentIndex}`" 
+      class="fs-5 mb-4 text-muted hero-sub-text"
       data-aos="fade-left"
-      :key="`sub-${currentIndex}`"
     >
       {{ subTexts[currentIndex] }}
     </p>
@@ -25,9 +25,16 @@
   </div>
 
   <!-- Content Area -->
-  <div class="col-12 col-md-7 order-1 order-md-2 mb-4 mb-md-0" data-aos="fade-left">
+  <div
+    class="col-12 col-md-7 order-1 order-md-2 mb-4 mb-md-0"
+    data-aos="fade-left"
+  >
     <div class="wrapper">
-      <div class="dashboard-3d-wrapper position-relative mt-5 mt-lg-0" role="tabpanel" aria-label="Product screenshots">
+      <div
+        class="dashboard-3d-wrapper position-relative mt-5 mt-lg-0"
+        role="tabpanel"
+        aria-label="Product screenshots"
+      >
         <button
           v-for="(image, index) in images" 
           :key="index"
@@ -35,12 +42,12 @@
           class="dashboard-3d position-absolute image-button"
           :class="{ active: index === currentIndex }"
           :style="styleFor(index)"
-          @click="setActive(index)"
-          @mouseenter="setActive(index)"
-          @focus="setActive(index)"
           :aria-label="`Show ${image.alt}`"
           :aria-pressed="index === currentIndex"
           :tabindex="index === currentIndex ? 0 : -1"
+          @click="setActive(index)"
+          @mouseenter="setActive(index)"
+          @focus="setActive(index)"
         >
           <img 
             :src="image.src" 
@@ -48,7 +55,7 @@
             class="w-100 h-100 object-fit-cover"
             loading="lazy"
             draggable="false"
-          />
+          >
         </button>
         
         <!-- Navigation dots for mobile -->
@@ -60,9 +67,9 @@
               type="button"
               class="nav-dot"
               :class="{ active: index === currentIndex }"
-              @click="setActive(index)"
               :aria-label="`Go to slide ${index + 1}`"
-            ></button>
+              @click="setActive(index)"
+            />
           </div>
         </div>
       </div>

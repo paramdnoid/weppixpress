@@ -4,18 +4,39 @@
       <div class="page-header d-print-none">
         <div class="row align-items-center">
           <div class="col">
-            <h2 class="page-title">Error Dashboard</h2>
-            <div class="text-muted mt-1">System monitoring and error visualization</div>
+            <h2 class="page-title">
+              Error Dashboard
+            </h2>
+            <div class="text-muted mt-1">
+              System monitoring and error visualization
+            </div>
           </div>
           <div class="col ms-auto d-print-none">
             <div class="btn-list">
-              <select v-model="selectedTimeRange" class="form-select" @change="refreshData">
-                <option value="last_minute">Last Minute</option>
-                <option value="last_hour">Last Hour</option>
-                <option value="last_day">Last Day</option>
+              <select
+                v-model="selectedTimeRange"
+                class="form-select"
+                @change="refreshData"
+              >
+                <option value="last_minute">
+                  Last Minute
+                </option>
+                <option value="last_hour">
+                  Last Hour
+                </option>
+                <option value="last_day">
+                  Last Day
+                </option>
               </select>
-              <button class="btn btn-primary" @click="refreshData" :disabled="isLoading">
-                <Icon icon="tabler:refresh" class="me-1" />
+              <button
+                class="btn btn-primary"
+                :disabled="isLoading"
+                @click="refreshData"
+              >
+                <Icon
+                  icon="tabler:refresh"
+                  class="me-1"
+                />
                 {{ isLoading ? 'Loading...' : 'Refresh' }}
               </button>
             </div>
@@ -37,7 +58,10 @@
                 <div class="col">
                   <div class="font-weight-medium">
                     System Status
-                    <span class="badge ms-2" :class="systemStatusBadgeClass">
+                    <span
+                      class="badge ms-2"
+                      :class="systemStatusBadgeClass"
+                    >
                       {{ overview?.system?.status || 'Unknown' }}
                     </span>
                   </div>
@@ -129,8 +153,12 @@
                   </span>
                 </div>
                 <div class="col">
-                  <h3 class="card-title mb-1">System Resources</h3>
-                  <div class="text-muted">Real-time performance metrics</div>
+                  <h3 class="card-title mb-1">
+                    System Resources
+                  </h3>
+                  <div class="text-muted">
+                    Real-time performance metrics
+                  </div>
                 </div>
               </div>
             </div>
@@ -139,7 +167,10 @@
                 <div class="row align-items-center mb-2">
                   <div class="col">
                     <div class="font-weight-medium d-flex align-items-center">
-                      <Icon icon="tabler:memory" class="me-2 text-blue" />
+                      <Icon
+                        icon="tabler:memory"
+                        class="me-2 text-blue"
+                      />
                       Memory Usage
                     </div>
                   </div>
@@ -148,17 +179,22 @@
                   </div>
                 </div>
                 <div class="progress progress-sm">
-                  <div class="progress-bar"
+                  <div
+                    class="progress-bar"
                     :class="getResourceBarClass(overview?.system?.memory?.usage_percent ? parseFloat(overview.system.memory.usage_percent) : undefined)"
                     :style="{ width: (overview?.system?.memory?.usage_percent || '0') + '%' }"
-                    role="progressbar"></div>
+                    role="progressbar"
+                  />
                 </div>
               </div>
               <div class="mb-3">
                 <div class="row align-items-center mb-2">
                   <div class="col">
                     <div class="font-weight-medium d-flex align-items-center">
-                      <Icon icon="tabler:cpu" class="me-2 text-green" />
+                      <Icon
+                        icon="tabler:cpu"
+                        class="me-2 text-green"
+                      />
                       CPU Usage
                     </div>
                   </div>
@@ -167,10 +203,12 @@
                   </div>
                 </div>
                 <div class="progress progress-sm">
-                  <div class="progress-bar"
+                  <div
+                    class="progress-bar"
                     :class="getResourceBarClass(overview?.system?.cpu?.usage_percent ? parseFloat(overview.system.cpu.usage_percent) : undefined)"
                     :style="{ width: (overview?.system?.cpu?.usage_percent || '0') + '%' }"
-                    role="progressbar"></div>
+                    role="progressbar"
+                  />
                 </div>
               </div>
             </div>
@@ -187,8 +225,12 @@
                   </span>
                 </div>
                 <div class="col">
-                  <h3 class="card-title mb-1">Error Trends</h3>
-                  <div class="text-muted">Historical error patterns</div>
+                  <h3 class="card-title mb-1">
+                    Error Trends
+                  </h3>
+                  <div class="text-muted">
+                    Historical error patterns
+                  </div>
                 </div>
               </div>
             </div>
@@ -196,25 +238,46 @@
               <div class="row mb-3">
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:clock-hour-1" class="me-2 text-orange" />
-                    <div class="text-muted small">Last Hour</div>
+                    <Icon
+                      icon="tabler:clock-hour-1"
+                      class="me-2 text-orange"
+                    />
+                    <div class="text-muted small">
+                      Last Hour
+                    </div>
                   </div>
-                  <div class="h2 mb-0 text-orange">{{ overview?.errors?.trends?.lastHour || 0 }}</div>
+                  <div class="h2 mb-0 text-orange">
+                    {{ overview?.errors?.trends?.lastHour || 0 }}
+                  </div>
                 </div>
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:calendar" class="me-2 text-red" />
-                    <div class="text-muted small">Last Day</div>
+                    <Icon
+                      icon="tabler:calendar"
+                      class="me-2 text-red"
+                    />
+                    <div class="text-muted small">
+                      Last Day
+                    </div>
                   </div>
-                  <div class="h2 mb-0 text-red">{{ overview?.errors?.trends?.lastDay || 0 }}</div>
+                  <div class="h2 mb-0 text-red">
+                    {{ overview?.errors?.trends?.lastDay || 0 }}
+                  </div>
                 </div>
               </div>
               <div class="mt-4 pt-3 border-top">
                 <div class="d-flex align-items-center mb-2">
-                  <Icon icon="tabler:activity" class="me-2 text-purple" />
-                  <div class="text-muted">Hourly Rate</div>
+                  <Icon
+                    icon="tabler:activity"
+                    class="me-2 text-purple"
+                  />
+                  <div class="text-muted">
+                    Hourly Rate
+                  </div>
                 </div>
-                <div class="h3 mb-0 text-purple">{{ (overview?.errors?.trends?.hourlyRate || 0).toFixed(1) }} <small class="text-muted">errors/hour</small></div>
+                <div class="h3 mb-0 text-purple">
+                  {{ (overview?.errors?.trends?.hourlyRate || 0).toFixed(1) }} <small class="text-muted">errors/hour</small>
+                </div>
               </div>
             </div>
           </div>
@@ -233,8 +296,12 @@
                   </span>
                 </div>
                 <div class="col">
-                  <h3 class="card-title mb-1">Top Errors</h3>
-                  <div class="text-muted">Most frequent application errors</div>
+                  <h3 class="card-title mb-1">
+                    Top Errors
+                  </h3>
+                  <div class="text-muted">
+                    Most frequent application errors
+                  </div>
                 </div>
               </div>
             </div>
@@ -243,14 +310,24 @@
                 <table class="table table-vcenter card-table table-hover">
                   <thead class="bg-light">
                     <tr>
-                      <th class="w-1">Type</th>
+                      <th class="w-1">
+                        Type
+                      </th>
                       <th>Message</th>
-                      <th class="text-center w-1">Count</th>
-                      <th class="text-center w-1">Last Seen</th>
+                      <th class="text-center w-1">
+                        Count
+                      </th>
+                      <th class="text-center w-1">
+                        Last Seen
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="error in overview?.errors?.topErrors" :key="`${error.type}-${error.code}`" class="border-bottom">
+                    <tr
+                      v-for="error in overview?.errors?.topErrors"
+                      :key="`${error.type}-${error.code}`"
+                      class="border-bottom"
+                    >
                       <td>
                         <div class="d-flex flex-column">
                           <span class="badge bg-red-lt text-red fw-bold">{{ error.type }}</span>
@@ -258,7 +335,11 @@
                         </div>
                       </td>
                       <td>
-                        <div class="text-truncate fw-medium" style="max-width: 350px;" :title="error.message">
+                        <div
+                          class="text-truncate fw-medium"
+                          style="max-width: 350px;"
+                          :title="error.message"
+                        >
                           {{ error.message }}
                         </div>
                       </td>
@@ -267,7 +348,10 @@
                       </td>
                       <td class="text-center">
                         <div class="text-muted small">
-                          <Icon icon="tabler:clock" class="me-1" />
+                          <Icon
+                            icon="tabler:clock"
+                            class="me-1"
+                          />
                           {{ formatTimestamp(error.lastOccurrence) }}
                         </div>
                       </td>
@@ -289,34 +373,74 @@
                   </span>
                 </div>
                 <div class="col">
-                  <h3 class="card-title mb-1">System Alerts</h3>
-                  <div class="text-muted">Active system notifications</div>
+                  <h3 class="card-title mb-1">
+                    System Alerts
+                  </h3>
+                  <div class="text-muted">
+                    Active system notifications
+                  </div>
                 </div>
               </div>
             </div>
             <div class="card-body p-0">
-              <div v-if="!overview?.alerts?.length" class="empty p-4">
+              <div
+                v-if="!overview?.alerts?.length"
+                class="empty p-4"
+              >
                 <div class="empty-icon">
-                  <Icon icon="tabler:check-circle" class="text-success" style="font-size: 2rem;" />
+                  <Icon
+                    icon="tabler:check-circle"
+                    class="text-success"
+                    style="font-size: 2rem;"
+                  />
                 </div>
-                <p class="empty-title">No active alerts</p>
-                <p class="empty-subtitle text-muted">All systems are operating normally</p>
+                <p class="empty-title">
+                  No active alerts
+                </p>
+                <p class="empty-subtitle text-muted">
+                  All systems are operating normally
+                </p>
               </div>
-              <div v-else class="list-group list-group-flush">
-                <div v-for="alert in overview?.alerts" :key="alert.timestamp" 
+              <div
+                v-else
+                class="list-group list-group-flush"
+              >
+                <div
+                  v-for="alert in overview?.alerts"
+                  :key="alert.timestamp" 
                   class="list-group-item d-flex align-items-center"
-                  :class="getAlertClass(alert.level)">
+                  :class="getAlertClass(alert.level)"
+                >
                   <div class="me-3">
-                    <Icon v-if="alert.level === 'critical'" icon="tabler:alert-circle" class="text-danger" />
-                    <Icon v-else-if="alert.level === 'warning'" icon="tabler:alert-triangle" class="text-warning" />
-                    <Icon v-else icon="tabler:info-circle" class="text-info" />
+                    <Icon
+                      v-if="alert.level === 'critical'"
+                      icon="tabler:alert-circle"
+                      class="text-danger"
+                    />
+                    <Icon
+                      v-else-if="alert.level === 'warning'"
+                      icon="tabler:alert-triangle"
+                      class="text-warning"
+                    />
+                    <Icon
+                      v-else
+                      icon="tabler:info-circle"
+                      class="text-info"
+                    />
                   </div>
                   <div class="flex-fill">
-                    <div class="fw-medium">{{ alert.type.replace('_', ' ').toUpperCase() }}</div>
-                    <div class="text-muted small">{{ alert.message }}</div>
+                    <div class="fw-medium">
+                      {{ alert.type.replace('_', ' ').toUpperCase() }}
+                    </div>
+                    <div class="text-muted small">
+                      {{ alert.message }}
+                    </div>
                   </div>
                   <div class="text-muted small text-end">
-                    <Icon icon="tabler:clock" class="me-1" />
+                    <Icon
+                      icon="tabler:clock"
+                      class="me-1"
+                    />
                     {{ formatTimestamp(alert.timestamp) }}
                   </div>
                 </div>
@@ -338,8 +462,12 @@
                   </span>
                 </div>
                 <div class="col">
-                  <h3 class="card-title mb-1">Database Status</h3>
-                  <div class="text-muted">Database performance metrics</div>
+                  <h3 class="card-title mb-1">
+                    Database Status
+                  </h3>
+                  <div class="text-muted">
+                    Database performance metrics
+                  </div>
                 </div>
               </div>
             </div>
@@ -347,35 +475,64 @@
               <div class="row mb-3">
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:heart-handshake" class="me-2 text-teal" />
-                    <div class="text-muted small">Status</div>
+                    <Icon
+                      icon="tabler:heart-handshake"
+                      class="me-2 text-teal"
+                    />
+                    <div class="text-muted small">
+                      Status
+                    </div>
                   </div>
-                  <div class="badge fs-6" :class="getServiceStatusBadge(overview?.database?.status)">
+                  <div
+                    class="badge fs-6"
+                    :class="getServiceStatusBadge(overview?.database?.status)"
+                  >
                     {{ overview?.database?.status || 'Unknown' }}
                   </div>
                 </div>
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:search" class="me-2 text-blue" />
-                    <div class="text-muted small">Total Queries</div>
+                    <Icon
+                      icon="tabler:search"
+                      class="me-2 text-blue"
+                    />
+                    <div class="text-muted small">
+                      Total Queries
+                    </div>
                   </div>
-                  <div class="h3 mb-0 text-blue">{{ (overview?.database?.total_queries || 0).toLocaleString() }}</div>
+                  <div class="h3 mb-0 text-blue">
+                    {{ (overview?.database?.total_queries || 0).toLocaleString() }}
+                  </div>
                 </div>
               </div>
               <div class="row">
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:exclamation-circle" class="me-2 text-red" />
-                    <div class="text-muted small">Query Errors</div>
+                    <Icon
+                      icon="tabler:exclamation-circle"
+                      class="me-2 text-red"
+                    />
+                    <div class="text-muted small">
+                      Query Errors
+                    </div>
                   </div>
-                  <div class="h3 mb-0 text-red">{{ overview?.database?.query_errors || 0 }}</div>
+                  <div class="h3 mb-0 text-red">
+                    {{ overview?.database?.query_errors || 0 }}
+                  </div>
                 </div>
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:clock-pause" class="me-2 text-orange" />
-                    <div class="text-muted small">Slow Queries</div>
+                    <Icon
+                      icon="tabler:clock-pause"
+                      class="me-2 text-orange"
+                    />
+                    <div class="text-muted small">
+                      Slow Queries
+                    </div>
                   </div>
-                  <div class="h3 mb-0 text-orange">{{ overview?.database?.slow_queries || 0 }}</div>
+                  <div class="h3 mb-0 text-orange">
+                    {{ overview?.database?.slow_queries || 0 }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -392,8 +549,12 @@
                   </span>
                 </div>
                 <div class="col">
-                  <h3 class="card-title mb-1">Cache Status</h3>
-                  <div class="text-muted">Redis cache performance</div>
+                  <h3 class="card-title mb-1">
+                    Cache Status
+                  </h3>
+                  <div class="text-muted">
+                    Redis cache performance
+                  </div>
                 </div>
               </div>
             </div>
@@ -401,35 +562,64 @@
               <div class="row mb-3">
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:heart-handshake" class="me-2 text-purple" />
-                    <div class="text-muted small">Status</div>
+                    <Icon
+                      icon="tabler:heart-handshake"
+                      class="me-2 text-purple"
+                    />
+                    <div class="text-muted small">
+                      Status
+                    </div>
                   </div>
-                  <div class="badge fs-6" :class="getServiceStatusBadge(overview?.cache?.status)">
+                  <div
+                    class="badge fs-6"
+                    :class="getServiceStatusBadge(overview?.cache?.status)"
+                  >
                     {{ overview?.cache?.status || 'Unknown' }}
                   </div>
                 </div>
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:target" class="me-2 text-green" />
-                    <div class="text-muted small">Hit Rate</div>
+                    <Icon
+                      icon="tabler:target"
+                      class="me-2 text-green"
+                    />
+                    <div class="text-muted small">
+                      Hit Rate
+                    </div>
                   </div>
-                  <div class="h3 mb-0 text-green">{{ overview?.cache?.hit_rate || 0 }}<small class="text-muted">%</small></div>
+                  <div class="h3 mb-0 text-green">
+                    {{ overview?.cache?.hit_rate || 0 }}<small class="text-muted">%</small>
+                  </div>
                 </div>
               </div>
               <div class="row">
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:check" class="me-2 text-teal" />
-                    <div class="text-muted small">Hits</div>
+                    <Icon
+                      icon="tabler:check"
+                      class="me-2 text-teal"
+                    />
+                    <div class="text-muted small">
+                      Hits
+                    </div>
                   </div>
-                  <div class="h3 mb-0 text-teal">{{ (overview?.cache?.hits || 0).toLocaleString() }}</div>
+                  <div class="h3 mb-0 text-teal">
+                    {{ (overview?.cache?.hits || 0).toLocaleString() }}
+                  </div>
                 </div>
                 <div class="col-6">
                   <div class="d-flex align-items-center mb-2">
-                    <Icon icon="tabler:x" class="me-2 text-red" />
-                    <div class="text-muted small">Misses</div>
+                    <Icon
+                      icon="tabler:x"
+                      class="me-2 text-red"
+                    />
+                    <div class="text-muted small">
+                      Misses
+                    </div>
                   </div>
-                  <div class="h3 mb-0 text-red">{{ (overview?.cache?.misses || 0).toLocaleString() }}</div>
+                  <div class="h3 mb-0 text-red">
+                    {{ (overview?.cache?.misses || 0).toLocaleString() }}
+                  </div>
                 </div>
               </div>
             </div>

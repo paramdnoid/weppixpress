@@ -6,8 +6,16 @@
     v-bind="$attrs"
     @click="handleClick"
   >
-    <Icon v-if="loading" name="mdi:loading" class="animate-spin me-2" />
-    <Icon v-else-if="icon" :name="icon" :class="iconClasses" />
+    <Icon
+      v-if="loading"
+      name="mdi:loading"
+      class="animate-spin me-2"
+    />
+    <Icon
+      v-else-if="icon"
+      :name="icon"
+      :class="iconClasses"
+    />
     <slot />
   </component>
 </template>

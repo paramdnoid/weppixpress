@@ -4,44 +4,77 @@
       <div class="page-header d-print-none">
         <div class="row align-items-center">
           <div class="col">
-            <h2 class="page-title">User Management</h2>
-            <div class="text-muted mt-1">Manage users and assign admin privileges</div>
+            <h2 class="page-title">
+              User Management
+            </h2>
+            <div class="text-muted mt-1">
+              Manage users and assign admin privileges
+            </div>
           </div>
           <div class="col-auto ms-auto d-print-none">
-            <button class="btn btn-primary" @click="refreshUsers" :disabled="isLoading">
-              <Icon icon="tabler:refresh" class="me-1" />
+            <button
+              class="btn btn-primary"
+              :disabled="isLoading"
+              @click="refreshUsers"
+            >
+              <Icon
+                icon="tabler:refresh"
+                class="me-1"
+              />
               {{ isLoading ? 'Loading...' : 'Refresh' }}
             </button>
           </div>
         </div>
       </div>
 
-      <div v-if="error" class="alert alert-danger">
+      <div
+        v-if="error"
+        class="alert alert-danger"
+      >
         {{ error }}
       </div>
 
-      <div v-if="successMessage" class="alert alert-success">
+      <div
+        v-if="successMessage"
+        class="alert alert-success"
+      >
         {{ successMessage }}
       </div>
 
       <!-- Users Table -->
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">All Users</h3>
+          <h3 class="card-title">
+            All Users
+          </h3>
           <div class="card-options">
-            <div class="badge bg-blue">{{ users.length }} total users</div>
+            <div class="badge bg-blue">
+              {{ users.length }} total users
+            </div>
           </div>
         </div>
         <div class="card-body p-0">
-          <div v-if="isLoading" class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
+          <div
+            v-if="isLoading"
+            class="text-center py-4"
+          >
+            <div
+              class="spinner-border text-primary"
+              role="status"
+            >
               <span class="visually-hidden">Loading...</span>
             </div>
           </div>
-          <div v-else-if="!users.length" class="text-center py-4 text-muted">
+          <div
+            v-else-if="!users.length"
+            class="text-center py-4 text-muted"
+          >
             No users found
           </div>
-          <div v-else class="table-responsive">
+          <div
+            v-else
+            class="table-responsive"
+          >
             <table class="table table-vcenter card-table">
               <thead>
                 <tr>
@@ -54,7 +87,10 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="user in users" :key="user.id">
+                <tr
+                  v-for="user in users"
+                  :key="user.id"
+                >
                   <td>
                     <div class="d-flex align-items-center">
                       <span class="avatar avatar-sm rounded me-2">
@@ -67,13 +103,22 @@
                   </td>
                   <td>{{ user.email }}</td>
                   <td>
-                    <span class="badge" :class="user.isVerified ? 'bg-success' : 'bg-warning'">
+                    <span
+                      class="badge"
+                      :class="user.isVerified ? 'bg-success' : 'bg-warning'"
+                    >
                       {{ user.isVerified ? 'Verified' : 'Pending' }}
                     </span>
                   </td>
                   <td>
-                    <span class="badge" :class="getRoleBadgeClass(user.role)">
-                      <Icon :icon="getRoleIcon(user.role)" class="me-1" />
+                    <span
+                      class="badge"
+                      :class="getRoleBadgeClass(user.role)"
+                    >
+                      <Icon
+                        :icon="getRoleIcon(user.role)"
+                        class="me-1"
+                      />
                       {{ user.role.charAt(0).toUpperCase() + user.role.slice(1) }}
                     </span>
                   </td>
@@ -83,28 +128,37 @@
                   <td>
                     <div class="btn-list">
                       <div class="dropdown">
-                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" 
-                                data-bs-toggle="dropdown" :disabled="isUpdating">
+                        <button
+                          class="btn btn-outline-secondary btn-sm dropdown-toggle" 
+                          data-bs-toggle="dropdown"
+                          :disabled="isUpdating"
+                        >
                           Actions
                         </button>
                         <div class="dropdown-menu">
                           <template v-if="user.role === 'user'">
                             <button 
                               class="dropdown-item text-success"
-                              @click="makeAdmin(user)"
                               :disabled="isUpdating"
+                              @click="makeAdmin(user)"
                             >
-                              <Icon icon="tabler:shield-check" class="me-2" />
+                              <Icon
+                                icon="tabler:shield-check"
+                                class="me-2"
+                              />
                               Make Admin
                             </button>
                           </template>
                           <template v-else>
                             <button 
                               class="dropdown-item text-warning"
-                              @click="removeAdmin(user)"
                               :disabled="isUpdating || isCurrentUser(user.id)"
+                              @click="removeAdmin(user)"
                             >
-                              <Icon icon="tabler:shield-x" class="me-2" />
+                              <Icon
+                                icon="tabler:shield-x"
+                                class="me-2"
+                              />
                               Remove Admin
                             </button>
                           </template>
@@ -124,27 +178,51 @@
         <div class="col-md-4">
           <div class="card">
             <div class="card-body text-center">
-              <div class="text-muted mb-1">Total Users</div>
-              <div class="h1 mb-1">{{ users.length }}</div>
-              <Icon icon="tabler:users" class="text-blue" size="24" />
+              <div class="text-muted mb-1">
+                Total Users
+              </div>
+              <div class="h1 mb-1">
+                {{ users.length }}
+              </div>
+              <Icon
+                icon="tabler:users"
+                class="text-blue"
+                size="24"
+              />
             </div>
           </div>
         </div>
         <div class="col-md-4">
           <div class="card">
             <div class="card-body text-center">
-              <div class="text-muted mb-1">Admin Users</div>
-              <div class="h1 mb-1">{{ adminCount }}</div>
-              <Icon icon="tabler:shield-check" class="text-success" size="24" />
+              <div class="text-muted mb-1">
+                Admin Users
+              </div>
+              <div class="h1 mb-1">
+                {{ adminCount }}
+              </div>
+              <Icon
+                icon="tabler:shield-check"
+                class="text-success"
+                size="24"
+              />
             </div>
           </div>
         </div>
         <div class="col-md-4">
           <div class="card">
             <div class="card-body text-center">
-              <div class="text-muted mb-1">Verified Users</div>
-              <div class="h1 mb-1">{{ verifiedCount }}</div>
-              <Icon icon="tabler:check-circle" class="text-green" size="24" />
+              <div class="text-muted mb-1">
+                Verified Users
+              </div>
+              <div class="h1 mb-1">
+                {{ verifiedCount }}
+              </div>
+              <Icon
+                icon="tabler:check-circle"
+                class="text-green"
+                size="24"
+              />
             </div>
           </div>
         </div>

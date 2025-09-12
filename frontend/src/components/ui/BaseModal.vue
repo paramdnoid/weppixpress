@@ -1,37 +1,58 @@
 <template>
-  <div v-if="isVisible" class="modal modal-blur fade show" :class="{ 'modal-fullscreen': fullscreen }" style="display: block;" @click="handleBackdropClick">
-    <div class="modal-dialog" :class="modalClasses" @click.stop>
+  <div
+    v-if="isVisible"
+    class="modal modal-blur fade show"
+    :class="{ 'modal-fullscreen': fullscreen }"
+    style="display: block;"
+    @click="handleBackdropClick"
+  >
+    <div
+      class="modal-dialog"
+      :class="modalClasses"
+      @click.stop
+    >
       <div class="modal-content">
-        <div class="modal-header" v-if="!hideHeader">
+        <div
+          v-if="!hideHeader"
+          class="modal-header"
+        >
           <h4 class="modal-title">
-            <slot name="title">{{ title }}</slot>
+            <slot name="title">
+              {{ title }}
+            </slot>
           </h4>
           <button 
             v-if="!hideClose"
             type="button" 
             class="btn-close" 
-            @click="handleClose"
             :disabled="loading"
-          ></button>
+            @click="handleClose"
+          />
         </div>
         
-        <div class="modal-body" :class="{ 'p-0': noPadding }">
+        <div
+          class="modal-body"
+          :class="{ 'p-0': noPadding }"
+        >
           <slot />
         </div>
         
-        <div class="modal-footer" v-if="!hideFooter">
+        <div
+          v-if="!hideFooter"
+          class="modal-footer"
+        >
           <slot name="footer">
             <BaseButton 
               variant="secondary" 
-              @click="handleClose"
               :disabled="loading"
+              @click="handleClose"
             >
               Cancel
             </BaseButton>
             <BaseButton 
               :variant="confirmVariant"
-              @click="handleConfirm"
               :loading="loading"
+              @click="handleConfirm"
             >
               {{ confirmText }}
             </BaseButton>

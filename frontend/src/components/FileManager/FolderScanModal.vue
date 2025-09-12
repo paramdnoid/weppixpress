@@ -1,17 +1,31 @@
 <template>
   <!-- Toast Container bottom-right -->
-  <div v-if="isVisible" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 2100">
-    <div class="toast show shadow-sm scan-toast" role="alert" aria-live="assertive" aria-atomic="true">
+  <div
+    v-if="isVisible"
+    class="toast-container position-fixed bottom-0 end-0 p-3"
+    style="z-index: 2100"
+  >
+    <div
+      class="toast show shadow-sm scan-toast"
+      role="alert"
+      aria-live="assertive"
+      aria-atomic="true"
+    >
       <div class="toast-header d-flex align-items-center">
-        <Icon icon="mdi:folder-search" width="20" height="20" class="me-2 text-primary" />
+        <Icon
+          icon="mdi:folder-search"
+          width="20"
+          height="20"
+          class="me-2 text-primary"
+        />
         <strong class="me-auto">Scanning folder</strong>
         <small class="text-muted">{{ percentage }}%</small>
         <button
           type="button"
           class="btn-close ms-2"
           aria-label="Close"
-          @click="onCancel"
           :disabled="percentage === 100"
+          @click="onCancel"
         />
       </div>
 
@@ -19,23 +33,35 @@
         <div class="scan-info mb-2">
           <div class="info-row">
             <span class="label">Current</span>
-            <span class="value text-truncate" :title="currentPath">{{ currentPath || 'Preparing…' }}</span>
+            <span
+              class="value text-truncate"
+              :title="currentPath"
+            >{{ currentPath || 'Preparing…' }}</span>
           </div>
           <div class="info-row">
             <span class="label">Progress</span>
             <span class="value">{{ processedItems }} / {{ totalItems }}</span>
           </div>
-          <div class="info-row" v-if="scanResult">
+          <div
+            v-if="scanResult"
+            class="info-row"
+          >
             <span class="label">Files</span>
             <span class="value">{{ scanResult.totalFiles.toLocaleString() }}</span>
           </div>
-          <div class="info-row" v-if="scanResult">
+          <div
+            v-if="scanResult"
+            class="info-row"
+          >
             <span class="label">Size</span>
             <span class="value">{{ formatFileSize(scanResult.totalSize) }}</span>
           </div>
         </div>
 
-        <div class="progress" aria-label="Scan progress">
+        <div
+          class="progress"
+          aria-label="Scan progress"
+        >
           <div
             class="progress-bar progress-bar-striped progress-bar-animated"
             :class="{ 'bg-success': percentage === 100 }"
@@ -47,8 +73,8 @@
           <button
             type="button"
             class="btn btn-outline-secondary btn-sm"
-            @click="onCancel"
             :disabled="percentage === 100"
+            @click="onCancel"
           >
             {{ percentage === 100 ? 'Cancelled' : 'Cancel' }}
           </button>

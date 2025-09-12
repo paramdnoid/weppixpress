@@ -1,34 +1,49 @@
 <template>
   <!-- Virtual Grid Mode -->
-  <div v-if="virtualizationMode === 'virtual'" class="virtual-grid-container" @scroll="onScroll" :style="{ height: containerHeight + 'px' }">
-    <div class="virtual-grid-spacer" :style="{ height: totalHeight + 'px' }">
-      <div class="virtual-grid-content" :style="{ transform: `translateY(${offsetY}px)` }">
+  <div
+    v-if="virtualizationMode === 'virtual'"
+    class="virtual-grid-container"
+    :style="{ height: containerHeight + 'px' }"
+    @scroll="onScroll"
+  >
+    <div
+      class="virtual-grid-spacer"
+      :style="{ height: totalHeight + 'px' }"
+    >
+      <div
+        class="virtual-grid-content"
+        :style="{ transform: `translateY(${offsetY}px)` }"
+      >
         <FileGridItem
           v-for="(item, index) in visibleItems"
           :key="getItemKey(item)"
           :item="item"
           :index="startIndex + index"
           :is-selected="isSelected(item)"
-          @doubleClick="$emit('itemDoubleClick', item)"
+          @double-click="$emit('itemDoubleClick', item)"
         />
       </div>
     </div>
   </div>
 
   <!-- Optimized Grid Mode (RecycleScroller) -->
-  <div v-else-if="virtualizationMode === 'optimized'" class="optimized-grid" :style="{ height: containerHeight + 'px' }">
+  <div
+    v-else-if="virtualizationMode === 'optimized'"
+    class="optimized-grid"
+    :style="{ height: containerHeight + 'px' }"
+  >
     <RecycleScroller
+      v-slot="{ item, index }"
       class="scroller"
       :items="items"
       :item-size="itemSize"
       key-field="path"
-      v-slot="{ item, index }"
     >
       <FileGridItem
         :item="item"
         :index="index"
         :is-selected="isSelected(item)"
-        @doubleClick="$emit('itemDoubleClick', item)"
+        @double-click="$emit('itemDoubleClick', item)"
       />
     </RecycleScroller>
   </div>
@@ -51,21 +66,35 @@
       :index="index"
       :is-selected="isSelected(item.raw)"
       :tab-index="index === 0 ? 0 : -1"
-      @doubleClick="$emit('itemDoubleClick', item.raw)"
+      @double-click="$emit('itemDoubleClick', item.raw)"
     />
 
     <!-- Empty State -->
-    <div v-if="showEmptyState" class="empty-state col-span-full text-center py-5 text-muted">
-      <Icon icon="tabler:folder-off" class="empty-icon mb-2" />
-      <div v-text="emptyMessage || 'No files or folders found'"></div>
+    <div
+      v-if="showEmptyState"
+      class="empty-state col-span-full text-center py-5 text-muted"
+    >
+      <Icon
+        icon="tabler:folder-off"
+        class="empty-icon mb-2"
+      />
+      <div v-text="emptyMessage || 'No files or folders found'" />
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="loading-state col-span-full text-center py-5">
-      <div class="spinner-border spinner-border-sm mb-2" role="status">
+    <div
+      v-if="loading"
+      class="loading-state col-span-full text-center py-5"
+    >
+      <div
+        class="spinner-border spinner-border-sm mb-2"
+        role="status"
+      >
         <span class="visually-hidden">Loading...</span>
       </div>
-      <div class="text-muted">Loading files...</div>
+      <div class="text-muted">
+        Loading files...
+      </div>
     </div>
 
     <!-- Selection Box -->
@@ -73,7 +102,7 @@
       v-if="isDragging && selectionBox"
       class="selection-box"
       :style="selectionBoxStyle"
-    ></div>
+    />
   </div>
 </template>
 

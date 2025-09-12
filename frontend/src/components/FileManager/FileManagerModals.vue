@@ -2,9 +2,9 @@
   <div>
     <!-- Rename Modal -->
     <div 
-      class="modal fade" 
       id="renameModal" 
       ref="renameModalElement" 
+      class="modal fade" 
       tabindex="-1" 
       aria-labelledby="renameModalLabel"
       aria-hidden="true"
@@ -12,31 +12,50 @@
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="renameModalLabel">
-              <span>Rename </span><span v-text="itemToRename?.name"></span>
+            <h5
+              id="renameModalLabel"
+              class="modal-title"
+            >
+              <span>Rename </span><span v-text="itemToRename?.name" />
             </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" />
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            />
           </div>
           <form @submit.prevent="handleRenameSubmit">
             <div class="modal-body">
               <div class="mb-3">
-                <label for="renameInput" class="form-label">New name</label>
+                <label
+                  for="renameInput"
+                  class="form-label"
+                >New name</label>
                 <input 
-                  ref="renameInputElement" 
-                  type="text" 
-                  class="form-control" 
                   id="renameInput" 
-                  v-model="fileName"
+                  ref="renameInputElement" 
+                  v-model="fileName" 
+                  type="text" 
+                  class="form-control"
                   :placeholder="itemToRename?.name" 
                   required 
                   maxlength="255"
                   :class="{ 'is-invalid': renameValidationError }"
+                >
+                <div
+                  v-if="renameValidationError"
+                  class="invalid-feedback"
+                  v-text="renameValidationError"
                 />
-                <div v-if="renameValidationError" class="invalid-feedback" v-text="renameValidationError"></div>
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
                 Cancel
               </button>
               <button 
@@ -44,7 +63,10 @@
                 class="btn btn-primary" 
                 :disabled="!fileName?.trim() || isLoading || !!renameValidationError"
               >
-                <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" />
+                <span
+                  v-if="isLoading"
+                  class="spinner-border spinner-border-sm me-1"
+                />
                 Rename
               </button>
             </div>
@@ -55,10 +77,10 @@
 
     <!-- New Folder Modal -->
     <div 
-      :class="['modal', 'fade', { show: isFolderModalVisible }]"
-      :style="isFolderModalVisible ? 'display: block;' : ''"
-      id="newFolderModal" 
-      ref="folderModalElement" 
+      id="newFolderModal"
+      ref="folderModalElement"
+      :class="['modal', 'fade', { show: isFolderModalVisible }]" 
+      :style="isFolderModalVisible ? 'display: block;' : ''" 
       tabindex="-1" 
       role="dialog"
       aria-labelledby="newFolderModalLabel"
@@ -68,29 +90,50 @@
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="newFolderModalLabel">Create New Folder</h5>
-            <button type="button" class="btn-close" @click="hideNewFolderModal" aria-label="Close" />
+            <h5
+              id="newFolderModalLabel"
+              class="modal-title"
+            >
+              Create New Folder
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              aria-label="Close"
+              @click="hideNewFolderModal"
+            />
           </div>
           <form @submit.prevent="handleFolderSubmit">
             <div class="modal-body">
               <div class="mb-3">
-                <label for="folderNameInput" class="form-label">Folder name</label>
+                <label
+                  for="folderNameInput"
+                  class="form-label"
+                >Folder name</label>
                 <input 
-                  ref="folderInputElement" 
-                  type="text" 
-                  class="form-control" 
                   id="folderNameInput" 
-                  v-model="folderName"
+                  ref="folderInputElement" 
+                  v-model="folderName" 
+                  type="text" 
+                  class="form-control"
                   placeholder="Enter folder name" 
                   required 
                   maxlength="255"
                   :class="{ 'is-invalid': folderValidationError }"
+                >
+                <div
+                  v-if="folderValidationError"
+                  class="invalid-feedback"
+                  v-text="folderValidationError"
                 />
-                <div v-if="folderValidationError" class="invalid-feedback" v-text="folderValidationError"></div>
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" @click="hideNewFolderModal">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                @click="hideNewFolderModal"
+              >
                 Cancel
               </button>
               <button 
@@ -98,7 +141,10 @@
                 class="btn btn-primary" 
                 :disabled="!folderName?.trim() || isFolderSubmitting || !!folderValidationError"
               >
-                <span v-if="isFolderSubmitting" class="spinner-border spinner-border-sm me-1" />
+                <span
+                  v-if="isFolderSubmitting"
+                  class="spinner-border spinner-border-sm me-1"
+                />
                 Create
               </button>
             </div>
@@ -106,7 +152,10 @@
         </div>
       </div>
     </div>
-    <div v-if="isFolderModalVisible" class="modal-backdrop fade show" />
+    <div
+      v-if="isFolderModalVisible"
+      class="modal-backdrop fade show"
+    />
   </div>
 </template>
 

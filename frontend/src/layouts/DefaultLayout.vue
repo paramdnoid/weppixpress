@@ -1,37 +1,67 @@
 <template>
-    <div class="page d-flex flex-column flex-fill">
-        <header class="navbar navbar-expand-md d-print-none d-block pb-0" data-bs-theme="dark">
-            <div class="container-fluid">
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"
-                    aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3 py-0">
-                    <router-link to="/" class="logo d-flex align-items-center text-decoration-none">
-                        <img :src="logo" alt="" class="logo-img" />
-                        <div>
-                            <div class="logo-text ms-2">
-                                <div class="brand-highlight">weppi</div>
-                                <div class="logo-subtext">xpress</div>
-                            </div>
-                            <div class="brand-sub-highlight">technologies</div>
-                        </div>
-                    </router-link>
+  <div class="page d-flex flex-column flex-fill">
+    <header
+      class="navbar navbar-expand-md d-print-none d-block pb-0"
+      data-bs-theme="dark"
+    >
+      <div class="container-fluid">
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbar-menu"
+          aria-controls="navbar-menu"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon" />
+        </button>
+        <div class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3 py-0">
+          <router-link
+            to="/"
+            class="logo d-flex align-items-center text-decoration-none"
+          >
+            <img
+              :src="logo"
+              alt=""
+              class="logo-img"
+            >
+            <div>
+              <div class="logo-text ms-2">
+                <div class="brand-highlight">
+                  weppi
                 </div>
-                <div class="navbar-nav flex-row order-md-last">
-                    <UserDropdown v-if="auth.user" :user="auth.user" @logout="confirmLogout" />
+                <div class="logo-subtext">
+                  xpress
                 </div>
-                <div class="collapse navbar-collapse justify-content-end" id="navbar-menu">
-                    <Navbar />
-                </div>
+              </div>
+              <div class="brand-sub-highlight">
+                technologies
+              </div>
             </div>
-        </header>
-        <div class="page-wrapper">
-            <div class="page-body m-0">
-                <slot />
-            </div>
+          </router-link>
         </div>
+        <div class="navbar-nav flex-row order-md-last">
+          <UserDropdown
+            v-if="auth.user"
+            :user="auth.user"
+            @logout="confirmLogout"
+          />
+        </div>
+        <div
+          id="navbar-menu"
+          class="collapse navbar-collapse justify-content-end"
+        >
+          <Navbar />
+        </div>
+      </div>
+    </header>
+    <div class="page-wrapper">
+      <div class="page-body m-0">
+        <slot />
+      </div>
     </div>
+  </div>
 </template>
 
 <script setup>

@@ -6,27 +6,46 @@
     :style="sidebarStyle"
     :aria-hidden="isCollapsed"
   >
-    <div class="col-docs flex-fill" ref="scrollContainer">
-      <nav id="menu" ref="treeRoot">
-        <nav class="nav nav-vertical" v-for="group in props.treeData" :key="group.id || group.title || Math.random().toString(36)">
-
+    <div
+      ref="scrollContainer"
+      class="col-docs flex-fill"
+    >
+      <nav
+        id="menu"
+        ref="treeRoot"
+      >
+        <nav
+          v-for="group in props.treeData"
+          :key="group.id || group.title || Math.random().toString(36)"
+          class="nav nav-vertical"
+        >
           <!-- Error State -->
-          <div v-if="group.error" class="alert alert-warning m-2">
-            <i class="icon ti ti-alert-triangle"></i>
-            <span v-text="group.error"></span>
+          <div
+            v-if="group.error"
+            class="alert alert-warning m-2"
+          >
+            <i class="icon ti ti-alert-triangle" />
+            <span v-text="group.error" />
           </div>
           
           <!-- Loading State for Root -->
-          <div v-else-if="group.loading && (!group.items || group.items.length === 0)" 
-               class="d-flex justify-content-center p-3">
-            <div class="spinner-border text-primary" role="status">
+          <div
+            v-else-if="group.loading && (!group.items || group.items.length === 0)" 
+            class="d-flex justify-content-center p-3"
+          >
+            <div
+              class="spinner-border text-primary"
+              role="status"
+            >
               <span class="visually-hidden">Loading...</span>
             </div>
           </div>
           
           <!-- Empty State -->
-          <div v-else-if="!group.loading && group.items.length === 0" 
-               class="text-muted text-center p-3">
+          <div
+            v-else-if="!group.loading && group.items.length === 0" 
+            class="text-muted text-center p-3"
+          >
             No files found
           </div>
           
@@ -35,11 +54,11 @@
             v-for="node in group.items" 
             :key="node.path" 
             :node="node" 
-            :selectedPath="props.selectedPath"
-            :loadChildren="props.loadChildren" 
-            :toggleNode="props.toggleNode"
-            @nodeToggle="(event) => emit('nodeToggle', event)" 
-            @selectNode="(path) => emit('nodeSelect', path)"
+            :selected-path="props.selectedPath"
+            :load-children="props.loadChildren" 
+            :toggle-node="props.toggleNode"
+            @node-toggle="(event) => emit('nodeToggle', event)" 
+            @select-node="(path) => emit('nodeSelect', path)"
             @select="(node) => emit('treeUpdate', node.path)"
           />
         </nav>

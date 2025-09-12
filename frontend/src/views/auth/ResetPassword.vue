@@ -12,25 +12,51 @@
       <div class="card-body p-0">
         <div class="px-3 py-3">
           <div class="text-center">
-            <h2 class="mb-0">Neues Passwort setzen</h2>
-            <p class="text-muted mt-2">Gib dein neues Passwort ein und bestätige es.</p>
+            <h2 class="mb-0">
+              Neues Passwort setzen
+            </h2>
+            <p class="text-muted mt-2">
+              Gib dein neues Passwort ein und bestätige es.
+            </p>
           </div>
-          <form @submit.prevent="onReset" :class="{ 'form-disabled': loading }" class="mt-3">
+          <form
+            :class="{ 'form-disabled': loading }"
+            class="mt-3"
+            @submit.prevent="onReset"
+          >
             <div class="form-group mb-3">
-              <PasswordInput v-model="password" id="password" label="Neues Passwort"
-                placeholder="Neues Passwort eingeben" required />
+              <PasswordInput
+                id="password"
+                v-model="password"
+                label="Neues Passwort"
+                placeholder="Neues Passwort eingeben"
+                required
+              />
             </div>
             <div class="form-group mb-3">
-              <PasswordInput v-model="confirmPassword" id="confirmPassword" label="Passwort bestätigen"
-                placeholder="Passwort erneut eingeben" required />
+              <PasswordInput
+                id="confirmPassword"
+                v-model="confirmPassword"
+                label="Passwort bestätigen"
+                placeholder="Passwort erneut eingeben"
+                required
+              />
             </div>
             <div class="text-center">
-              <button type="submit" class="btn btn-primary w-100" :disabled="loading">
+              <button
+                type="submit"
+                class="btn btn-primary w-100"
+                :disabled="loading"
+              >
                 <span v-if="loading">Wird gespeichert...</span>
                 <span v-else>Passwort zurücksetzen</span>
               </button>
-              <div v-if="info">{{ info }} Du wirst weitergeleitet...</div>
-              <div v-if="error">{{ error }}</div>
+              <div v-if="info">
+                {{ info }} Du wirst weitergeleitet...
+              </div>
+              <div v-if="error">
+                {{ error }}
+              </div>
             </div>
           </form>
         </div>

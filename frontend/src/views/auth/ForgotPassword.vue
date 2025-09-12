@@ -12,23 +12,44 @@
       <div class="card-body p-0">
         <div class="px-3 py-3">
           <div class="text-center">
-            <h2 class="mb-0">Passwort vergessen</h2>
-            <p class="text-muted mt-2">Gib deine E-Mail-Adresse ein. Wir senden dir einen Link zum Zurücksetzen.</p>
+            <h2 class="mb-0">
+              Passwort vergessen
+            </h2>
+            <p class="text-muted mt-2">
+              Gib deine E-Mail-Adresse ein. Wir senden dir einen Link zum Zurücksetzen.
+            </p>
           </div>
         </div>
-        <form @submit.prevent="onForgot" :class="{ 'form-disabled': loading }">
+        <form
+          :class="{ 'form-disabled': loading }"
+          @submit.prevent="onForgot"
+        >
           <div class="form-floating mb-3">
-            <input v-model="email" type="email" id="email" class="form-control" placeholder="Deine E-Mail-Adresse"
-              required />
+            <input
+              id="email"
+              v-model="email"
+              type="email"
+              class="form-control"
+              placeholder="Deine E-Mail-Adresse"
+              required
+            >
             <label for="email">E-Mail-Adresse</label>
           </div>
           <div class="text-center">
-            <button type="submit" class="btn btn-primary w-100" :disabled="loading">
+            <button
+              type="submit"
+              class="btn btn-primary w-100"
+              :disabled="loading"
+            >
               <span v-if="loading">Wird gesendet...</span>
               <span v-else>Passwort zurücksetzen</span>
             </button>
-            <div v-if="info">{{ info }}</div>
-            <div v-if="error">{{ error }}</div>
+            <div v-if="info">
+              {{ info }}
+            </div>
+            <div v-if="error">
+              {{ error }}
+            </div>
           </div>
         </form>
       </div>

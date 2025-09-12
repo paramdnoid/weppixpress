@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import api from '@/api/axios'
+import api, { setAuthHandlers } from '@/api/axios'
 
 interface User {
   id: string;
@@ -173,6 +173,21 @@ export const useAuthStore = defineStore('auth', {
   },
 });
 
+// Initialize auth handlers for axios interceptor to avoid circular dependency
+setAuthHandlers({
+  refresh: async () => {
+    const store = useAuthStore()
+    await store.refresh()
+  },
+  logout: async () => {
+    const store = useAuthStore()
+    await store.logout()
+  },
+  getAccessToken: () => {
+    const store = useAuthStore()
+    return store.accessToken
+  }
+})
 
 // Initialize auth headers and validate existing token
 if (localStorage.getItem('accessToken')) {

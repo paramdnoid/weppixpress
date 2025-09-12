@@ -1,10 +1,29 @@
 <template>
-  <div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1060">
-    <div v-for="(toast, i) in toasts" :key="i" class="toast show mb-2" :class="toast.bg" role="alert">
+  <div
+    aria-live="polite"
+    aria-atomic="true"
+    class="position-fixed bottom-0 end-0 p-3"
+    style="z-index: 1060"
+  >
+    <div
+      v-for="(toast, i) in toasts"
+      :key="i"
+      class="toast show mb-2"
+      :class="toast.bg"
+      role="alert"
+    >
       <div class="toast-body d-flex align-items-center">
-        <span class="me-2" v-if="toast.icon" v-html="toast.icon"></span>
+        <span
+          v-if="toast.icon"
+          class="me-2"
+          v-html="toast.icon"
+        />
         {{ toast.message }}
-        <button type="button" class="btn-close ms-auto" @click="remove(i)"></button>
+        <button
+          type="button"
+          class="btn-close ms-auto"
+          @click="remove(i)"
+        />
       </div>
     </div>
   </div>

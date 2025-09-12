@@ -1,72 +1,95 @@
 <template>
-    <div class="auth-layout row g-0 vh-100">
-        <div class="left-auth col-xxl-3 col-lg-4 col-md-5">
-            <div class="d-flex flex-column h-100 py-5 px-4">
-                <div class="text-center text-muted mb-2">
-                    <div class="pb-3">
-                        <slot name="auth-text" />
-                    </div>
-                </div>
-                <div class="my-auto">
-                    <div class="p-3 text-center">
-                        <img src="@/assets/images/logo-dark.svg" alt="" class="img-fluid w-75">
-                    </div>
-                </div>
-                <div class="mt-4 mt-md-5 text-center">
-                    <p class="mb-2">
-                        &copy; {{ currentYear }} Weppi®Technologies.
-                    </p>
-                </div>
-            </div>
+  <div class="auth-layout row g-0 vh-100">
+    <div class="left-auth col-xxl-3 col-lg-4 col-md-5">
+      <div class="d-flex flex-column h-100 py-5 px-4">
+        <div class="text-center text-muted mb-2">
+          <div class="pb-3">
+            <slot name="auth-text" />
+          </div>
         </div>
-        <div class="col-xxl-9 col-lg-8 col-md-7">
-            <div class="body-bg clip bg-light py-md-5 p-4 d-flex h-100">
-                <div class="row justify-content-center g-0 align-items-start align-items-md-center w-100 position-relative">
-                    <div class="col-xl-5 col-lg-8">
-                        <div class="frm-auth-logo pb-5 text-center">
-                            <img src="@/assets/images/logo-light.svg" alt="" class="img-fluid">
-                        </div>
-                        <div class="card">
-                            <div class="card-body p-0">
-                                <div class="px-3 py-3">
-                                    <slot />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="position-absolute bottom-0 start-0 end-0">
-                        <ul class="navbar-nav d-flex flex-row align-items-center justify-content-center">
-                            <li class="nav-item p-0 pe-2">
-                                <a href="/pricing" class="nav-link text-white-50">
-                                    Preise
-                                </a>
-                            </li>
-                            <li class="nav-item p-0 px-2">
-                                <a href="/terms/conditions" class="nav-link text-white-50">
-                                    AGB
-                                </a>
-                            </li>
-                            <li class="nav-item p-0 px-2">
-                                <a href="/terms/privacy" class="nav-link text-white-50">
-                                    Datenschutz
-                                </a>
-                            </li>
-                            <li class="nav-item p-0 px-2">
-                                <a href="/terms/impressum" class="nav-link text-white-50">
-                                    Impressum
-                                </a>
-                            </li>
-                            <li class="nav-item p-0 px-2">
-                                <a href="/terms/contact" class="nav-link text-white-50">
-                                    Kontakt
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
+        <div class="my-auto">
+          <div class="p-3 text-center">
+            <img
+              src="@/assets/images/logo-dark.svg"
+              alt=""
+              class="img-fluid w-75"
+            >
+          </div>
         </div>
+        <div class="mt-4 mt-md-5 text-center">
+          <p class="mb-2">
+            &copy; {{ currentYear }} Weppi®Technologies.
+          </p>
+        </div>
+      </div>
     </div>
+    <div class="col-xxl-9 col-lg-8 col-md-7">
+      <div class="body-bg clip bg-light py-md-5 p-4 d-flex h-100">
+        <div class="row justify-content-center g-0 align-items-start align-items-md-center w-100 position-relative">
+          <div class="col-xl-5 col-lg-8">
+            <div class="frm-auth-logo pb-5 text-center">
+              <img
+                src="@/assets/images/logo-light.svg"
+                alt=""
+                class="img-fluid"
+              >
+            </div>
+            <div class="card">
+              <div class="card-body p-0">
+                <div class="px-3 py-3">
+                  <slot />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="position-absolute bottom-0 start-0 end-0">
+            <ul class="navbar-nav d-flex flex-row align-items-center justify-content-center">
+              <li class="nav-item p-0 pe-2">
+                <a
+                  href="/pricing"
+                  class="nav-link text-white-50"
+                >
+                  Preise
+                </a>
+              </li>
+              <li class="nav-item p-0 px-2">
+                <a
+                  href="/terms/conditions"
+                  class="nav-link text-white-50"
+                >
+                  AGB
+                </a>
+              </li>
+              <li class="nav-item p-0 px-2">
+                <a
+                  href="/terms/privacy"
+                  class="nav-link text-white-50"
+                >
+                  Datenschutz
+                </a>
+              </li>
+              <li class="nav-item p-0 px-2">
+                <a
+                  href="/terms/impressum"
+                  class="nav-link text-white-50"
+                >
+                  Impressum
+                </a>
+              </li>
+              <li class="nav-item p-0 px-2">
+                <a
+                  href="/terms/contact"
+                  class="nav-link text-white-50"
+                >
+                  Kontakt
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>

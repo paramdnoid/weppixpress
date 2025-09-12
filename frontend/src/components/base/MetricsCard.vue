@@ -1,48 +1,82 @@
 <template>
-  <div class="card" :class="cardClass">
+  <div
+    class="card"
+    :class="cardClass"
+  >
     <div class="card-body">
       <div class="d-flex align-items-center">
-        <div class="subheader">{{ title }}</div>
+        <div class="subheader">
+          {{ title }}
+        </div>
         <div class="ms-auto">
-          <Icon :icon="icon" :class="iconClass" />
+          <Icon
+            :icon="icon"
+            :class="iconClass"
+          />
         </div>
       </div>
       <div class="d-flex align-items-baseline">
-        <div class="h1 mb-0 me-2" :class="valueClass">{{ formattedValue }}</div>
-        <div v-if="trend !== undefined" class="me-auto">
+        <div
+          class="h1 mb-0 me-2"
+          :class="valueClass"
+        >
+          {{ formattedValue }}
+        </div>
+        <div
+          v-if="trend !== undefined"
+          class="me-auto"
+        >
           <span 
             class="text-small d-inline-flex align-items-center"
             :class="trendClass"
           >
-            <Icon :icon="trendIcon" class="me-1" />
+            <Icon
+              :icon="trendIcon"
+              class="me-1"
+            />
             {{ Math.abs(trend) }}%
           </span>
         </div>
       </div>
-      <div v-if="subtitle" class="text-muted">{{ subtitle }}</div>
+      <div
+        v-if="subtitle"
+        class="text-muted"
+      >
+        {{ subtitle }}
+      </div>
       
       <!-- Mini sparkline chart -->
-      <div v-if="sparklineData && sparklineData.length > 1" class="mt-3">
+      <div
+        v-if="sparklineData && sparklineData.length > 1"
+        class="mt-3"
+      >
         <canvas 
           ref="sparklineCanvas" 
           width="200" 
           height="40"
           class="sparkline"
-        ></canvas>
+        />
       </div>
       
       <!-- Progress bar for percentage values -->
-      <div v-if="showProgress && percentage !== undefined" class="mt-3">
+      <div
+        v-if="showProgress && percentage !== undefined"
+        class="mt-3"
+      >
         <div class="row">
-          <div class="col">{{ progressLabel }}</div>
-          <div class="col-auto">{{ percentage.toFixed(1) }}%</div>
+          <div class="col">
+            {{ progressLabel }}
+          </div>
+          <div class="col-auto">
+            {{ percentage.toFixed(1) }}%
+          </div>
         </div>
         <div class="progress progress-sm">
           <div 
             class="progress-bar"
             :class="progressBarClass"
             :style="{ width: percentage + '%' }"
-          ></div>
+          />
         </div>
       </div>
     </div>
