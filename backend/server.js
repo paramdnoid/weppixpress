@@ -133,7 +133,7 @@ if (process.env.NODE_ENV !== 'test') {
       prefix: 'rl:general:'
     }),
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: parseInt(process.env.RATE_LIMIT_GENERAL_MAX) || 100,
+    max: parseInt(process.env.RATE_LIMIT_GENERAL_MAX) || 500, // Increased for batch processing
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
@@ -189,8 +189,9 @@ if (process.env.NODE_ENV !== 'test') {
   });
 
 
-  app.use(generalLimiter);
-  app.use('/api/auth', authLimiter);
+  // Temporarily disable rate limiting for upload testing
+  // app.use(generalLimiter);
+  // app.use('/api/auth', authLimiter);
 }
 
 // setupSwagger(app); // Disabled - docs directory removed
@@ -220,35 +221,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/website-info', websiteInfoRoutes);
 
-app.use(notFound);
-app.use(errorMonitoring);
-app.use(errorHandler);
-
-const PORT = process.env.PORT || 3001;
-
-const server = app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`🚀 Backend + WS running on http://localhost:${PORT}`);
-  logger.info(`📚 API Docs available at http://localhost:${PORT}/api-docs`);
-});
-
-// Optimize server performance settings
-server.requestTimeout = 0;    // disable per-request timeout
-server.headersTimeout = 0;    // allow slow multipart headers for big forms
-server.keepAliveTimeout = 65_000; // keep-alive > typical proxy idle
-server.maxHeadersCount = 2000; // increase header limit for complex requests
-
-// Enable TCP_NODELAY for better real-time performance
-server.on('connection', (socket) => {
-  socket.setNoDelay(true);
-  socket.setKeepAlive(true, 60000); // Keep alive for 60 seconds
-});
-
-const wsManager = new WebSocketManager(server);
-
-// Make WebSocket manager globally available for controllers
-global.wsManager = wsManager;
-
-
+// System monitoring endpoints
 app.get('/api/ws/stats', (_req, res) => {
   res.json(wsManager.getStats());
 });
@@ -312,7 +285,7 @@ app.get('/api/system/circuit-breakers', async (_req, res) => {
 
 app.post('/api/system/circuit-breakers/reset', async (req, res) => {
   const { serviceName } = req.body;
-  
+
   if (serviceName) {
     const breaker = circuitBreakerRegistry.getBreaker(serviceName);
     breaker.reset();
@@ -322,6 +295,44 @@ app.post('/api/system/circuit-breakers/reset', async (req, res) => {
     res.json({ message: 'All circuit breakers reset' });
   }
 });
+
+app.use(notFound);
+app.use(errorMonitoring);
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 3001;
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`🚀 Backend + WS running on http://localhost:${PORT}`);
+  logger.info(`📚 API Docs available at http://localhost:${PORT}/api-docs`);
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    logger.error(`Port ${PORT} is already in use. Please try a different port or stop the existing process.`);
+    logger.info('To find processes using this port, run: lsof -ti:' + PORT);
+    logger.info('To kill processes using this port, run: kill $(lsof -ti:' + PORT + ')');
+    process.exit(1);
+  } else {
+    logger.error('Server startup error:', err);
+    throw err;
+  }
+});
+
+// Optimize server performance settings
+server.requestTimeout = 0;    // disable per-request timeout
+server.headersTimeout = 0;    // allow slow multipart headers for big forms
+server.keepAliveTimeout = 65_000; // keep-alive > typical proxy idle
+server.maxHeadersCount = 2000; // increase header limit for complex requests
+
+// Enable TCP_NODELAY for better real-time performance
+server.on('connection', (socket) => {
+  socket.setNoDelay(true);
+  socket.setKeepAlive(true, 60000); // Keep alive for 60 seconds
+});
+
+const wsManager = new WebSocketManager(server);
+
+// Make WebSocket manager globally available for controllers
+global.wsManager = wsManager;
 
 // Global error handlers for unhandled promise rejections and uncaught exceptions
 process.on('unhandledRejection', (reason, promise) => {

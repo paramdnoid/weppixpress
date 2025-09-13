@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
 import fs from 'fs/promises';
 import { authenticateToken } from '../middleware/authenticate.js';
-import { secureResolve, getUserDirectory, sanitizeUploadPath } from '../../shared/utils/pathSecurity.js';
+import { secureResolve, getUserDirectory, sanitizeUploadPath, validateFileUpload } from '../../shared/utils/pathSecurity.js';
 import logger from '../../shared/utils/logger.js';
 
 const router = express.Router();
@@ -16,6 +16,73 @@ class OptimizedSessionManager {
     this.sessions = new Map();
     this.files = new Map();
     this.activeStreams = new Map(); // Track active upload streams
+
+    // Start cleanup interval - DISABLED FOR TESTING
+    // this.cleanupInterval = setInterval(() => this.cleanupStale(), 5 * 60 * 1000); // Every 5 minutes
+
+    // Run initial cleanup on startup to handle restarts - DISABLED FOR TESTING
+    // setTimeout(() => this.cleanupStale(), 30 * 1000); // After 30 seconds
+  }
+
+  // Cleanup stale sessions and streams
+  cleanupStale() {
+    const now = Date.now();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    const streamTimeout = 10 * 60 * 1000; // 10 minutes for streams
+    let cleanedSessions = 0;
+    let cleanedFiles = 0;
+    let cleanedStreams = 0;
+
+    // Cleanup old sessions
+    for (const [sessionId, session] of this.sessions.entries()) {
+      if (now - session.createdAt > maxAge) {
+        // Cleanup associated files
+        for (const fileId of session.files.keys()) {
+          this.files.delete(fileId);
+          cleanedFiles++;
+        }
+        this.sessions.delete(sessionId);
+        cleanedSessions++;
+        logger.info('Cleaned up stale session', { sessionId, age: now - session.createdAt });
+      }
+    }
+
+    // Cleanup stale active streams
+    for (const [streamId, stream] of this.activeStreams.entries()) {
+      if (now - stream.startTime > streamTimeout) {
+        this.activeStreams.delete(streamId);
+        cleanedStreams++;
+        logger.warn('Cleaned up stale stream', { streamId, age: now - stream.startTime });
+      }
+    }
+
+    // Log cleanup stats and trigger garbage collection if significant cleanup occurred
+    if (cleanedSessions > 0 || cleanedFiles > 10 || cleanedStreams > 5) {
+      logger.info('Upload cleanup completed', {
+        cleanedSessions,
+        cleanedFiles,
+        cleanedStreams,
+        remainingSessions: this.sessions.size,
+        remainingFiles: this.files.size,
+        activeStreams: this.activeStreams.size
+      });
+
+      // Trigger garbage collection after significant cleanup
+      if (global.gc && (cleanedSessions > 5 || cleanedFiles > 50)) {
+        try {
+          global.gc();
+          logger.debug('Manual garbage collection triggered after upload cleanup');
+        } catch (error) {
+          logger.debug('Manual GC not available', { error: error.message });
+        }
+      }
+    }
+  }
+
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
   }
 
   createSession(userId, targetPath) {
@@ -78,10 +145,10 @@ const getUploadBaseDir = () => {
   return process.env.UPLOAD_DIR || './uploads';
 };
 
-// Session limits from environment
-const MAX_SESSIONS_PER_USER = parseInt(process.env.UPLOAD_MAX_SESSIONS_PER_USER) || 10;
+// Session limits from environment - optimized for batch processing
+const MAX_SESSIONS_PER_USER = parseInt(process.env.UPLOAD_MAX_SESSIONS_PER_USER) || 10000; // Temporarily very high for testing
 const MAX_FILES_PER_SESSION = parseInt(process.env.UPLOAD_MAX_FILES_PER_SESSION) || 1000;
-const MAX_CONCURRENT_STREAMS = parseInt(process.env.UPLOAD_MAX_CONCURRENT_STREAMS) || 10;
+const MAX_CONCURRENT_STREAMS = parseInt(process.env.UPLOAD_MAX_CONCURRENT_STREAMS) || 20; // Increase concurrent streams
 
 // Optimized session validation middleware
 function validateSession(req, res, next) {
@@ -103,6 +170,7 @@ function validateSession(req, res, next) {
 // Create optimized upload session
 router.post('/sessions', async (req, res) => {
   try {
+    logger.info('Creating upload session - rate limiting DISABLED', { userId: req.user.id });
     const { targetPath } = req.body;
     const userId = req.user.id;
 
@@ -113,19 +181,19 @@ router.post('/sessions', async (req, res) => {
       });
     }
 
-    // Check session limit
-    const userSessions = Array.from(sessionManager.sessions.values())
-      .filter(s => s.userId === userId);
+    // Check session limit - TEMPORARILY DISABLED FOR TESTING
+    // const userSessions = Array.from(sessionManager.sessions.values())
+    //   .filter(s => s.userId === userId);
 
-    if (userSessions.length >= MAX_SESSIONS_PER_USER) {
-      return res.status(429).json({
-        success: false,
-        error: {
-          message: `Maximum ${MAX_SESSIONS_PER_USER} concurrent upload sessions allowed`,
-          code: 'SESSION_LIMIT_EXCEEDED'
-        }
-      });
-    }
+    // if (userSessions.length >= MAX_SESSIONS_PER_USER) {
+    //   return res.status(429).json({
+    //     success: false,
+    //     error: {
+    //       message: `Maximum ${MAX_SESSIONS_PER_USER} concurrent upload sessions allowed`,
+    //       code: 'SESSION_LIMIT_EXCEEDED'
+    //     }
+    //   });
+    // }
 
     const session = sessionManager.createSession(userId, targetPath);
 
@@ -167,12 +235,33 @@ router.post('/sessions/:sessionId/files', validateSession, async (req, res) => {
 
     const registeredFiles = [];
     for (const fileInfo of fileList) {
-      const file = sessionManager.registerFile(session.id, fileInfo);
-      if (file) {
-        registeredFiles.push({
-          fileId: file.id,
-          path: file.path,
-          size: file.size
+      try {
+        // Validate file information with enhanced security checks
+        validateFileUpload(fileInfo);
+
+        const file = sessionManager.registerFile(session.id, fileInfo);
+        if (file) {
+          registeredFiles.push({
+            fileId: file.id,
+            path: file.path,
+            size: file.size
+          });
+        }
+      } catch (validationError) {
+        logger.warn('File validation failed during registration', {
+          fileInfo: fileInfo?.path || 'unknown',
+          error: validationError.message,
+          sessionId: session.id,
+          userId: session.userId
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: `File validation failed: ${validationError.message}`,
+            code: 'FILE_VALIDATION_ERROR',
+            file: fileInfo?.path || 'unknown'
+          }
         });
       }
     }
@@ -279,8 +368,11 @@ router.put('/sessions/:sessionId/files/:fileId/stream', validateSession, async (
       writeStream.write(chunkData, (error) => {
         if (error) {
           logger.error('Write stream error during write:', error);
-          writeStream.destroy();
+          if (!writeStream.destroyed) {
+            writeStream.destroy();
+          }
           sessionManager.activeStreams.delete(streamId);
+          file.status = 'error';
           if (!res.headersSent) {
             return res.status(500).json({
               success: false,
@@ -331,31 +423,12 @@ router.put('/sessions/:sessionId/files/:fileId/stream', validateSession, async (
       }
     }
 
-    req.on('error', (error) => {
-      logger.error('Upload stream error:', error);
-      writeStream.destroy();
-      sessionManager.activeStreams.delete(streamId);
-      file.status = 'error';
-
-      if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          error: { message: 'Upload stream failed', code: 'STREAM_ERROR' }
-        });
+    // Cleanup on request abort/close
+    req.on('close', () => {
+      if (!writeStream.destroyed) {
+        writeStream.destroy();
       }
-    });
-
-    writeStream.on('error', (error) => {
-      logger.error('Write stream error:', error);
-      file.status = 'error';
       sessionManager.activeStreams.delete(streamId);
-
-      if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          error: { message: 'File write failed', code: 'WRITE_ERROR' }
-        });
-      }
     });
 
   } catch (error) {

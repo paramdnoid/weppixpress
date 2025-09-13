@@ -34,6 +34,8 @@ export const useUploadStore = defineStore('upload', () => {
     navigator.hardwareConcurrency > 4 ? 6 : 4
   )
   const chunkSize = ref<number>(2 * 1024 * 1024) // 2MB - smaller chunks for faster processing
+  const maxFilesPerBatch = ref<number>(1000) // Split large uploads into batches of 1000 files
+  const maxRegistrationChunk = ref<number>(1000) // Register files in chunks of 1000
   const running = ref<number>(0)
   const integrity = ref<{ enabled: boolean; algorithm: 'sha-256' | 'none' }>({
     enabled: false,
@@ -167,68 +169,110 @@ export const useUploadStore = defineStore('upload', () => {
       throw new Error('Authentication required. Please log in to upload files.')
     }
 
-    let session
-    try {
-      // Create session first
-      session = await uploadApi.createSession(currentPath || '/')
-    } catch (error: any) {
-      console.error('Failed to create upload session:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-        url: error.config?.url,
-        headers: error.config?.headers
-      })
-      throw error
-    }
+    console.log(`📁 Starting upload of ${files.length} files - splitting into batches of ${maxFilesPerBatch.value}`)
 
-    // Prepare file descriptors
-    const inputs = files.map(f => ({
-      path: (f as any).webkitRelativePath && (f as any).webkitRelativePath.length > 0
-        ? (f as any).webkitRelativePath.replace(/^\/+/, '')
-        : f.name,
-      size: f.size
-    }))
+    const createdBatches: UploadBatch[] = []
+    const filesPerBatch = maxFilesPerBatch.value
 
-    // Register in chunks to avoid large JSON bodies - increased batch size for better performance
-    const byPath = new Map<string, string>()
-    const chunkBatch = 2000
-    for (let i = 0; i < inputs.length; i += chunkBatch) {
-      const slice = inputs.slice(i, i + chunkBatch)
-      const reg = await uploadApi.registerFiles(session.id, slice)
-      for (const r of reg.files) byPath.set(r.path, r.fileId)
-    }
+    // Split files into multiple batches if needed
+    for (let batchIndex = 0; batchIndex < Math.ceil(files.length / filesPerBatch); batchIndex++) {
+      const start = batchIndex * filesPerBatch
+      const end = Math.min(start + filesPerBatch, files.length)
+      const batchFiles = files.slice(start, end)
 
-    const batch: UploadBatch = {
-      id: session.id,
-      sessionId: session.id,
-      targetPath: currentPath,
-      createdAt: Date.now(),
-      status: 'active',
-      tasks: files.map((f) => {
-        const rel = (f as any).webkitRelativePath && (f as any).webkitRelativePath.length > 0
-          ? (f as any).webkitRelativePath.replace(/^\/+/, '')
-          : f.name
-        const fileId = byPath.get(rel)!
-        return {
-          id: `${session.id}:${fileId}`,
-          file: f,
-          relativePath: rel,
-          size: f.size,
-          uploaded: 0,
-          status: 'queued' as UploadStatus,
-          sessionId: session.id,
-          fileId,
+      console.log(`📦 Creating batch ${batchIndex + 1}/${Math.ceil(files.length / filesPerBatch)} with ${batchFiles.length} files`)
+
+      // Add delay between session creation to avoid rate limits
+      if (batchIndex > 0 && batchIndex % 10 === 0) {
+        console.log(`⏸️  Pausing for rate limiting after ${batchIndex} batches...`)
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
+
+      let session
+      try {
+        // Create separate session for each batch
+        session = await uploadApi.createSession(currentPath || '/')
+      } catch (error: any) {
+        if (error.response?.status === 429) {
+          console.warn(`⏸️  Rate limited on batch ${batchIndex + 1}, waiting before retry...`)
+          await new Promise(resolve => setTimeout(resolve, 5000))
+          try {
+            session = await uploadApi.createSession(currentPath || '/')
+          } catch (retryError: any) {
+            console.error(`Failed to create upload session for batch ${batchIndex + 1} after retry:`, retryError.response?.status)
+            throw retryError
+          }
+        } else {
+          console.error(`Failed to create upload session for batch ${batchIndex + 1}:`, {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message,
+            url: error.config?.url,
+            headers: error.config?.headers
+          })
+          throw error
         }
-      })
+      }
+
+      // Prepare file descriptors for this batch
+      const inputs = batchFiles.map(f => ({
+        path: (f as any).webkitRelativePath && (f as any).webkitRelativePath.length > 0
+          ? (f as any).webkitRelativePath.replace(/^\/+/, '')
+          : f.name,
+        size: f.size
+      }))
+
+      // Register files in smaller chunks for this batch
+      const byPath = new Map<string, string>()
+      const registrationChunkSize = Math.min(maxRegistrationChunk.value, inputs.length)
+
+      for (let i = 0; i < inputs.length; i += registrationChunkSize) {
+        const slice = inputs.slice(i, i + registrationChunkSize)
+        try {
+          const reg = await uploadApi.registerFiles(session.id, slice)
+          for (const r of reg.files) byPath.set(r.path, r.fileId)
+        } catch (error) {
+          console.error(`Failed to register files chunk ${Math.floor(i/registrationChunkSize) + 1} for batch ${batchIndex + 1}:`, error)
+          throw error
+        }
+      }
+
+      const batch: UploadBatch = {
+        id: session.id,
+        sessionId: session.id,
+        targetPath: currentPath,
+        createdAt: Date.now(),
+        status: 'active',
+        tasks: batchFiles.map((f) => {
+          const rel = (f as any).webkitRelativePath && (f as any).webkitRelativePath.length > 0
+            ? (f as any).webkitRelativePath.replace(/^\/+/, '')
+            : f.name
+          const fileId = byPath.get(rel)!
+          return {
+            id: `${session.id}:${fileId}`,
+            file: f,
+            relativePath: rel,
+            size: f.size,
+            uploaded: 0,
+            status: 'queued' as UploadStatus,
+            sessionId: session.id,
+            fileId,
+          }
+        })
+      }
+
+      createdBatches.push(batch)
     }
 
-    batches.value = [batch, ...batches.value]
+    // Add all batches to the store
+    batches.value = [...createdBatches, ...batches.value]
     persistImmediate() // Persist immediately for new batches
+
+    console.log(`✅ Created ${createdBatches.length} upload batches with total ${files.length} files`)
 
     // Start initial tasks
     enqueueNext()
-    return batch
+    return createdBatches[0] // Return first batch for compatibility
   }
 
   function pauseTask(taskId: string) {
@@ -412,15 +456,57 @@ export const useUploadStore = defineStore('upload', () => {
     }
   }
 
+  // Batch management utilities
+  function setBatchSize(size: number) {
+    if (size >= 1 && size <= 1000) {
+      maxFilesPerBatch.value = size
+      console.log(`📊 Batch size set to ${size} files per batch`)
+    }
+  }
+
+  function setRegistrationChunkSize(size: number) {
+    if (size >= 10 && size <= 1000) {
+      maxRegistrationChunk.value = size
+      console.log(`📊 Registration chunk size set to ${size} files per request`)
+    }
+  }
+
+  function getBatchStats() {
+    const total = batches.value.length
+    const active = batches.value.filter(b => b.status === 'active').length
+    const completed = batches.value.filter(b => b.status === 'completed').length
+    const paused = batches.value.filter(b => b.status === 'paused').length
+    const totalFiles = batches.value.reduce((sum, b) => sum + (b.tasks?.length || 0), 0)
+    const completedFiles = batches.value.reduce((sum, b) =>
+      sum + (b.tasks?.filter(t => t.status === 'completed').length || 0), 0)
+
+    return {
+      total,
+      active,
+      completed,
+      paused,
+      totalFiles,
+      completedFiles,
+      progress: totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0
+    }
+  }
+
   // Load persisted state on initialization
   loadPersisted()
 
   return {
+    // State
     batches: readonly(batches),
+    running: readonly(running),
+
+    // Configuration
     concurrency,
     chunkSize,
-    running: readonly(running),
+    maxFilesPerBatch: readonly(maxFilesPerBatch),
+    maxRegistrationChunk: readonly(maxRegistrationChunk),
     integrity,
+
+    // Actions
     startBatch,
     pauseTask,
     resumeTask,
@@ -430,6 +516,11 @@ export const useUploadStore = defineStore('upload', () => {
     cancelBatch,
     removeBatch,
     clearCompleted,
-    persistImmediate // Export for critical saves
+    persistImmediate,
+
+    // Configuration functions
+    setBatchSize,
+    setRegistrationChunkSize,
+    getBatchStats
   }
 })

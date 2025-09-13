@@ -13,13 +13,34 @@ import { join, relative, resolve } from 'path';
  */
 function secureResolve(basePath, userPath) {
   if (!basePath) throw new Error('Base path is required');
+
+  // Zusätzliche Validierung der Eingabeparameter
+  if (typeof basePath !== 'string' || basePath.trim() === '') {
+    throw new Error('Invalid base path');
+  }
+
+  if (userPath && typeof userPath !== 'string') {
+    throw new Error('Invalid user path type');
+  }
+
   const base = resolve(basePath);
   const target = userPath ? resolve(base, userPath) : base;
 
+  // Erweiterte Sicherheitsprüfungen
+  if (target.includes('\x00') || target.includes('\x01')) {
+    throw new Error('Path contains null or control characters');
+  }
+
   const rel = relative(base, target);
-  if (rel && (rel.startsWith('..') || rel.includes('..')) || target.includes('\x00')) {
+  if (rel && (rel.startsWith('..') || rel.includes('..'))) {
     throw new Error('Path traversal detected');
   }
+
+  // Zusätzliche Prüfung: Symlink-Angriffe verhindern
+  if (rel && (rel.includes('//') || rel.includes('\\'))) {
+    throw new Error('Invalid path structure detected');
+  }
+
   return target;
 }
 
@@ -55,15 +76,31 @@ function isSafeFilename(filename) {
     return false;
   }
 
-  // Gefährliche Zeichen und Patterns
+  // Gefährliche Zeichen und Patterns (mehr permissiv für File Manager)
   const dangerousPatterns = [
-    /[<>:"|?*\x00-\x1F]/,  // Windows-gefährliche Zeichen
-    /^\./,                  // Versteckte Dateien
-    /\.$/,                  // Endender Punkt
-    /\.{2}/,                 // Directory Traversal
-    /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i, // Windows reserved names
-    /^\s|\s$/,             // Leading/trailing whitespace
+    /[<>:"|?*\x00-\x1F\x7F]/,  // Windows-gefährliche Zeichen inkl. DEL
+    /\.$/,                      // Endender Punkt
+    /\.{2,}/,                   // Directory Traversal (2 oder mehr Punkte)
+    /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i, // Windows reserved names mit Extension
+    /^\s|\s$/,                  // Leading/trailing whitespace
+    /[\uFEFF\u200B-\u200D\uFEFF]/,  // Unicode Steuerzeichen
+    /[\/\\]/,                   // Path separators
   ];
+
+  // Zusätzliche Sicherheitsprüfungen
+  if (filename === '.' || filename === '..') {
+    return false;
+  }
+
+  // Prüfe auf gefährliche Extensions (nur wirklich gefährliche für File Manager)
+  const dangerousExtensions = [
+    '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs'
+  ];
+
+  const lowerName = filename.toLowerCase();
+  if (dangerousExtensions.some(ext => lowerName.endsWith(ext))) {
+    return false;
+  }
 
   return !dangerousPatterns.some(pattern => pattern.test(filename));
 }
@@ -96,11 +133,27 @@ function sanitizeUploadPath(path) {
   }
 
   // Entferne führende/nachfolgende Slashes und normalisiere
-  return path
+  const sanitized = path
     .replace(/^\/+|\/+$/g, '')
-    .replace(/\/+\/+/g, '/')
+    .replace(/\/+/g, '/') // Fix: korrigiert die Regex für doppelte Slashes
     .replace(/[<>:"|?*\x00-\x1F]/g, '') // Gefährliche Zeichen entfernen
+    .replace(/\.\./g, '') // Directory traversal patterns entfernen
     .trim();
+
+  // Zusätzliche Sicherheitsvalidierungen
+  if (sanitized.includes('\x00') || sanitized.length > 1000) {
+    throw new Error('Invalid path: contains null bytes or too long');
+  }
+
+  // Validiere jeden Pfad-Segment
+  const segments = sanitized.split('/');
+  for (const segment of segments) {
+    if (!isSafeFilename(segment) && segment !== '') {
+      throw new Error(`Invalid path segment: ${segment}`);
+    }
+  }
+
+  return sanitized;
 }
 
 /**
@@ -118,6 +171,45 @@ function isWithinUploadDir(p, uploadBaseDir) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Erweiterte Validierung von Datei-Upload-Daten
+ * @param {Object} fileInfo - Datei-Information
+ * @returns {boolean} True wenn sicher
+ */
+function validateFileUpload(fileInfo) {
+  if (!fileInfo || typeof fileInfo !== 'object') {
+    throw new Error('Invalid file information');
+  }
+
+  const { path, size, checksum } = fileInfo;
+
+  // Pfad-Validierung
+  if (!path || typeof path !== 'string') {
+    throw new Error('File path is required and must be string');
+  }
+
+  // Größe-Validierung
+  const numericSize = typeof size === 'string' ? parseInt(size, 10) : size;
+  if (typeof numericSize !== 'number' || isNaN(numericSize) || numericSize < 0 || numericSize > 5 * 1024 * 1024 * 1024) { // Max 5GB
+    throw new Error('Invalid file size');
+  }
+
+  // Checksum-Validierung (optional)
+  if (checksum && (typeof checksum !== 'string' || checksum.length < 8)) {
+    throw new Error('Invalid checksum format');
+  }
+
+  // Pfad-Segmente validieren
+  const pathSegments = path.split('/');
+  for (const segment of pathSegments) {
+    if (segment && !isSafeFilename(segment)) {
+      throw new Error(`Unsafe filename in path: ${segment}`);
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -147,7 +239,7 @@ function validatePathParam(paramName = 'path', uploadBaseDir) {
   };
 }
 
-export { secureResolve, getUserDirectory, sanitizeUploadPath };
+export { secureResolve, getUserDirectory, sanitizeUploadPath, validateFileUpload };
 
 export default {
   secureResolve,
@@ -156,5 +248,6 @@ export default {
   toClientRelativePath,
   sanitizeUploadPath,
   isWithinUploadDir,
-  validatePathParam
+  validatePathParam,
+  validateFileUpload
 };

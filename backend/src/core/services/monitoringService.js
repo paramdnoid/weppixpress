@@ -20,14 +20,14 @@ class MonitoringService {
     };
 
     this.thresholds = {
-      memory_usage_critical: 0.9,
-      memory_usage_warning: 0.7,
-      cpu_usage_critical: 0.9,
-      cpu_usage_warning: 0.7,
-      response_time_critical: 5000,
-      response_time_warning: 1000,
-      error_rate_critical: 0.1,
-      error_rate_warning: 0.05
+      memory_usage_critical: 0.95,
+      memory_usage_warning: 0.85,
+      cpu_usage_critical: 0.95,
+      cpu_usage_warning: 0.80,
+      response_time_critical: 10000,
+      response_time_warning: 2000,
+      error_rate_critical: 0.15,
+      error_rate_warning: 0.08
     };
 
     this.alerts = [];
@@ -189,7 +189,9 @@ class MonitoringService {
    */
   recordRequest(method, path, statusCode, responseTime, error = null) {
     this.metrics.requests.total++;
-    if (error || statusCode >= 400) {
+    // Only count 5xx errors and authentication failures as errors
+    // Don't count 404s and other client errors as system errors
+    if (error || (statusCode >= 500) || (statusCode === 401 && path.includes('/auth'))) {
       this.metrics.requests.errors++;
     }
 

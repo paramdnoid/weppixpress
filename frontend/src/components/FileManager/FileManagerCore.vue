@@ -30,6 +30,7 @@
         @sort="fileStore.setSorting"
         @view-mode="setViewMode"
         @files-selected="handleFilesSelected"
+        @open-upload-settings="showUploadSettingsModal"
       />
 
     <div class="d-flex border-top splitter-container flex-fill position-relative">
@@ -71,13 +72,15 @@
       />
     </div>
 
-    <FileManagerModals 
-      ref="modalsRef" 
-      :item-to-rename="itemToRename" 
+    <FileManagerModals
+      ref="modalsRef"
+      :item-to-rename="itemToRename"
       :is-loading="fileStore.state.isLoading"
       @rename="handleRename"
       @create-folder="handleCreateFolder"
     />
+
+    <UploadBatchSettingsModal ref="uploadSettingsModal" />
     </div>
   </UploadDropZone>
 </template>
@@ -91,6 +94,7 @@ import FileSidebar from './FileSidebar.vue'
 import FileView from './FileView.vue'
 import FileManagerModals from './FileManagerModals.vue'
 import UploadDropZone from './UploadDropZone.vue'
+import UploadBatchSettingsModal from './UploadBatchSettingsModal.vue'
 
 // Use the consolidated composable
 const {
@@ -115,6 +119,7 @@ const authStore = useAuthStore()
 const modalsRef = ref()
 const itemToRename = ref(null)
 const fileViewRef = ref(null)
+const uploadSettingsModal = ref(null)
 
 // Tree data management
 const treeData = ref([
@@ -245,6 +250,10 @@ function downloadFileLocal(item) {
 // Modal handlers
 function showCreateFolderModal() {
   modalsRef.value?.showNewFolderModal()
+}
+
+function showUploadSettingsModal() {
+  uploadSettingsModal.value?.show()
 }
 
 function handleRename(data) {

@@ -24,8 +24,39 @@
 
     <!-- Upload progress overlay -->
     <div v-show="hasActiveUploads && showProgressOverlay" class="upload-overlay">
+      <!-- Toolbar buttons (top-right) -->
+      <div class="toolbar-buttons">
+        <button
+          v-if="hasActiveUploads || hasPausedUploads"
+          class="btn-toolbar"
+          @click="hasAnyActiveUploads ? pauseAllUploads() : resumeAllUploads()"
+          :title="hasAnyActiveUploads ? 'Pause All' : 'Resume All'"
+        >
+          <Icon
+            :icon="hasAnyActiveUploads ? 'tabler:player-pause' : 'tabler:player-play'"
+            width="12"
+            height="12"
+            :class="hasAnyActiveUploads ? 'text-warning' : 'text-success'"
+          />
+        </button>
+        <button
+          class="btn-toolbar"
+          @click="toggleProgress"
+          title="Minimize"
+        >
+          <Icon icon="tabler:minus" width="12" height="12" />
+        </button>
+        <button
+          class="btn-toolbar"
+          @click="cancelAllUploads"
+          title="Cancel All"
+        >
+          <Icon icon="tabler:x" width="12" height="12" class="text-danger" />
+        </button>
+      </div>
+
       <div class="upload-progress-container">
-        <div class="upload-stats mb-3">
+        <div class="upload-stats">
           <h5 class="mb-2">
             <Icon icon="tabler:upload" width="16" height="16" class="me-2" />
             Uploading {{ activeBatches.length }} batch{{ activeBatches.length > 1 ? 'es' : '' }}
@@ -45,7 +76,12 @@
             </small>
           </div>
           <div class="d-flex justify-content-between">
-            <small class="text-info">
+            <small
+              class="text-info cursor-pointer"
+              @click="showActiveBatches = !showActiveBatches"
+              :title="showActiveBatches ? 'Hide active batches' : 'Show active batches'"
+            >
+              <Icon :icon="showActiveBatches ? 'tabler:chevron-down' : 'tabler:chevron-right'" width="12" height="12" class="me-1" />
               {{ activeBatches.length }} active batch{{ activeBatches.length > 1 ? 'es' : '' }}
             </small>
             <small class="text-info">
@@ -55,7 +91,7 @@
         </div>
 
         <!-- Active batches -->
-        <div class="batch-list">
+        <div v-show="showActiveBatches" class="batch-list">
           <div
             v-for="batch in activeBatches.slice(0, 3)"
             :key="batch.id"
@@ -65,27 +101,23 @@
               <span class="batch-title">{{ getBatchTitle(batch) }}</span>
               <div class="batch-actions">
                 <button
-                  v-if="batch.status === 'active'"
-                  class="btn btn-sm btn-outline-warning me-1"
-                  @click="pauseBatch(batch.id)"
-                  title="Pause"
+                  v-if="batch.status === 'active' || batch.status === 'paused'"
+                  class="btn-toolbar me-1"
+                  @click="batch.status === 'active' ? pauseBatch(batch.id) : resumeBatch(batch.id)"
+                  :title="batch.status === 'active' ? 'Pause' : 'Resume'"
                 >
-                  <Icon icon="tabler:player-pause" width="16" height="16" />
+                  <Icon
+                    :icon="batch.status === 'active' ? 'tabler:player-pause' : 'tabler:player-play'"
+                    width="14"
+                    height="14"
+                  />
                 </button>
                 <button
-                  v-if="batch.status === 'paused'"
-                  class="btn btn-sm btn-outline-success me-1"
-                  @click="resumeBatch(batch.id)"
-                  title="Resume"
-                >
-                  <Icon icon="tabler:player-play" width="14" height="14" />
-                </button>
-                <button
-                  class="btn btn-sm btn-outline-danger"
+                  class="btn-toolbar"
                   @click="cancelBatch(batch.id)"
                   title="Cancel"
                 >
-                  <Icon icon="tabler:x" width="16" height="16" />
+                  <Icon icon="tabler:x" width="14" height="14" />
                 </button>
               </div>
             </div>
@@ -133,35 +165,6 @@
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="upload-actions mt-3">
-          <button
-            class="btn btn-sm btn-outline-secondary me-2"
-            @click="toggleProgress"
-          >
-            {{ showProgressOverlay ? 'Hide' : 'Show' }} Progress
-          </button>
-          <button
-            v-if="hasActiveUploads"
-            class="btn btn-sm btn-outline-warning me-2"
-            @click="pauseAllUploads"
-          >
-            Pause All
-          </button>
-          <button
-            v-if="hasPausedUploads"
-            class="btn btn-sm btn-outline-success me-2"
-            @click="resumeAllUploads"
-          >
-            Resume All
-          </button>
-          <button
-            class="btn btn-sm btn-outline-danger"
-            @click="cancelAllUploads"
-          >
-            Cancel All
-          </button>
-        </div>
       </div>
     </div>
 
@@ -211,6 +214,54 @@ const dragCounter = ref(0)
 
 // Progress state
 const showProgressOverlay = ref(props.showProgress)
+const showActiveBatches = ref(false) // Default: active batches hidden
+
+// Track total files snapshot and completed files counter for consistent progress calculation
+const totalFilesSnapshot = ref(0)
+const completedFilesCounter = ref(0)
+
+// Watch for batches changes to update total files snapshot
+watch(() => uploadStore.batches.map(b => ({ id: b.id, tasks: b.tasks?.length || 0 })), () => {
+  const currentTotal = uploadStore.batches.reduce((sum, batch) =>
+    sum + (batch.tasks?.length || 0), 0)
+
+  // Update snapshot only if it increases (new batches added) or resets to 0
+  if (currentTotal === 0) {
+    totalFilesSnapshot.value = 0
+    completedFilesCounter.value = 0 // Reset completed files counter when all batches cleared
+  } else if (currentTotal > totalFilesSnapshot.value) {
+    totalFilesSnapshot.value = currentTotal
+  }
+  // Don't decrease snapshot during upload to keep progress calculation consistent
+}, { immediate: true, deep: true })
+
+// Watch for completed files and accumulate them
+watch(() => {
+  return uploadStore.batches.map(batch => ({
+    id: batch.id,
+    completed: batch.tasks?.filter(task => task.status === 'completed').length || 0
+  }))
+}, (newBatchesData, oldBatchesData) => {
+  if (!oldBatchesData) return
+
+  // Calculate new completed files since last update
+  let newCompletedFiles = 0
+
+  for (const newBatch of newBatchesData) {
+    const oldBatch = oldBatchesData.find(b => b.id === newBatch.id)
+    if (oldBatch && newBatch.completed > oldBatch.completed) {
+      newCompletedFiles += newBatch.completed - oldBatch.completed
+    } else if (!oldBatch && newBatch.completed > 0) {
+      // New batch with already completed files
+      newCompletedFiles += newBatch.completed
+    }
+  }
+
+  // Accumulate completed files
+  if (newCompletedFiles > 0) {
+    completedFilesCounter.value += newCompletedFiles
+  }
+}, { immediate: true, deep: true })
 
 // Computed properties
 const activeBatches = computed(() =>
@@ -251,35 +302,37 @@ const hasPausedUploads = computed(() =>
   uploadStore.batches.some(batch => batch.status === 'paused')
 )
 
+const hasAnyActiveUploads = computed(() =>
+  uploadStore.batches.some(batch => batch.status === 'active')
+)
+
 const overallProgress = computed(() => {
-  if (!hasActiveUploads.value) return 0
+  // Use snapshot for consistent progress calculation
+  const total = totalFilesSnapshot.value || totalFiles.value
+  const completed = completedFilesCounter.value
 
-  let totalBytes = 0
-  let uploadedBytes = 0
+  if (total === 0) return 0
 
-  for (const batch of activeBatches.value) {
-    if (!batch.tasks || !Array.isArray(batch.tasks)) continue
+  // Calculate progress based on completed files counter vs total files snapshot
+  const progress = (completed / total) * 100
 
-    for (const task of batch.tasks) {
-      totalBytes += task.size || 0
-      uploadedBytes += task.uploaded || 0
-    }
-  }
-
-  const progress = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : 0
-
-  return progress
+  return Math.min(progress, 100) // Ensure progress doesn't exceed 100%
 })
 
-const totalFiles = computed(() =>
-  uploadStore.batches.reduce((sum, batch) => sum + (batch.tasks?.length || 0), 0)
-)
+const totalFiles = computed(() => {
+  // Return snapshot if available, otherwise calculate dynamically
+  if (totalFilesSnapshot.value > 0) {
+    return totalFilesSnapshot.value
+  }
 
-const completedFiles = computed(() =>
-  uploadStore.batches.reduce((sum, batch) =>
-    sum + (batch.tasks?.filter(task => task.status === 'completed').length || 0), 0
-  )
-)
+  // Fallback: calculate dynamically for display purposes
+  return uploadStore.batches.reduce((sum, batch) => sum + (batch.tasks?.length || 0), 0)
+})
+
+const completedFiles = computed(() => {
+  // Return the accumulated completed files counter
+  return completedFilesCounter.value
+})
 
 // Drag and drop handlers
 function handleDragEnter(e) {
@@ -579,11 +632,12 @@ onUnmounted(() => {
   bottom: 10px;
   right: 10px;
   width: 350px;
-  background: var(--tblr-bg-surface);
-  border: 1px solid var(--tblr-border-color);
+  background: rgba(var(--tblr-bg-surface-rgb), 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(var(--tblr-border-color-rgb), 0.3);
   border-radius: 8px;
   padding: 1rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   z-index: 1001;
   max-height: 60vh;
   overflow-y: auto;
@@ -606,10 +660,6 @@ onUnmounted(() => {
   gap: 0.25rem;
 }
 
-.upload-actions {
-  border-top: 1px solid var(--tblr-border-color-light);
-  padding-top: 0.75rem;
-}
 
 @keyframes pulse {
   0%, 100% {
@@ -675,5 +725,63 @@ onUnmounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.cursor-pointer {
+  cursor: pointer;
+  user-select: none;
+}
+
+.cursor-pointer:hover {
+  opacity: 0.8;
+}
+
+/* Action buttons styling */
+.btn-action {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Toolbar buttons */
+.toolbar-buttons {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  z-index: 1;
+}
+
+.btn-toolbar {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(var(--tblr-gray-600-rgb), 0.1);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--tblr-gray-600);
+}
+
+.btn-toolbar:hover {
+  background: rgba(var(--tblr-gray-600-rgb), 0.15);
+  color: var(--tblr-gray-700);
+  transform: scale(1.05);
+}
+
+.btn-toolbar:active {
+  background: rgba(var(--tblr-gray-600-rgb), 0.2);
+  transform: scale(0.95);
 }
 </style>

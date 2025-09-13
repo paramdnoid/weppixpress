@@ -57,6 +57,24 @@
             <hr class="dropdown-divider">
           </li>
           <li>
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center"
+              @click="$emit('openUploadSettings')"
+            >
+              <Icon
+                icon="tabler:settings"
+                width="16"
+                height="16"
+                class="me-2"
+              />
+              Upload Settings
+            </button>
+          </li>
+          <li>
+            <hr class="dropdown-divider">
+          </li>
+          <li>
             <div class="px-3 py-2">
               <label class="d-flex align-items-center cursor-pointer mb-0">
                 <input
@@ -301,7 +319,8 @@ const emit = defineEmits([
   'search',
   'sort',
   'viewMode',
-  'filesSelected'
+  'filesSelected',
+  'openUploadSettings'
 ])
 
 const searchInput = ref(null)

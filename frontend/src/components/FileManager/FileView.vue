@@ -42,23 +42,9 @@
           </nav>
         </div>
 
-        <!-- Loading State -->
-        <div
-          v-if="isLoading"
-          class="text-center text-muted py-6"
-        >
-          <div
-            class="spinner-border spinner-border-sm mb-2"
-            role="status"
-          >
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <div>Loading files...</div>
-        </div>
-
         <!-- Error State -->
         <div
-          v-else-if="error"
+          v-if="error"
           class="text-center text-danger py-6"
         >
           <Icon
