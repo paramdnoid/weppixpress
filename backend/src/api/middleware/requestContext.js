@@ -64,14 +64,10 @@ function requestContext(req, res, next) {
 }
 
 /**
- * Request size limiter middleware (disabled for unlimited uploads)
- * If the header `X-Unlimited-Upload: true` is present, the check is skipped.
+ * Request size limiter middleware
  */
-function requestSizeLimiter(maxSize = '50mb', { honorUnlimitedHeader = true, header = 'X-Unlimited-Upload' } = {}) {
+function requestSizeLimiter(maxSize = '50mb') {
   return (req, res, next) => {
-    if (honorUnlimitedHeader && String(req.get(header)).toLowerCase() === 'true') {
-      return next();
-    }
 
     const contentLength = parseInt(req.get('Content-Length') || '0', 10);
     const maxSizeBytes = parseSize(maxSize);

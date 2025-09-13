@@ -18,7 +18,7 @@ export interface FileItem {
 
 export interface FileOperation {
   id?: string
-  type: 'upload' | 'delete' | 'move' | 'copy' | 'rename' | 'create' | 'batch'
+  type: 'delete' | 'move' | 'copy' | 'rename' | 'create' | 'batch'
   status: 'pending' | 'processing' | 'completed' | 'failed'
   files: string[]
   progress?: number

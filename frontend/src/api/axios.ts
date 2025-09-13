@@ -18,9 +18,7 @@ export const setAuthHandlers = (handlers: typeof authHandlers) => {
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  timeout: 0, // No timeout for large file uploads
-  maxContentLength: Infinity,
-  maxBodyLength: Infinity
+  timeout: 30000 // 30 second timeout
 })
 
 // Request interceptor to add auth token

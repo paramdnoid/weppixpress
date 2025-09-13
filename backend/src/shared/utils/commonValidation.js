@@ -170,33 +170,6 @@ export function validateRole(role, allowedRoles = ['user', 'admin']) {
   return { isValid: true };
 }
 
-/**
- * Validate chunk index for chunked uploads
- * @param {*} chunkIndex - Chunk index to validate
- * @param {number} totalChunks - Total number of chunks
- * @returns {Object} Validation result
- */
-export function validateChunkIndex(chunkIndex, totalChunks) {
-  const validation = validateNumericParam(chunkIndex, 'chunkIndex', { min: 0 });
-  
-  if (!validation.isValid) {
-    return validation;
-  }
-  
-  const chunkIdx = Math.floor(validation.value); // Ensure integer
-  
-  if (chunkIdx >= totalChunks) {
-    return {
-      isValid: false,
-      error: 'Invalid chunk index'
-    };
-  }
-  
-  return { 
-    isValid: true, 
-    value: chunkIdx 
-  };
-}
 
 /**
  * Composite validation for common request patterns

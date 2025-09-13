@@ -10,15 +10,6 @@ interface ListOptions {
   forceRefresh?: string
 }
 
-interface UploadOptions {
-  onUploadProgress?: (progress: { loaded: number; total: number }) => void
-}
-
-interface UploadResponse {
-  success?: boolean
-  message?: string
-  data?: unknown
-}
 
 export const fileApi = {
   async list(path: string, options: ListOptions = {}): Promise<PaginatedResponse<FileItem>> {
@@ -28,20 +19,6 @@ export const fileApi = {
     return response.data
   },
 
-  async upload(formData: FormData, options: UploadOptions = {}): Promise<UploadResponse> {
-    const response = await api.post('/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress: options.onUploadProgress ? (progressEvent) => {
-        if (options.onUploadProgress && progressEvent.total) {
-          options.onUploadProgress({
-            loaded: progressEvent.loaded,
-            total: progressEvent.total
-          })
-        }
-      } : undefined
-    })
-    return response.data
-  },
 
   async delete(paths: string[]): Promise<void> {
     await api.delete('/files', { data: { paths } })

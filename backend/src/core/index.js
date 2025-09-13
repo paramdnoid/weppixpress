@@ -9,7 +9,6 @@ export { default as databaseService } from './services/databaseService.js';
 export { default as dbConnection } from './services/dbConnection.js';
 export { default as errorMetricsService } from './services/errorMetricsService.js';
 export { default as monitoringService } from './services/monitoringService.js';
-export { default as uploadCleanupService } from './services/uploadCleanupService.js';
 export { default as websiteInfoService } from './services/websiteInfoService.js';
 export { default as websocketService } from './services/websocketService.js';
 
@@ -26,7 +25,6 @@ export const services = {
   dbConnection,
   errorMetrics: errorMetricsService,
   monitoring: monitoringService,
-  uploadCleanup: uploadCleanupService,
   websiteInfo: websiteInfoService,
   websocket: websocketService
 };

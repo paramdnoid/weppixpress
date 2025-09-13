@@ -19,16 +19,6 @@
         <span class="d-none d-lg-inline ms-1">Toggle Sidebar</span>
       </button>
 
-      <!-- Hidden File Input for Upload -->
-      <input
-        ref="fileInput"
-        type="file"
-        multiple
-        class="d-none"
-        :disabled="isLoading"
-        webkitdirectory
-        @change="handleFileUpload"
-      >
 
       <!-- Menu Dropdown -->
       <div class="position-relative">
@@ -61,22 +51,6 @@
                 class="me-2"
               />
               New Folder
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center"
-              :disabled="isLoading"
-              @click="triggerFileUpload"
-            >
-              <Icon
-                icon="mdi:upload"
-                width="16"
-                height="16"
-                class="me-2"
-              />
-              <span class="flex-fill">Upload Files/Folders</span>
             </button>
           </li>
           <li v-if="selectedCount > 0">
@@ -283,13 +257,11 @@ const emit = defineEmits([
   'copySelected',
   'cutSelected',
   'pasteItems',
-  'fileUpload',
   'search',
   'sort',
   'viewMode'
 ])
 
-const fileInput = ref(null)
 const searchInput = ref(null)
 const searchQuery = ref(props.searchValue)
 
@@ -298,18 +270,6 @@ watch(() => props.searchValue, (newValue) => {
   searchQuery.value = newValue
 })
 
-function handleFileUpload(event) {
-  const input = event.target
-  if (input && input.files) {
-    emit('fileUpload', input.files)
-    input.value = '' // Reset input
-  }
-}
-
-function triggerFileUpload() {
-  // Trigger the hidden file input
-  fileInput.value?.click()
-}
 
 function handleSearchInput() {
   emit('search', searchQuery.value)
@@ -363,7 +323,7 @@ function clearSearch() {
   margin: 0.5rem 0;
 }
 
-/* Upload spinner animation */
+/* Spinner animation */
 .spinner {
   animation: spin 1s linear infinite;
 }
@@ -376,14 +336,5 @@ function clearSearch() {
   to {
     transform: rotate(360deg);
   }
-}
-
-/* Upload progress bar in dropdown */
-.dropdown-item.position-relative {
-  overflow: hidden;
-}
-
-.dropdown-item .bg-primary {
-  border-radius: inherit;
 }
 </style>

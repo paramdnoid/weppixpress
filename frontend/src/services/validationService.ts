@@ -136,7 +136,7 @@ export class ValidationService {
   }
 
   /**
-   * Validates file size for upload
+   * Validates file size
    */
   static validateFileSize(size: number, maxSize: number = 5 * 1024 * 1024 * 1024): ValidationResult { // 5GB default
     if (typeof size !== 'number' || size < 0) {
@@ -211,10 +211,10 @@ export class ValidationService {
   }
 
   /**
-   * Comprehensive file validation for uploads
+   * Comprehensive file validation
    */
-  static validateUploadFile(
-    file: File, 
+  static validateFile(
+    file: File,
     options: {
       maxSize?: number
       allowedExtensions?: string[]

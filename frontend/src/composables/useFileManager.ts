@@ -235,12 +235,6 @@ export function useFileManager() {
     localStorage.setItem('fileManager.sidebarCollapsed', isCollapsed.value.toString())
   }
 
-  // ===== FILE UPLOAD =====
-  // Legacy file upload handler (will be replaced by chunked upload)
-  function handleFileUpload(items: FileList | File[] | FileSystemEntry[] | DataTransferItemList): void {
-    console.log('Legacy upload handler called, consider migrating to chunked upload')
-    // This can be used as fallback or removed entirely
-  }
 
   // ===== DELETE =====
   function deleteSelectedFiles(): void {
@@ -334,7 +328,6 @@ export function useFileManager() {
     // UI Handlers
     handleItemClick,
     handleItemDoubleClick,
-    handleFileUpload,
     deleteSelectedFiles,
     
     // Long Press Handlers

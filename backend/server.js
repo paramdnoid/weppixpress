@@ -8,7 +8,6 @@ import authRoutes from './src/api/routes/auth.js';
 import dashboardRoutes from './src/api/routes/dashboard.js';
 import fileRoutes from './src/api/routes/files.js';
 import healthRoutes from './src/api/routes/health.js';
-import uploadRoutes from './src/api/routes/upload.js';
 import websiteInfoRoutes from './src/api/routes/websiteInfo.js';
 import cacheService from './src/core/services/cacheService.js';
 import databaseService from './src/core/services/databaseService.js';
@@ -17,7 +16,6 @@ import monitoringService from './src/core/services/monitoringService.js';
 import circuitBreakerRegistry from './src/shared/utils/circuitBreaker.js';
 import logger from './src/shared/utils/logger.js';
 import { WebSocketManager } from './src/core/services/websocketService.js';
-import uploadCleanupService from './src/core/services/uploadCleanupService.js';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -57,14 +55,12 @@ app.use(compression({
 // Request context and tracking
 app.use(requestContext);
 app.use(requestMonitoring);
-app.use(requestTimeout(5 * 60 * 1000)); // 5 minute timeout for long uploads
+app.use(requestTimeout(60 * 1000)); // 1 minute timeout
 app.use(corsPreflightHandler);
 app.use(apiVersioning);
 
-// Smart body parsing limits
-app.use('/api/upload', express.json({ limit: '50gb' }));
-app.use('/api/upload', express.urlencoded({ extended: true, limit: '50gb' }));
-app.use(express.json({ limit: '10mb' })); // Smaller limit for non-upload routes
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
@@ -170,32 +166,9 @@ if (process.env.NODE_ENV !== 'test') {
     }
   });
 
-  const uploadLimiter = rateLimit({
-    store: new RedisStore({
-      sendCommand: (...args) => rateLimitRedisClient.sendCommand(args),
-      prefix: 'rl:upload:'
-    }),
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_UPLOAD_MAX) || 1000, // Increased for chunked uploads
-    skip: (req) => {
-      return req.path.startsWith('/chunked') || // Skip rate limiting for chunked uploads (path is already stripped)
-             req.path.startsWith('/api/chunked-upload'); // Legacy path support
-    },
-    handler: (req, res) => {
-      res.status(429).json({
-        error: {
-          message: 'Upload rate limit exceeded. Please try again later.',
-          code: 'UPLOAD_RATE_LIMIT_EXCEEDED',
-          retryAfter: 900
-        }
-      });
-    }
-  });
 
   app.use(generalLimiter);
   app.use('/api/auth', authLimiter);
-  app.use('/api/upload', uploadLimiter);
-  app.use('/api/chunked-upload', uploadLimiter);
 }
 
 // setupSwagger(app); // Disabled - docs directory removed
@@ -220,7 +193,6 @@ app.get('/dashboard', (_req, res) => {
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
-app.use('/api/upload', uploadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/website-info', websiteInfoRoutes);
@@ -253,10 +225,6 @@ const wsManager = new WebSocketManager(server);
 // Make WebSocket manager globally available for controllers
 global.wsManager = wsManager;
 
-// Start upload cleanup service
-if (process.env.NODE_ENV !== 'test') {
-  uploadCleanupService.start();
-}
 
 app.get('/api/ws/stats', (_req, res) => {
   res.json(wsManager.getStats());

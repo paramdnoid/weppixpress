@@ -19,7 +19,6 @@
       @copy-selected="handleCopySelected"
       @cut-selected="handleCutSelected"
       @paste-items="handlePasteItems"
-      @file-upload="handleNewFileUpload"
       @search="fileStore.setSearch"
       @sort="fileStore.setSorting" 
       @view-mode="setViewMode" 
@@ -468,14 +467,6 @@ onMounted(() => {
   }
 })
 
-// New chunked upload handler
-async function handleNewFileUpload(items) {
-  if (fileViewRef.value?.handleUploadFiles) {
-    await fileViewRef.value.handleUploadFiles(items)
-  } else {
-    console.warn('FileView not ready for upload')
-  }
-}
 </script>
 
 <style scoped>

@@ -2,11 +2,7 @@
   <main
     class="resizable-grid border-start"
     tabindex="0"
-    @keydown="handleKeydown" 
-    @drop="handleDrop"
-    @dragover="handleDragOver"
-    @dragenter="handleDragEnter"
-    @dragleave="handleDragLeave"
+    @keydown="handleKeydown"
   >
     <!-- File Content Area -->
     <div class="d-flex flex-column position-relative file-view">
@@ -109,15 +105,6 @@
           </div>
         </div>
 
-        <!-- Folder Scan Modal -->
-        <FolderScanModal
-          :is-visible="isScanning"
-          :progress="scanProgress"
-          :scan-result="scanResult"
-          @cancel="cancelScanning"
-          @start="startUploadsHere"
-        />
-
         <!-- Grid View -->
         <FileGrid
           v-if="viewMode === 'grid' && !isLoading && !error && items.length > 0"
@@ -149,30 +136,13 @@
         />
       </div>
     </div>
-
-    <!-- Upload Queue (Bottom Right) -->
-    <UploadQueue
-      :uploads="uploads"
-      @pause="pauseUpload"
-      @resume="resumeUpload" 
-      @cancel="cancelUpload"
-      @remove="removeUpload"
-      @pause-all="pauseAllUploads"
-      @resume-all="resumeAllUploads"
-      @clear-completed="clearCompleted"
-      @clear-all="clearAllUploads"
-    />
   </main>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import FileGrid from './FileGrid.vue'
 import FileTable from './FileTable.vue'
-import FolderScanModal from './FolderScanModal.vue'
-import UploadQueue from './UploadQueue.vue'
-import { useChunkedUpload } from '@/composables/useChunkedUpload'
-import { useFileStore } from '@/stores/files'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -195,81 +165,13 @@ const emit = defineEmits([
   'item-dbl-click',
   'sort',
   'delete-selected',
-  'selection-change',
-  'upload-files'
+  'selection-change'
 ])
-
-// Chunked upload functionality
-const {
-  uploads,
-  isScanning,
-  scanProgress,
-  scanResult,
-  uploadFiles,
-  startUploads,
-  cancelScanning,
-  pauseUpload,
-  resumeUpload,
-  cancelUpload,
-  removeUpload,
-  pauseAllUploads,
-  resumeAllUploads,
-  clearCompleted
-  ,
-  clearAllUploads
-} = useChunkedUpload()
-
-const fileStore = useFileStore()
 
 const searchQuery = computed(() => props.searchValue)
 
 function clearSearch() {
   emit('search', '')
-}
-
-// Handle file uploads triggered from parent component
-async function handleUploadFiles(items) {
-  try {
-    await uploadFiles(items)
-  } catch (error) {
-    console.error('Upload initiation failed:', error)
-  }
-}
-
-// Expose upload function to parent
-defineExpose({
-  handleUploadFiles
-})
-
-// Drag and drop handlers
-function handleDragEnter(event) {
-  event.preventDefault()
-  event.stopPropagation()
-}
-
-function handleDragOver(event) {
-  event.preventDefault()
-  event.stopPropagation()
-}
-
-function handleDragLeave(event) {
-  event.preventDefault()
-  event.stopPropagation()
-}
-
-async function handleDrop(event) {
-  event.preventDefault()
-  event.stopPropagation()
-  
-  const items = event.dataTransfer?.items
-  if (items && items.length > 0) {
-    await handleUploadFiles(items)
-  }
-}
-
-function startUploadsHere() {
-  const basePath = fileStore.state.value?.currentPath || '/'
-  startUploads(basePath)
 }
 
 function handleKeydown(event) {

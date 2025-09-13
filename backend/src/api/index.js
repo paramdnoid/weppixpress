@@ -8,7 +8,6 @@ export { default as adminController } from './controllers/adminController.js';
 export { default as authController } from './controllers/authController.js';
 export { default as fileController } from './controllers/fileController.js';
 export { default as healthController } from './controllers/healthController.js';
-export { default as uploadController } from './controllers/uploadController.js';
 
 // Routes  
 export { default as adminRoutes } from './routes/admin.js';
@@ -16,7 +15,6 @@ export { default as authRoutes } from './routes/auth.js';
 export { default as dashboardRoutes } from './routes/dashboard.js';
 export { default as filesRoutes } from './routes/files.js';
 export { default as healthRoutes } from './routes/health.js';
-export { default as uploadRoutes } from './routes/upload.js';
 export { default as websiteInfoRoutes } from './routes/websiteInfo.js';
 
 // Middleware
@@ -33,7 +31,6 @@ export const routes = {
   dashboard: dashboardRoutes,
   files: filesRoutes,
   health: healthRoutes,
-  upload: uploadRoutes,
   websiteInfo: websiteInfoRoutes
 };
 
@@ -42,8 +39,7 @@ export const controllers = {
   admin: adminController,
   auth: authController,
   file: fileController,
-  health: healthController,
-  upload: uploadController
+  health: healthController
 };
 
 // Convenience export für alle Middleware

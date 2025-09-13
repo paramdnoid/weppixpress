@@ -880,43 +880,6 @@ export const useFileStore = defineStore('files', () => {
   }
 
   // ===== FILE OPERATIONS =====
-  async function uploadFiles(files: File[], options: any = {}) {
-    const operation: FileOperation = {
-      type: 'upload',
-      status: 'pending',
-      files: files.map(f => f.name),
-      timestamp: Date.now()
-    }
-
-    state.value.operations.push(operation)
-
-    try {
-      operation.status = 'processing'
-
-      const formData = new FormData()
-      files.forEach(file => formData.append('files', file))
-      formData.append('path', state.value.currentPath)
-
-      const response = await fileApi.upload(formData, {
-        onUploadProgress: (progress) => {
-          operation.progress = Math.round((progress.loaded * 100) / progress.total)
-          options.onProgress?.(operation.progress)
-        }
-      })
-
-      operation.status = 'completed'
-      
-      // Invalidate cache and force refresh to show uploaded files
-      invalidateCache(state.value.currentPath)
-      await refreshCurrentPath()
-
-      return response
-    } catch (error: any) {
-      operation.status = 'failed'
-      operation.error = error.message
-      throw error
-    }
-  }
 
   async function deleteItems(items?: FileItem[]) {
     const itemsToDelete = items || selectedItems.value
@@ -1167,7 +1130,6 @@ export const useFileStore = defineStore('files', () => {
     clearClipboard,
 
     // File Operations
-    uploadFiles,
     deleteItems,
     renameItem,
     createFolder,
