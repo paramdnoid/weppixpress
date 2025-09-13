@@ -1,28 +1,36 @@
 <template>
-  <div class="card flex-fill files-root">
-    <FileToolbar 
-      :is-sidebar-collapsed="isCollapsed" 
-      :is-loading="fileStore.state.isLoading"
-      :selected-count="fileStore.selectedItems.length" 
-      :clipboard-has-items="fileStore.hasClipboard"
-      :clipboard-item-count="fileStore.clipboardInfo?.count || 0"
-      :search-value="fileStore.state.filters.search"
-      :sort-key="fileStore.state.sorting.key" 
-      :sort-dir="fileStore.state.sorting.order" 
-      :sort-options="SORT_OPTIONS" 
-      :view-mode="viewMode"
-      :view-modes="VIEW_MODES" 
-      @toggle-sidebar="toggleSidebar" 
-      @create-folder="showCreateFolderModal"
-      @delete-selected="handleDeleteSelectedFiles" 
-      @clear-selection="fileStore.clearSelection"
-      @copy-selected="handleCopySelected"
-      @cut-selected="handleCutSelected"
-      @paste-items="handlePasteItems"
-      @search="fileStore.setSearch"
-      @sort="fileStore.setSorting" 
-      @view-mode="setViewMode" 
-    />
+  <UploadDropZone
+    :current-path="fileStore.state.currentPath"
+    :disabled="fileStore.state.isLoading"
+    @upload-started="handleUploadStarted"
+    @upload-completed="handleUploadCompleted"
+    @upload-failed="handleUploadFailed"
+  >
+    <div class="card flex-fill files-root">
+      <FileToolbar
+        :is-sidebar-collapsed="isCollapsed"
+        :is-loading="fileStore.state.isLoading"
+        :selected-count="fileStore.selectedItems.length"
+        :clipboard-has-items="fileStore.hasClipboard"
+        :clipboard-item-count="fileStore.clipboardInfo?.count || 0"
+        :search-value="fileStore.state.filters.search"
+        :sort-key="fileStore.state.sorting.key"
+        :sort-dir="fileStore.state.sorting.order"
+        :sort-options="SORT_OPTIONS"
+        :view-mode="viewMode"
+        :view-modes="VIEW_MODES"
+        @toggle-sidebar="toggleSidebar"
+        @create-folder="showCreateFolderModal"
+        @delete-selected="handleDeleteSelectedFiles"
+        @clear-selection="fileStore.clearSelection"
+        @copy-selected="handleCopySelected"
+        @cut-selected="handleCutSelected"
+        @paste-items="handlePasteItems"
+        @search="fileStore.setSearch"
+        @sort="fileStore.setSorting"
+        @view-mode="setViewMode"
+        @files-selected="handleFilesSelected"
+      />
 
     <div class="d-flex border-top splitter-container flex-fill position-relative">
       <FileSidebar 
@@ -68,9 +76,10 @@
       :item-to-rename="itemToRename" 
       :is-loading="fileStore.state.isLoading"
       @rename="handleRename"
-      @create-folder="handleCreateFolder" 
+      @create-folder="handleCreateFolder"
     />
-  </div>
+    </div>
+  </UploadDropZone>
 </template>
 
 <script setup>
@@ -81,6 +90,7 @@ import FileToolbar from './FileToolbar.vue'
 import FileSidebar from './FileSidebar.vue'
 import FileView from './FileView.vue'
 import FileManagerModals from './FileManagerModals.vue'
+import UploadDropZone from './UploadDropZone.vue'
 
 // Use the consolidated composable
 const {
@@ -188,20 +198,16 @@ function openFileLocal(item) {
       return
     }
     
-    console.log('Opening file:', item.name)
     
     // Get file type checkers from composable
     const { isImageFile, isVideoFile, isCodeFile } = useFileManager()
     
     if (isImageFile(item)) {
       // TODO: Open in image viewer modal
-      console.log('Opening image viewer for:', item.name)
     } else if (isVideoFile(item)) {
       // TODO: Open in video player modal
-      console.log('Opening video player for:', item.name)
     } else if (isCodeFile(item)) {
       // TODO: Open in code editor modal
-      console.log('Opening code editor for:', item.name)
     } else {
       // Default to download
       downloadFileLocal(item)
@@ -230,7 +236,6 @@ function downloadFileLocal(item) {
     link.click()
     document.body.removeChild(link)
     
-    console.log('Download initiated for:', item.name)
   } catch (error) {
     console.error('Error downloading file:', error)
     alert('Failed to download file. Please try again.')
@@ -409,15 +414,22 @@ onMounted(async () => {
 
     // Navigate to root - this loads both tree and main view data (force refresh on mount)
     await fileStore.navigateToPath('/', true)
-    
+
     // Load root folders for tree display from current items
     if (fileStore.currentItems.length > 0) {
       const folders = fileStore.currentItems.filter(item => item.type === 'folder')
       treeData.value[0].items = folders
     }
+
+    // Listen for upload completion events
+    window.addEventListener('upload-batch-completed', (event) => {
+      const { batch } = event.detail
+      handleUploadCompleted({ batch })
+    })
+
   } catch (error) {
     console.error('Failed to initialize file manager:', error)
-    
+
     // Check if it's an authentication error
     if (error.response?.status === 401) {
       fileStore.state.error = 'Session expired. Please log in again to access files.'
@@ -466,6 +478,55 @@ onMounted(() => {
     console.error('Hot reload cleanup error:', error)
   }
 })
+
+// Upload handlers
+async function handleFilesSelected(files) {
+  try {
+    // Import the upload store
+    const { useUploadStore } = await import('@/stores/upload')
+    const uploadStore = useUploadStore()
+
+    await uploadStore.startBatch(files, fileStore.state.currentPath)
+
+    // Refresh the current directory to show new files
+    setTimeout(() => {
+      fileStore.refreshCurrentPath()
+    }, 1000)
+  } catch (error) {
+    console.error('Failed to start upload:', error)
+    alert('Upload failed: ' + (error.message || 'Unknown error'))
+  }
+}
+
+function handleUploadStarted() {
+  // Upload started silently
+}
+
+function handleUploadCompleted({ batch }) {
+  // Refresh the current directory to show new files
+  setTimeout(() => {
+    fileStore.refreshCurrentPath()
+  }, 1000)
+
+  // Update tree if uploading to current directory
+  if (batch.targetPath === fileStore.state.currentPath) {
+    // Trigger tree reorganization
+    nextTick(() => {
+      const treeRoot = document.getElementById('menu')
+      if (treeRoot) {
+        const event = new CustomEvent('tree:reorganize', {
+          detail: { targetPath: batch.targetPath }
+        })
+        treeRoot.dispatchEvent(event)
+      }
+    })
+  }
+}
+
+function handleUploadFailed({ error, files }) {
+  console.error('Upload failed:', error)
+  alert(`Upload failed for ${files.length} files: ${error.message || 'Unknown error'}`)
+}
 
 </script>
 

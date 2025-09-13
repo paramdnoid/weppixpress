@@ -14,10 +14,10 @@ import { join, relative, resolve } from 'path';
 function secureResolve(basePath, userPath) {
   if (!basePath) throw new Error('Base path is required');
   const base = resolve(basePath);
-  const target = resolve(base, userPath || '');
+  const target = userPath ? resolve(base, userPath) : base;
 
   const rel = relative(base, target);
-  if (rel.startsWith('..') || rel.includes('..') || target.includes('\x00')) {
+  if (rel && (rel.startsWith('..') || rel.includes('..')) || target.includes('\x00')) {
     throw new Error('Path traversal detected');
   }
   return target;

@@ -8,6 +8,7 @@ import authRoutes from './src/api/routes/auth.js';
 import dashboardRoutes from './src/api/routes/dashboard.js';
 import fileRoutes from './src/api/routes/files.js';
 import healthRoutes from './src/api/routes/health.js';
+import uploadRoutes from './src/api/routes/upload.js';
 import websiteInfoRoutes from './src/api/routes/websiteInfo.js';
 import cacheService from './src/core/services/cacheService.js';
 import databaseService from './src/core/services/databaseService.js';
@@ -117,12 +118,11 @@ if (process.env.NODE_ENV !== 'test') {
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
-      const shouldSkip = req.path.startsWith('/api/health') || 
+      const shouldSkip = req.path.startsWith('/api/health') ||
                         req.path.startsWith('/api-docs') ||
-                        req.path.startsWith('/api/upload/chunked') || // Skip rate limiting for chunked uploads
-                        req.path.startsWith('/api/chunked-upload'); // Legacy path support
-      
-      
+                        req.path.startsWith('/api/upload'); // Skip rate limiting for all upload endpoints
+
+
       return shouldSkip;
     },
     handler: (req, res) => {
@@ -193,6 +193,7 @@ app.get('/dashboard', (_req, res) => {
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/website-info', websiteInfoRoutes);

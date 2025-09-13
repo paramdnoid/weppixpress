@@ -53,6 +53,47 @@
               New Folder
             </button>
           </li>
+          <li>
+            <hr class="dropdown-divider">
+          </li>
+          <li>
+            <div class="px-3 py-2">
+              <label class="d-flex align-items-center cursor-pointer mb-0">
+                <input
+                  type="file"
+                  multiple
+                  class="d-none"
+                  @change="handleFileUpload"
+                >
+                <Icon
+                  icon="mdi:upload"
+                  width="16"
+                  height="16"
+                  class="me-2"
+                />
+                Upload Files
+              </label>
+            </div>
+          </li>
+          <li>
+            <div class="px-3 py-2">
+              <label class="d-flex align-items-center cursor-pointer mb-0">
+                <input
+                  type="file"
+                  webkitdirectory
+                  class="d-none"
+                  @change="handleFolderUpload"
+                >
+                <Icon
+                  icon="mdi:folder-upload"
+                  width="16"
+                  height="16"
+                  class="me-2"
+                />
+                Upload Folder
+              </label>
+            </div>
+          </li>
           <li v-if="selectedCount > 0">
             <hr class="dropdown-divider">
           </li>
@@ -259,7 +300,8 @@ const emit = defineEmits([
   'pasteItems',
   'search',
   'sort',
-  'viewMode'
+  'viewMode',
+  'filesSelected'
 ])
 
 const searchInput = ref(null)
@@ -279,6 +321,25 @@ function clearSearch() {
   searchQuery.value = ''
   emit('search', '')
   searchInput.value?.focus()
+}
+
+// Upload handlers
+function handleFileUpload(event) {
+  const files = Array.from(event.target.files || [])
+  if (files.length > 0) {
+    emit('filesSelected', files)
+    // Clear the input so the same files can be selected again
+    event.target.value = ''
+  }
+}
+
+function handleFolderUpload(event) {
+  const files = Array.from(event.target.files || [])
+  if (files.length > 0) {
+    emit('filesSelected', files)
+    // Clear the input so the same folder can be selected again
+    event.target.value = ''
+  }
 }
 </script>
 
@@ -304,6 +365,10 @@ function clearSearch() {
   padding: 0.22rem 0.5rem;
   font-size: 0.75rem;
   border-radius: var(--tblr-border-radius-sm);
+}
+
+.cursor-pointer {
+  cursor: pointer;
 }
 
 /* Ensure proper alignment */
