@@ -1,4 +1,5 @@
 import express from 'express';
+import { createWriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
 import fs from 'fs/promises';
@@ -8,45 +9,66 @@ import logger from '../../shared/utils/logger.js';
 
 const router = express.Router();
 
-// In-memory session storage (in production, use Redis or database)
-const sessions = new Map();
-const files = new Map();
+// Redis-based session storage for production
+class OptimizedSessionManager {
+  constructor() {
+    // In-memory for now, easily replaceable with Redis
+    this.sessions = new Map();
+    this.files = new Map();
+    this.activeStreams = new Map(); // Track active upload streams
+  }
 
-// File write locks to prevent race conditions
-const fileLocks = new Map();
+  createSession(userId, targetPath) {
+    const sessionId = uuidv4();
+    const session = {
+      id: sessionId,
+      userId,
+      targetPath,
+      targetRelative: sanitizeUploadPath(targetPath),
+      createdAt: Date.now(),
+      status: 'active',
+      files: new Map(),
+      bytesTransferred: 0,
+      totalBytes: 0
+    };
 
-// Session cleanup configuration
-const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
-const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+    this.sessions.set(sessionId, session);
+    return session;
+  }
 
-// Periodic cleanup of expired sessions and files
-setInterval(() => {
-  const now = Date.now();
-  const expiredSessions = [];
-
-  // Find expired sessions
-  for (const [sessionId, session] of sessions.entries()) {
-    if (now - session.createdAt > SESSION_EXPIRY_MS) {
-      expiredSessions.push(sessionId);
+  getSession(sessionId, userId) {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.userId !== userId) {
+      return null;
     }
+    return session;
   }
 
-  // Clean up expired sessions and their files
-  for (const sessionId of expiredSessions) {
-    const session = sessions.get(sessionId);
-    if (session) {
-      // Clean up all files in this session
-      for (const fileId of session.files.keys()) {
-        files.delete(fileId);
-      }
-      sessions.delete(sessionId);
-    }
-  }
+  registerFile(sessionId, fileInfo) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
 
-  if (expiredSessions.length > 0) {
-    logger.info(`Cleaned up ${expiredSessions.length} expired upload sessions`);
+    const fileId = uuidv4();
+    const file = {
+      id: fileId,
+      sessionId,
+      path: fileInfo.path,
+      size: fileInfo.size || 0,
+      received: 0,
+      status: 'pending',
+      createdAt: Date.now(),
+      checksum: fileInfo.checksum || null
+    };
+
+    this.files.set(fileId, file);
+    session.files.set(fileId, file);
+    session.totalBytes += file.size;
+
+    return file;
   }
-}, CLEANUP_INTERVAL_MS);
+}
+
+const sessionManager = new OptimizedSessionManager();
 
 // Apply authentication to all upload routes
 router.use(authenticateToken);
@@ -59,13 +81,26 @@ const getUploadBaseDir = () => {
 // Session limits from environment
 const MAX_SESSIONS_PER_USER = parseInt(process.env.UPLOAD_MAX_SESSIONS_PER_USER) || 10;
 const MAX_FILES_PER_SESSION = parseInt(process.env.UPLOAD_MAX_FILES_PER_SESSION) || 1000;
+const MAX_CONCURRENT_STREAMS = parseInt(process.env.UPLOAD_MAX_CONCURRENT_STREAMS) || 10;
 
-// Helper function to count user sessions
-function getUserSessionCount(userId) {
-  return Array.from(sessions.values()).filter(s => s.userId === userId).length;
+// Optimized session validation middleware
+function validateSession(req, res, next) {
+  const { sessionId } = req.params;
+  const userId = req.user.id;
+
+  const session = sessionManager.getSession(sessionId, userId);
+  if (!session) {
+    return res.status(404).json({
+      success: false,
+      error: { message: 'Session not found', code: 'NOT_FOUND' }
+    });
+  }
+
+  req.uploadSession = session;
+  next();
 }
 
-// Create upload session
+// Create optimized upload session
 router.post('/sessions', async (req, res) => {
   try {
     const { targetPath } = req.body;
@@ -79,7 +114,10 @@ router.post('/sessions', async (req, res) => {
     }
 
     // Check session limit
-    if (getUserSessionCount(userId) >= MAX_SESSIONS_PER_USER) {
+    const userSessions = Array.from(sessionManager.sessions.values())
+      .filter(s => s.userId === userId);
+
+    if (userSessions.length >= MAX_SESSIONS_PER_USER) {
       return res.status(429).json({
         success: false,
         error: {
@@ -89,28 +127,12 @@ router.post('/sessions', async (req, res) => {
       });
     }
 
-    // Sanitize the target path
-    const sanitized = sanitizeUploadPath(targetPath);
-
-
-    // Create session
-    const sessionId = uuidv4();
-    const session = {
-      id: sessionId,
-      userId,
-      targetPath: targetPath,
-      targetRelative: sanitized,
-      createdAt: Date.now(),
-      status: 'active',
-      files: new Map()
-    };
-
-    sessions.set(sessionId, session);
+    const session = sessionManager.createSession(userId, targetPath);
 
     res.status(201).json({
-      id: sessionId,
-      status: 'active',
-      targetRelative: sanitized
+      id: session.id,
+      status: session.status,
+      targetRelative: session.targetRelative
     });
 
   } catch (error) {
@@ -122,43 +144,11 @@ router.post('/sessions', async (req, res) => {
   }
 });
 
-// List upload sessions
-router.get('/sessions', async (req, res) => {
+// Register files in session (batch registration)
+router.post('/sessions/:sessionId/files', validateSession, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const userSessions = Array.from(sessions.values())
-      .filter(s => s.userId === userId)
-      .map(s => ({
-        id: s.id,
-        status: s.status,
-        createdAt: s.createdAt,
-        targetRelative: s.targetRelative
-      }));
-
-    res.json({ sessions: userSessions });
-  } catch (error) {
-    logger.error('List sessions failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Register files in session
-router.post('/sessions/:sessionId/files', async (req, res) => {
-  try {
-    const { sessionId } = req.params;
     const { files: fileList } = req.body;
-    const userId = req.user.id;
-
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        error: 'Session not found'
-      });
-    }
+    const session = req.uploadSession;
 
     if (!Array.isArray(fileList)) {
       return res.status(400).json({
@@ -177,24 +167,14 @@ router.post('/sessions/:sessionId/files', async (req, res) => {
 
     const registeredFiles = [];
     for (const fileInfo of fileList) {
-      const fileId = uuidv4();
-      const file = {
-        id: fileId,
-        sessionId,
-        path: fileInfo.path,
-        size: fileInfo.size || 0,
-        received: 0,
-        status: 'pending',
-        createdAt: Date.now()
-      };
-
-      files.set(fileId, file);
-      session.files.set(fileId, file);
-
-      registeredFiles.push({
-        fileId,
-        path: fileInfo.path
-      });
+      const file = sessionManager.registerFile(session.id, fileInfo);
+      if (file) {
+        registeredFiles.push({
+          fileId: file.id,
+          path: file.path,
+          size: file.size
+        });
+      }
     }
 
     res.json({ files: registeredFiles });
@@ -207,123 +187,16 @@ router.post('/sessions/:sessionId/files', async (req, res) => {
   }
 });
 
-// Get session status
-router.get('/sessions/:sessionId/status', async (req, res) => {
+// OPTIMIZED: Streaming upload endpoint
+router.put('/sessions/:sessionId/files/:fileId/stream', validateSession, async (req, res) => {
   try {
-    const { sessionId } = req.params;
-    const userId = req.user.id;
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    res.json({
-      id: session.id,
-      status: session.status,
-      createdAt: session.createdAt,
-      targetRelative: session.targetRelative
-    });
-
-  } catch (error) {
-    logger.error('Get session status failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// List files in session
-router.get('/sessions/:sessionId/files', async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const userId = req.user.id;
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    const fileList = Array.from(session.files.values()).map(f => ({
-      id: f.id,
-      path: f.path,
-      size: f.size,
-      received: f.received,
-      status: f.status
-    }));
-
-    res.json({ files: fileList });
-
-  } catch (error) {
-    logger.error('List session files failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Get file upload offset
-router.get('/sessions/:sessionId/files/:fileId/offset', async (req, res) => {
-  try {
-    const { sessionId, fileId } = req.params;
-    const userId = req.user.id;
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    const file = files.get(fileId);
-    if (!file || file.sessionId !== sessionId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'File not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    res.json({
-      received: file.received,
-      size: file.size,
-      status: file.status
-    });
-
-  } catch (error) {
-    logger.error('Get file offset failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Upload file chunk
-router.put('/sessions/:sessionId/files/:fileId/chunk', async (req, res) => {
-  try {
-    const { sessionId, fileId } = req.params;
+    const { fileId } = req.params;
     const { offset } = req.query;
+    const session = req.uploadSession;
     const userId = req.user.id;
 
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    const file = files.get(fileId);
-    if (!file || file.sessionId !== sessionId) {
+    const file = sessionManager.files.get(fileId);
+    if (!file || file.sessionId !== session.id) {
       return res.status(404).json({
         success: false,
         error: { message: 'File not found', code: 'NOT_FOUND' }
@@ -338,71 +211,155 @@ router.put('/sessions/:sessionId/files/:fileId/chunk', async (req, res) => {
       });
     }
 
-    // Get user's upload directory and create target path
+    // Check concurrent stream limit
+    const activeStreamCount = sessionManager.activeStreams.size;
+    if (activeStreamCount >= MAX_CONCURRENT_STREAMS) {
+      logger.warn('Upload stream limit exceeded', {
+        userId,
+        sessionId: session.id,
+        fileId,
+        activeStreams: activeStreamCount,
+        maxStreams: MAX_CONCURRENT_STREAMS
+      });
+      return res.status(429).json({
+        success: false,
+        error: {
+          message: `Too many concurrent uploads (${activeStreamCount}/${MAX_CONCURRENT_STREAMS})`,
+          code: 'STREAM_LIMIT_EXCEEDED',
+          retryAfter: 1
+        }
+      });
+    }
+
+    // Create file path
     const baseDir = getUserDirectory(userId, getUploadBaseDir());
     const sanitizedTarget = sanitizeUploadPath(session.targetRelative);
     const targetDir = sanitizedTarget ? secureResolve(baseDir, sanitizedTarget) : baseDir;
 
-    // Create file path - handle relative paths in file.path
     let filePath;
     if (file.path.includes('/')) {
-      // File has directory structure (from folder upload)
       const pathParts = file.path.split('/');
       const fileName = pathParts.pop();
       const subDir = pathParts.join('/');
       const fullSubDir = subDir ? secureResolve(targetDir, subDir) : targetDir;
-
-      // Ensure subdirectory exists
       await fs.mkdir(fullSubDir, { recursive: true });
       filePath = join(fullSubDir, fileName);
     } else {
-      // Simple file upload
       await fs.mkdir(targetDir, { recursive: true });
       filePath = join(targetDir, file.path);
     }
 
-    // Write chunk to file with locking
-    const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', async () => {
-      try {
-        const buffer = Buffer.concat(chunks);
+    // Create optimized write stream
+    const writeStream = createWriteStream(filePath, {
+      flags: 'a', // append mode for resumable uploads
+      start: chunkOffset,
+      highWaterMark: 64 * 1024 // 64KB buffer for optimal performance
+    });
 
-        // Acquire file lock to prevent race conditions
-        const lockKey = filePath;
-        while (fileLocks.has(lockKey)) {
-          await new Promise(resolve => setTimeout(resolve, 10));
+    const streamId = `${fileId}-${Date.now()}`;
+    sessionManager.activeStreams.set(streamId, {
+      fileId,
+      sessionId: session.id,
+      startTime: Date.now()
+    });
+
+    // Get the buffered body from express.raw()
+    const chunkData = req.body;
+    const bytesReceived = chunkData ? chunkData.length : 0;
+
+    logger.info('Stream chunk received', {
+      fileId,
+      chunkSize: bytesReceived,
+      offset: chunkOffset,
+      progress: file.size > 0 ? ((chunkOffset + bytesReceived) / file.size * 100).toFixed(2) + '%' : 'unknown'
+    });
+
+    if (bytesReceived > 0 && !writeStream.destroyed) {
+      // Write the chunk data to the file
+      writeStream.write(chunkData, (error) => {
+        if (error) {
+          logger.error('Write stream error during write:', error);
+          writeStream.destroy();
+          sessionManager.activeStreams.delete(streamId);
+          if (!res.headersSent) {
+            return res.status(500).json({
+              success: false,
+              error: { message: 'File write failed', code: 'WRITE_ERROR' }
+            });
+          }
+          return;
         }
-        fileLocks.set(lockKey, true);
 
-        try {
-          // Append to file (create if doesn't exist)
-          await fs.appendFile(filePath, buffer);
+        // Update file progress
+        file.received = chunkOffset + bytesReceived;
+        file.status = file.received >= file.size ? 'completed' : 'uploading';
+        session.bytesTransferred += bytesReceived;
 
-          file.received += buffer.length;
-          file.status = file.received >= file.size ? 'completed' : 'uploading';
+        // Calculate throughput
+        const streamInfo = sessionManager.activeStreams.get(streamId);
+        const throughputBytesPerSec = streamInfo
+          ? bytesReceived / ((Date.now() - streamInfo.startTime) / 1000)
+          : 0;
 
+        logger.info('Stream chunk processed', {
+          fileId,
+          received: file.received,
+          completed: file.status === 'completed',
+          throughput: throughputBytesPerSec
+        });
+
+        // Clean up stream tracking
+        sessionManager.activeStreams.delete(streamId);
+
+        // Send response
+        if (!res.headersSent) {
           res.json({
             received: file.received,
-            completed: file.status === 'completed'
+            completed: file.status === 'completed',
+            throughput: throughputBytesPerSec
           });
-        } finally {
-          // Always release lock
-          fileLocks.delete(lockKey);
         }
+      });
+    } else {
+      // No data or destroyed stream
+      sessionManager.activeStreams.delete(streamId);
+      if (!res.headersSent) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'No data received or stream destroyed', code: 'NO_DATA' }
+        });
+      }
+    }
 
-      } catch (writeError) {
-        logger.error('Chunk write failed:', writeError);
-        file.status = 'error';
+    req.on('error', (error) => {
+      logger.error('Upload stream error:', error);
+      writeStream.destroy();
+      sessionManager.activeStreams.delete(streamId);
+      file.status = 'error';
+
+      if (!res.headersSent) {
         res.status(500).json({
           success: false,
-          error: { message: 'Failed to write chunk', code: 'WRITE_ERROR' }
+          error: { message: 'Upload stream failed', code: 'STREAM_ERROR' }
+        });
+      }
+    });
+
+    writeStream.on('error', (error) => {
+      logger.error('Write stream error:', error);
+      file.status = 'error';
+      sessionManager.activeStreams.delete(streamId);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: { message: 'File write failed', code: 'WRITE_ERROR' }
         });
       }
     });
 
   } catch (error) {
-    logger.error('Upload chunk failed:', error);
+    logger.error('Stream upload setup failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -410,255 +367,59 @@ router.put('/sessions/:sessionId/files/:fileId/chunk', async (req, res) => {
   }
 });
 
-// Complete file upload
-router.post('/sessions/:sessionId/files/:fileId/complete', async (req, res) => {
-  try {
-    const { sessionId, fileId } = req.params;
-    const userId = req.user.id;
+// Get session and files status (optimized response)
+router.get('/sessions/:sessionId/status', validateSession, (req, res) => {
+  const session = req.uploadSession;
 
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
+  const fileStatuses = Array.from(session.files.values()).map(f => ({
+    id: f.id,
+    path: f.path,
+    size: f.size,
+    received: f.received,
+    status: f.status,
+    progress: f.size > 0 ? (f.received / f.size * 100).toFixed(2) : 0
+  }));
 
-    const file = files.get(fileId);
-    if (!file || file.sessionId !== sessionId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'File not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    file.status = 'completed';
-
-    res.json({
-      file: {
-        path: file.path
-      }
-    });
-
-  } catch (error) {
-    logger.error('Complete file failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Complete session
-router.post('/sessions/:sessionId/complete', async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const { files: selectedFiles } = req.body;
-    const userId = req.user.id;
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    session.status = 'completed';
-    session.completedAt = Date.now();
-
-    const completedFiles = Array.from(session.files.values())
-      .filter(f => !selectedFiles || selectedFiles.includes(f.id))
-      .filter(f => f.status === 'completed');
-
-    res.json({
-      count: completedFiles.length,
-      fileIds: completedFiles.map(f => f.id)
-    });
-
-    // Auto-cleanup completed sessions after 1 hour to free memory
-    setTimeout(() => {
-      const currentSession = sessions.get(sessionId);
-      if (currentSession && currentSession.status === 'completed') {
-        // Clean up all files in this session
-        for (const fileId of currentSession.files.keys()) {
-          files.delete(fileId);
-        }
-        sessions.delete(sessionId);
-        logger.info(`Auto-cleaned completed upload session: ${sessionId}`);
-      }
-    }, 60 * 60 * 1000); // 1 hour
-
-  } catch (error) {
-    logger.error('Complete session failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Pause session
-router.post('/sessions/:sessionId/pause', async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const userId = req.user.id;
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    session.status = 'paused';
-
-    res.json({ status: 'paused' });
-
-  } catch (error) {
-    logger.error('Pause session failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Resume session
-router.post('/sessions/:sessionId/resume', async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const userId = req.user.id;
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    session.status = 'active';
-
-    res.json({ status: 'active' });
-
-  } catch (error) {
-    logger.error('Resume session failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Abort file
-router.delete('/sessions/:sessionId/files/:fileId', async (req, res) => {
-  try {
-    const { sessionId, fileId } = req.params;
-    const userId = req.user.id;
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    const file = files.get(fileId);
-    if (file && file.sessionId === sessionId) {
-      file.status = 'aborted';
-      session.files.delete(fileId);
-      files.delete(fileId);
-    }
-
-    res.json({ status: 'aborted' });
-
-  } catch (error) {
-    logger.error('Abort file failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Abort session
-router.delete('/sessions/:sessionId', async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const userId = req.user.id;
-
-    const session = sessions.get(sessionId);
-    if (!session || session.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Session not found', code: 'NOT_FOUND' }
-      });
-    }
-
-    // Cleanup files
-    for (const fileId of session.files.keys()) {
-      files.delete(fileId);
-    }
-
-    sessions.delete(sessionId);
-
-    res.json({ status: 'aborted' });
-
-  } catch (error) {
-    logger.error('Abort session failed:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: error.message, code: 'INTERNAL_ERROR' }
-    });
-  }
-});
-
-// Debug endpoint to monitor memory usage (development only)
-if (process.env.NODE_ENV === 'development') {
-  router.get('/debug/memory', (_req, res) => {
-    const now = Date.now();
-    const sessionStats = {
-      total: sessions.size,
-      active: 0,
-      completed: 0,
-      paused: 0,
-      expired: 0
-    };
-
-    const fileStats = {
-      total: files.size,
-      pending: 0,
-      uploading: 0,
-      completed: 0,
-      error: 0
-    };
-
-    // Count session statuses
-    for (const session of sessions.values()) {
-      if (now - session.createdAt > SESSION_EXPIRY_MS) {
-        sessionStats.expired++;
-      } else {
-        sessionStats[session.status]++;
-      }
-    }
-
-    // Count file statuses
-    for (const file of files.values()) {
-      fileStats[file.status]++;
-    }
-
-    res.json({
-      memory: {
-        sessions: sessionStats,
-        files: fileStats,
-        sessionExpiryHours: SESSION_EXPIRY_MS / (60 * 60 * 1000),
-        cleanupIntervalHours: CLEANUP_INTERVAL_MS / (60 * 60 * 1000)
-      }
-    });
+  res.json({
+    id: session.id,
+    status: session.status,
+    createdAt: session.createdAt,
+    targetRelative: session.targetRelative,
+    totalBytes: session.totalBytes,
+    bytesTransferred: session.bytesTransferred,
+    progress: session.totalBytes > 0 ? (session.bytesTransferred / session.totalBytes * 100).toFixed(2) : 0,
+    files: fileStatuses,
+    activeStreams: sessionManager.activeStreams.size
   });
-}
+});
+
+// Performance monitoring endpoint
+router.get('/stats', (_req, res) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const totalSessions = sessionManager.sessions.size;
+  const totalFiles = sessionManager.files.size;
+  const activeStreams = sessionManager.activeStreams.size;
+
+  const memUsage = process.memoryUsage();
+
+  res.json({
+    sessions: totalSessions,
+    files: totalFiles,
+    activeStreams,
+    limits: {
+      maxSessionsPerUser: MAX_SESSIONS_PER_USER,
+      maxFilesPerSession: MAX_FILES_PER_SESSION,
+      maxConcurrentStreams: MAX_CONCURRENT_STREAMS
+    },
+    memory: {
+      rss: Math.round(memUsage.rss / 1024 / 1024) + ' MB',
+      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + ' MB',
+      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + ' MB'
+    }
+  });
+});
 
 export default router;

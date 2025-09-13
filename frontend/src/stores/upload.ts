@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, shallowRef, readonly } from 'vue'
+import { ref, readonly } from 'vue'
 import { uploadApi } from '@/api/upload'
 
 export type UploadStatus = 'queued' | 'uploading' | 'paused' | 'completed' | 'error' | 'canceled' | 'waiting_files'
@@ -28,10 +28,10 @@ export interface UploadBatch {
 }
 
 export const useUploadStore = defineStore('upload', () => {
-  const batches = shallowRef<UploadBatch[]>([])
+  const batches = ref<UploadBatch[]>([])
   const concurrency = ref<number>(
-    // Auto-adjust based on connection and CPU capabilities
-    navigator.hardwareConcurrency > 4 ? 8 : 6
+    // Conservative concurrency to avoid backend stream limits (max 10 streams)
+    navigator.hardwareConcurrency > 4 ? 6 : 4
   )
   const chunkSize = ref<number>(2 * 1024 * 1024) // 2MB - smaller chunks for faster processing
   const running = ref<number>(0)
@@ -104,10 +104,9 @@ export const useUploadStore = defineStore('upload', () => {
         task.uploaded = offset
         task.updatedAt = Date.now()
 
-        // Reduce reactivity updates frequency - only update every 100ms or on completion
+        // Update progress tracking timestamp
         const now = Date.now()
-        if (isSmallFile || now - lastUpdateTime > 100 || offset >= task.size) {
-          batches.value = [...batches.value]
+        if (now - lastUpdateTime > 50) {
           lastUpdateTime = now
         }
       }
@@ -118,8 +117,7 @@ export const useUploadStore = defineStore('upload', () => {
         task.status = 'completed'
         task.updatedAt = Date.now()
 
-        // Force reactivity update after task completion
-        batches.value = [...batches.value]
+        // Task completion automatically triggers reactivity with ref
 
         // Check if batch is complete - do this BEFORE finally block
         const batch = batches.value.find(b => b.id === task.sessionId)
@@ -146,8 +144,7 @@ export const useUploadStore = defineStore('upload', () => {
               console.error('❌ Failed to complete session:', error)
             }
 
-            // Force another reactivity update for completed batch
-            batches.value = [...batches.value]
+            // Batch completion automatically triggers reactivity with ref
           }
         }
       }
@@ -269,8 +266,7 @@ export const useUploadStore = defineStore('upload', () => {
       })
     }
 
-    // Trigger reactivity
-    batches.value = [...batches.value]
+    // Batch changes automatically trigger reactivity with ref
     debouncedPersist()
   }
 
@@ -287,8 +283,7 @@ export const useUploadStore = defineStore('upload', () => {
       })
     }
 
-    // Trigger reactivity
-    batches.value = [...batches.value]
+    // Batch changes automatically trigger reactivity with ref
     debouncedPersist()
     enqueueNext()
   }
@@ -306,8 +301,7 @@ export const useUploadStore = defineStore('upload', () => {
       })
     }
 
-    // Trigger reactivity
-    batches.value = [...batches.value]
+    // Batch changes automatically trigger reactivity with ref
     debouncedPersist()
   }
 

@@ -60,7 +60,12 @@ app.use(requestTimeout(60 * 1000)); // 1 minute timeout
 app.use(corsPreflightHandler);
 app.use(apiVersioning);
 
-// Body parsing
+// Body parsing - optimized for streaming uploads
+app.use('/api/upload/*/stream', express.raw({
+  type: 'application/octet-stream',
+  limit: '100mb' // Higher limit for streaming uploads
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
@@ -136,6 +141,9 @@ if (process.env.NODE_ENV !== 'test') {
                         req.path.startsWith('/api-docs') ||
                         req.path.startsWith('/api/upload'); // Skip rate limiting for all upload endpoints
 
+      if (shouldSkip && req.path.startsWith('/api/upload')) {
+        logger.debug('Skipping rate limit for upload endpoint', { path: req.path, method: req.method });
+      }
 
       return shouldSkip;
     },
