@@ -1,5 +1,6 @@
 import pool from '../../core/services/dbConnection.js';
 import { createClient } from 'redis';
+import logger from '../../shared/utils/logger.js';
 
 export async function healthCheck(_req, res) {
   const health = {
@@ -12,7 +13,7 @@ export async function healthCheck(_req, res) {
     await pool.query('SELECT 1');
     health.services.database = 'healthy';
   } catch (dbError) {
-    console.warn('Database health check failed:', dbError.message);
+    logger.warn('Database health check failed:', dbError.message);
     health.services.database = 'unhealthy';
     health.status = 'degraded';
   }
@@ -29,7 +30,7 @@ export async function healthCheck(_req, res) {
     await redis.disconnect();
     health.services.redis = 'healthy';
   } catch (redisError) {
-    console.warn('Redis health check failed:', redisError.message);
+    logger.warn('Redis health check failed:', redisError.message);
     health.services.redis = 'unhealthy';
     health.status = 'degraded';
   }

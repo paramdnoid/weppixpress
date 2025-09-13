@@ -1,6 +1,7 @@
 import { authenticateToken, requireAdmin } from '../middleware/authenticate.js';
 import errorMetricsService from '../../core/services/errorMetricsService.js';
 import monitoringService from '../../core/services/monitoringService.js';
+import logger from '../../shared/utils/logger.js';
 import express from 'express';
 
 const router = express.Router();
@@ -82,7 +83,7 @@ router.get('/overview', authenticateToken, requireAdmin, async (req, res) => {
 
     res.json(overview);
   } catch (error) {
-    console.error('Dashboard overview error:', error);
+    logger.error('Dashboard overview error:', error);
     res.status(500).json({ error: 'Failed to get dashboard overview' });
   }
 });
@@ -124,7 +125,7 @@ router.get('/errors', authenticateToken, requireAdmin, async (req, res) => {
       healthStatus: errorMetricsService.getHealthStatus()
     });
   } catch (error) {
-    console.error('Dashboard errors error:', error);
+    logger.error('Dashboard errors error:', error);
     res.status(500).json({ error: 'Failed to get error metrics' });
   }
 });
@@ -165,7 +166,7 @@ router.get('/performance', authenticateToken, requireAdmin, async (req, res) => 
       }
     });
   } catch (error) {
-    console.error('Dashboard performance error:', error);
+    logger.error('Dashboard performance error:', error);
     res.status(500).json({ error: 'Failed to get performance metrics' });
   }
 });
@@ -187,7 +188,7 @@ router.get('/system', authenticateToken, requireAdmin, async (req, res) => {
     const healthStatus = await monitoringService.getHealthStatus();
     res.json(healthStatus);
   } catch (error) {
-    console.error('Dashboard system error:', error);
+    logger.error('Dashboard system error:', error);
     res.status(500).json({ error: 'Failed to get system health' });
   }
 });
@@ -213,7 +214,7 @@ router.get('/alerts', authenticateToken, requireAdmin, async (req, res) => {
       timestamp: Date.now()
     });
   } catch (error) {
-    console.error('Dashboard alerts error:', error);
+    logger.error('Dashboard alerts error:', error);
     res.status(500).json({ error: 'Failed to get alerts' });
   }
 });

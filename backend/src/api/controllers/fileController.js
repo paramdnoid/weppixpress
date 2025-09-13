@@ -1,8 +1,8 @@
 import { FileCache } from '../../shared/utils/fileCache.js';
 import logger from '../../shared/utils/logger.js';
 import { getUserDirectory, sanitizeUploadPath, secureResolve } from '../../shared/utils/pathSecurity.js';
-import { getUniquePath, pathExists, ensureDirectory } from '../../shared/utils/fileOperations.js';
-import { sendErrorResponse, sendUnauthorizedError, sendInternalServerError } from '../../shared/utils/httpResponses.js';
+import { getUniquePath, ensureDirectory } from '../../shared/utils/fileOperations.js';
+import { sendErrorResponse, sendInternalServerError } from '../../shared/utils/httpResponses.js';
 import { validateUserId } from '../../shared/utils/commonValidation.js';
 import dotenv from 'dotenv';
 import { filesize } from 'filesize';
@@ -157,7 +157,7 @@ async function getFolderSize(folderPath, options = {}) {
         processedInBatch++;
         if (processedInBatch >= batchSize) {
           processedInBatch = 0;
-          await new Promise(resolve => setImmediate(resolve));
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
       

@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
+import logger from './logger.js';
 
 dotenv.config();
 
@@ -18,7 +19,7 @@ const sendMail =  async ({ to, subject, html }) => {
       html
     });
   } catch (err) {
-    console.error('Error sending email:', err);
+    logger.error('Error sending email:', err);
     throw err;
   }
 };

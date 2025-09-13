@@ -24,6 +24,23 @@ export { default as inputSanitization } from './middleware/inputSanitization.js'
 export { default as monitoring } from './middleware/monitoring.js';
 export { default as requestContext } from './middleware/requestContext.js';
 
+// Import the modules to use them in convenience exports
+import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth.js';
+import dashboardRoutes from './routes/dashboard.js';
+import filesRoutes from './routes/files.js';
+import healthRoutes from './routes/health.js';
+import websiteInfoRoutes from './routes/websiteInfo.js';
+import adminController from './controllers/adminController.js';
+import authController from './controllers/authController.js';
+import fileController from './controllers/fileController.js';
+import healthController from './controllers/healthController.js';
+import authenticate from './middleware/authenticate.js';
+import errorHandler from './middleware/errorHandler.js';
+import inputSanitization from './middleware/inputSanitization.js';
+import monitoring from './middleware/monitoring.js';
+import requestContext from './middleware/requestContext.js';
+
 // Convenience export für alle Routes
 export const routes = {
   admin: adminRoutes,

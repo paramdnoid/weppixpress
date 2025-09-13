@@ -99,14 +99,28 @@ app.use(helmet({
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
-app.use(securityMiddlewareStack);
+// Apply security middleware with selective checks for upload routes
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/upload')) {
+    // Apply only NoSQL sanitization and HPP protection for upload routes
+    // Skip XSS cleaning as it might interfere with file paths
+    return securityMiddlewareStack[0](req, res, () =>
+      securityMiddlewareStack[2](req, res, next)
+    );
+  }
+  return securityMiddlewareStack[0](req, res, () =>
+    securityMiddlewareStack[1](req, res, () =>
+      securityMiddlewareStack[2](req, res, next)
+    )
+  );
+});
 
 const rateLimitRedisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  rateLimitRedisClient.connect().catch(console.error);
+  rateLimitRedisClient.connect().catch(err => logger.error('Redis connection failed:', err));
   
   const generalLimiter = rateLimit({
     store: new RedisStore({
@@ -205,8 +219,8 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3001;
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Backend + WS running on http://localhost:${PORT}`);
-  console.log(`📚 API Docs available at http://localhost:${PORT}/api-docs`);
+  logger.info(`🚀 Backend + WS running on http://localhost:${PORT}`);
+  logger.info(`📚 API Docs available at http://localhost:${PORT}/api-docs`);
 });
 
 // Optimize server performance settings
@@ -311,7 +325,7 @@ process.on('unhandledRejection', (reason, promise) => {
   
   // In production, you might want to gracefully shutdown
   if (process.env.NODE_ENV === 'production') {
-    console.error('Unhandled promise rejection. Shutting down gracefully...');
+    logger.error('Unhandled promise rejection. Shutting down gracefully...');
     gracefulShutdown('UNHANDLED_REJECTION');
   }
 });
@@ -323,12 +337,12 @@ process.on('uncaughtException', (error) => {
     timestamp: new Date().toISOString()
   });
   
-  console.error('Uncaught exception. Shutting down...');
+  logger.error('Uncaught exception. Shutting down...');
   gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
 async function gracefulShutdown(signal) {
-  console.log(`${signal} received. Shutting down gracefully...`);
+  logger.info(`${signal} received. Shutting down gracefully...`);
   
   try {
     // Stop monitoring
@@ -339,7 +353,7 @@ async function gracefulShutdown(signal) {
     
     // Close server
     server.close(async () => {
-      console.log('HTTP server closed');
+      logger.info('HTTP server closed');
       
       try {
         await cacheService.close();
@@ -348,7 +362,7 @@ async function gracefulShutdown(signal) {
           await rateLimitRedisClient.quit();
         }
         
-        console.log('All connections closed. Process terminated');
+        logger.info('All connections closed. Process terminated');
         process.exit(0);
       } catch (error) {
         logger.error('Error during graceful shutdown:', error);

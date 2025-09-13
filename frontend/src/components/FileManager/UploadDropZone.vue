@@ -78,7 +78,7 @@
                   @click="resumeBatch(batch.id)"
                   title="Resume"
                 >
-                  <Icon icon="tabler:player-play" width="16" height="16" />
+                  <Icon icon="tabler:player-play" width="14" height="14" />
                 </button>
                 <button
                   class="btn btn-sm btn-outline-danger"

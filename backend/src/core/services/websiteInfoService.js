@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { URL } from 'node:url';
+import logger from '../../shared/utils/logger.js';
 
 // services/websiteInfoService.js (ESM)
 // Minimal dependency approach: Node 18+ global fetch + cheerio for parsing
@@ -172,9 +173,9 @@ export default { getWebsiteInfo, probe };
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   const testUrl = process.argv[2] || 'https://example.com';
   getWebsiteInfo(testUrl).then((r) => {
-    console.log(JSON.stringify(r, null, 2));
+    logger.info(JSON.stringify(r, null, 2));
   }).catch((e) => {
-    console.error(e);
+    logger.error(e);
     process.exit(1);
   });
 }

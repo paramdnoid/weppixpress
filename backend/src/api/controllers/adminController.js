@@ -1,6 +1,6 @@
 import { getAllUsers, getUserById, updateUserRole } from '../../core/models/userModel.js';
 import logger from '../../shared/utils/logger.js';
-import { sendValidationError, sendNotFoundError, sendInternalServerError, sendSuccessResponse, handleValidationErrors } from '../../shared/utils/httpResponses.js';
+import { sendValidationError, sendNotFoundError, handleValidationErrors } from '../../shared/utils/httpResponses.js';
 import { validateRole } from '../../shared/utils/commonValidation.js';
 import { validationResult } from 'express-validator';
 

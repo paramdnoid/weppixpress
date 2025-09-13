@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import logger from './logger.js';
 
 /**
  * Central JWT Token Utilities
@@ -39,11 +40,11 @@ try {
 
 } catch (error) {
   // Log error for debugging but don't expose sensitive details
-  console.error('JWT Configuration Error:', error.message);
+  logger.error('JWT Configuration Error:', error.message);
   
   // In production, we might want to use default values or exit gracefully
   if (process.env.NODE_ENV === 'production') {
-    console.error('Critical: JWT secrets not properly configured. Application cannot start.');
+    logger.error('Critical: JWT secrets not properly configured. Application cannot start.');
     process.exit(1);
   } else {
     // In development, provide helpful error message

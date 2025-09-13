@@ -2,6 +2,7 @@ import pool from '../services/dbConnection.js';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import logger from '../../shared/utils/logger.js';
 
 // database/migrate.js
 
@@ -32,7 +33,7 @@ export async function runMigrations() {
     // Run pending migrations
     for (const migration of migrations) {
       if (!executedFiles.includes(migration)) {
-        console.log(`Running migration: ${migration}`);
+        logger.info(`Running migration: ${migration}`);
         
         const sqlContent = readFileSync(
           join(__dirname, 'migrations', migration), 
@@ -55,13 +56,13 @@ export async function runMigrations() {
         // Execute each statement separately
         for (let i = 0; i < statements.length; i++) {
           const statement = statements[i];
-          console.log(`  Executing statement ${i + 1}/${statements.length}...`);
+          logger.info(`  Executing statement ${i + 1}/${statements.length}...`);
           try {
             await pool.query(statement);
-            console.log(`  ✅ Statement executed successfully`);
+            logger.info(`  ✅ Statement executed successfully`);
           } catch (error) {
-            console.error(`  ❌ Statement failed: ${error.message}`);
-            console.error(`  SQL: ${statement.substring(0, 200)}...`);
+            logger.error(`  ❌ Statement failed: ${error.message}`);
+            logger.error(`  SQL: ${statement.substring(0, 200)}...`);
             throw error;
           }
         }
@@ -70,13 +71,13 @@ export async function runMigrations() {
           [migration]
         );
         
-        console.log(`✅ Migration ${migration} completed`);
+        logger.info(`✅ Migration ${migration} completed`);
       }
     }
     
-    console.log('🚀 All migrations completed');
+    logger.info('🚀 All migrations completed');
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    logger.error('❌ Migration failed:', error);
     throw error;
   }
 }

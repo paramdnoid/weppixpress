@@ -18,6 +18,17 @@ export { default as migrate } from './database/migrate.js';
 // Models
 export { default as userModel } from './models/userModel.js';
 
+// Import modules for convenience exports
+import cacheService from './services/cacheService.js';
+import databaseService from './services/databaseService.js';
+import dbConnection from './services/dbConnection.js';
+import errorMetricsService from './services/errorMetricsService.js';
+import monitoringService from './services/monitoringService.js';
+import websiteInfoService from './services/websiteInfoService.js';
+import websocketService from './services/websocketService.js';
+import migrate from './database/migrate.js';
+import userModel from './models/userModel.js';
+
 // Convenience exports
 export const services = {
   cache: cacheService,

@@ -40,20 +40,7 @@ export const useUploadStore = defineStore('upload', () => {
     algorithm: 'sha-256'
   })
 
-  let hashWorker: Worker | null = null
   let persistTimeout: number | null = null
-
-  function getWorker() {
-    if (!hashWorker) {
-      try {
-        // @ts-ignore
-        hashWorker = new Worker(new URL('@/workers/hashWorker.ts', import.meta.url), { type: 'module' })
-      } catch (error) {
-        console.warn('Hash worker not available:', error)
-      }
-    }
-    return hashWorker
-  }
 
   function findTask(taskId: string): { batch: UploadBatch, task: UploadTask } | null {
     for (const b of batches.value) {
@@ -398,7 +385,7 @@ export const useUploadStore = defineStore('upload', () => {
       } else {
         localStorage.setItem('upload_batches', jsonData)
       }
-    } catch (error) {
+    } catch (error: any) {
       // If still failing, clear the storage and try with minimal data
       if (error.name === 'QuotaExceededError') {
         try {

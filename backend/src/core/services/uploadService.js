@@ -1,6 +1,5 @@
 import { join, dirname } from 'path';
 import fs from 'fs/promises';
-import { createWriteStream } from 'fs';
 import { secureResolve, getUserDirectory, sanitizeUploadPath } from '../../shared/utils/pathSecurity.js';
 
 /**
@@ -9,7 +8,7 @@ import { secureResolve, getUserDirectory, sanitizeUploadPath } from '../../share
  */
 class UploadService {
   constructor() {
-    this.uploadBaseDir = process.env.UPLOAD_BASE_DIR || './uploads';
+    this.uploadBaseDir = process.env.UPLOAD_DIR || './uploads';
   }
 
   /**
@@ -40,13 +39,14 @@ class UploadService {
    * Write file chunk
    * @param {string} filePath
    * @param {Buffer} chunk
-   * @param {number} offset
+   * @param {number} _offset - Reserved for future resumable upload implementation
    */
-  async writeChunk(filePath, chunk, offset) {
+  async writeChunk(filePath, chunk, _offset) {
     // Ensure directory exists
     await fs.mkdir(dirname(filePath), { recursive: true });
 
-    // Append chunk to file
+    // For resumable uploads, we need to write at specific offset
+    // For now, we'll append (offset handling can be added later for true resumable uploads)
     await fs.appendFile(filePath, chunk);
   }
 
@@ -90,9 +90,9 @@ class UploadService {
 
   /**
    * Cleanup incomplete uploads
-   * @param {string} sessionId
+   * @param {string} _sessionId
    */
-  async cleanupSession(sessionId) {
+  async cleanupSession(_sessionId) {
     // In a real implementation, this would clean up temporary files
     // For now, we'll leave files in place for resume capability
   }

@@ -1,10 +1,10 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import fs from 'fs/promises';
-import { createWriteStream } from 'fs';
 import { authenticateToken } from '../middleware/authenticate.js';
 import { secureResolve, getUserDirectory, sanitizeUploadPath } from '../../shared/utils/pathSecurity.js';
+import logger from '../../shared/utils/logger.js';
 
 const router = express.Router();
 
@@ -12,13 +12,58 @@ const router = express.Router();
 const sessions = new Map();
 const files = new Map();
 
+// File write locks to prevent race conditions
+const fileLocks = new Map();
+
+// Session cleanup configuration
+const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
+// Periodic cleanup of expired sessions and files
+setInterval(() => {
+  const now = Date.now();
+  const expiredSessions = [];
+
+  // Find expired sessions
+  for (const [sessionId, session] of sessions.entries()) {
+    if (now - session.createdAt > SESSION_EXPIRY_MS) {
+      expiredSessions.push(sessionId);
+    }
+  }
+
+  // Clean up expired sessions and their files
+  for (const sessionId of expiredSessions) {
+    const session = sessions.get(sessionId);
+    if (session) {
+      // Clean up all files in this session
+      for (const fileId of session.files.keys()) {
+        files.delete(fileId);
+      }
+      sessions.delete(sessionId);
+    }
+  }
+
+  if (expiredSessions.length > 0) {
+    logger.info(`Cleaned up ${expiredSessions.length} expired upload sessions`);
+  }
+}, CLEANUP_INTERVAL_MS);
+
 // Apply authentication to all upload routes
 router.use(authenticateToken);
 
 // Get upload base directory from environment
 const getUploadBaseDir = () => {
-  return process.env.UPLOAD_BASE_DIR || '../uploads';
+  return process.env.UPLOAD_DIR || './uploads';
 };
+
+// Session limits from environment
+const MAX_SESSIONS_PER_USER = parseInt(process.env.UPLOAD_MAX_SESSIONS_PER_USER) || 10;
+const MAX_FILES_PER_SESSION = parseInt(process.env.UPLOAD_MAX_FILES_PER_SESSION) || 1000;
+
+// Helper function to count user sessions
+function getUserSessionCount(userId) {
+  return Array.from(sessions.values()).filter(s => s.userId === userId).length;
+}
 
 // Create upload session
 router.post('/sessions', async (req, res) => {
@@ -33,19 +78,20 @@ router.post('/sessions', async (req, res) => {
       });
     }
 
-    // Get user's upload directory
-    const baseDir = getUserDirectory(userId, getUploadBaseDir());
+    // Check session limit
+    if (getUserSessionCount(userId) >= MAX_SESSIONS_PER_USER) {
+      return res.status(429).json({
+        success: false,
+        error: {
+          message: `Maximum ${MAX_SESSIONS_PER_USER} concurrent upload sessions allowed`,
+          code: 'SESSION_LIMIT_EXCEEDED'
+        }
+      });
+    }
 
     // Sanitize the target path
     const sanitized = sanitizeUploadPath(targetPath);
 
-    console.log('createSession debug', {
-      userId,
-      baseDir,
-      targetPath,
-      sanitized,
-      timestamp: new Date().toISOString()
-    });
 
     // Create session
     const sessionId = uuidv4();
@@ -68,7 +114,7 @@ router.post('/sessions', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upload session creation failed:', error);
+    logger.error('Upload session creation failed:', error);
     res.status(400).json({
       success: false,
       error: { message: error.message, code: 'INVALID_REQUEST' }
@@ -91,7 +137,7 @@ router.get('/sessions', async (req, res) => {
 
     res.json({ sessions: userSessions });
   } catch (error) {
-    console.error('List sessions failed:', error);
+    logger.error('List sessions failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -106,14 +152,6 @@ router.post('/sessions/:sessionId/files', async (req, res) => {
     const { files: fileList } = req.body;
     const userId = req.user.id;
 
-    console.log('File registration request:', {
-      sessionId,
-      userId,
-      bodyKeys: Object.keys(req.body),
-      fileListType: typeof fileList,
-      fileListLength: Array.isArray(fileList) ? fileList.length : 'not array',
-      fileList: Array.isArray(fileList) ? fileList.slice(0, 3) : fileList
-    });
 
     const session = sessions.get(sessionId);
     if (!session || session.userId !== userId) {
@@ -125,6 +163,15 @@ router.post('/sessions/:sessionId/files', async (req, res) => {
     if (!Array.isArray(fileList)) {
       return res.status(400).json({
         error: 'Files array is required'
+      });
+    }
+
+    // Check file count limit
+    const currentFileCount = session.files.size;
+    const newFileCount = fileList.length;
+    if (currentFileCount + newFileCount > MAX_FILES_PER_SESSION) {
+      return res.status(400).json({
+        error: `Maximum ${MAX_FILES_PER_SESSION} files per session. Current: ${currentFileCount}, Trying to add: ${newFileCount}`
       });
     }
 
@@ -153,7 +200,7 @@ router.post('/sessions/:sessionId/files', async (req, res) => {
     res.json({ files: registeredFiles });
 
   } catch (error) {
-    console.error('File registration failed:', error);
+    logger.error('File registration failed:', error);
     res.status(400).json({
       error: error.message
     });
@@ -182,7 +229,7 @@ router.get('/sessions/:sessionId/status', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get session status failed:', error);
+    logger.error('Get session status failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -215,7 +262,7 @@ router.get('/sessions/:sessionId/files', async (req, res) => {
     res.json({ files: fileList });
 
   } catch (error) {
-    console.error('List session files failed:', error);
+    logger.error('List session files failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -252,7 +299,7 @@ router.get('/sessions/:sessionId/files/:fileId/offset', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get file offset failed:', error);
+    logger.error('Get file offset failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -314,26 +361,38 @@ router.put('/sessions/:sessionId/files/:fileId/chunk', async (req, res) => {
       filePath = join(targetDir, file.path);
     }
 
-    // Write chunk to file
+    // Write chunk to file with locking
     const chunks = [];
     req.on('data', chunk => chunks.push(chunk));
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
 
-        // Append to file (create if doesn't exist)
-        await fs.appendFile(filePath, buffer);
+        // Acquire file lock to prevent race conditions
+        const lockKey = filePath;
+        while (fileLocks.has(lockKey)) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        fileLocks.set(lockKey, true);
 
-        file.received += buffer.length;
-        file.status = file.received >= file.size ? 'completed' : 'uploading';
+        try {
+          // Append to file (create if doesn't exist)
+          await fs.appendFile(filePath, buffer);
 
-        res.json({
-          received: file.received,
-          completed: file.status === 'completed'
-        });
+          file.received += buffer.length;
+          file.status = file.received >= file.size ? 'completed' : 'uploading';
+
+          res.json({
+            received: file.received,
+            completed: file.status === 'completed'
+          });
+        } finally {
+          // Always release lock
+          fileLocks.delete(lockKey);
+        }
 
       } catch (writeError) {
-        console.error('Chunk write failed:', writeError);
+        logger.error('Chunk write failed:', writeError);
         file.status = 'error';
         res.status(500).json({
           success: false,
@@ -343,7 +402,7 @@ router.put('/sessions/:sessionId/files/:fileId/chunk', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upload chunk failed:', error);
+    logger.error('Upload chunk failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -382,7 +441,7 @@ router.post('/sessions/:sessionId/files/:fileId/complete', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Complete file failed:', error);
+    logger.error('Complete file failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -406,6 +465,7 @@ router.post('/sessions/:sessionId/complete', async (req, res) => {
     }
 
     session.status = 'completed';
+    session.completedAt = Date.now();
 
     const completedFiles = Array.from(session.files.values())
       .filter(f => !selectedFiles || selectedFiles.includes(f.id))
@@ -416,8 +476,21 @@ router.post('/sessions/:sessionId/complete', async (req, res) => {
       fileIds: completedFiles.map(f => f.id)
     });
 
+    // Auto-cleanup completed sessions after 1 hour to free memory
+    setTimeout(() => {
+      const currentSession = sessions.get(sessionId);
+      if (currentSession && currentSession.status === 'completed') {
+        // Clean up all files in this session
+        for (const fileId of currentSession.files.keys()) {
+          files.delete(fileId);
+        }
+        sessions.delete(sessionId);
+        logger.info(`Auto-cleaned completed upload session: ${sessionId}`);
+      }
+    }, 60 * 60 * 1000); // 1 hour
+
   } catch (error) {
-    console.error('Complete session failed:', error);
+    logger.error('Complete session failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -444,7 +517,7 @@ router.post('/sessions/:sessionId/pause', async (req, res) => {
     res.json({ status: 'paused' });
 
   } catch (error) {
-    console.error('Pause session failed:', error);
+    logger.error('Pause session failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -471,7 +544,7 @@ router.post('/sessions/:sessionId/resume', async (req, res) => {
     res.json({ status: 'active' });
 
   } catch (error) {
-    console.error('Resume session failed:', error);
+    logger.error('Resume session failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -503,7 +576,7 @@ router.delete('/sessions/:sessionId/files/:fileId', async (req, res) => {
     res.json({ status: 'aborted' });
 
   } catch (error) {
-    console.error('Abort file failed:', error);
+    logger.error('Abort file failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
@@ -535,12 +608,57 @@ router.delete('/sessions/:sessionId', async (req, res) => {
     res.json({ status: 'aborted' });
 
   } catch (error) {
-    console.error('Abort session failed:', error);
+    logger.error('Abort session failed:', error);
     res.status(500).json({
       success: false,
       error: { message: error.message, code: 'INTERNAL_ERROR' }
     });
   }
 });
+
+// Debug endpoint to monitor memory usage (development only)
+if (process.env.NODE_ENV === 'development') {
+  router.get('/debug/memory', (_req, res) => {
+    const now = Date.now();
+    const sessionStats = {
+      total: sessions.size,
+      active: 0,
+      completed: 0,
+      paused: 0,
+      expired: 0
+    };
+
+    const fileStats = {
+      total: files.size,
+      pending: 0,
+      uploading: 0,
+      completed: 0,
+      error: 0
+    };
+
+    // Count session statuses
+    for (const session of sessions.values()) {
+      if (now - session.createdAt > SESSION_EXPIRY_MS) {
+        sessionStats.expired++;
+      } else {
+        sessionStats[session.status]++;
+      }
+    }
+
+    // Count file statuses
+    for (const file of files.values()) {
+      fileStats[file.status]++;
+    }
+
+    res.json({
+      memory: {
+        sessions: sessionStats,
+        files: fileStats,
+        sessionExpiryHours: SESSION_EXPIRY_MS / (60 * 60 * 1000),
+        cleanupIntervalHours: CLEANUP_INTERVAL_MS / (60 * 60 * 1000)
+      }
+    });
+  });
+}
 
 export default router;

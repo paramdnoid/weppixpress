@@ -1,7 +1,6 @@
 import sendMail from '../../shared/utils/mail.js';
 import logger from '../../shared/utils/logger.js';
-import { sendValidationError, sendUnauthorizedError, sendNotFoundError, sendConflictError, sendInternalServerError, sendSuccessResponse, handleValidationErrors } from '../../shared/utils/httpResponses.js';
-import { validateEmail } from '../../shared/utils/commonValidation.js';
+import { sendValidationError, sendUnauthorizedError, sendNotFoundError, sendConflictError, sendInternalServerError, handleValidationErrors } from '../../shared/utils/httpResponses.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';

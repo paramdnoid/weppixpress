@@ -158,7 +158,7 @@ class ErrorMetricsService {
   async sendAlert(alert) {
     // Placeholder for alert integrations
     if (process.env.NODE_ENV === 'development') {
-      console.warn('🚨 ERROR ALERT:', alert);
+      logger.warn('🚨 ERROR ALERT:', alert);
     }
     // Example integrations:
     // await this.sendSlackAlert(alert);

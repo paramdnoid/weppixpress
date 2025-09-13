@@ -25,6 +25,13 @@ export * from './validation/schemas/authSchemas.js';
 
 // Config (wenn vorhanden) - removed as constants.js doesn't exist
 
+// Import modules for convenience exports
+import circuitBreaker from './utils/circuitBreaker.js';
+import logger from './utils/logger.js';
+import mail from './utils/mail.js';
+import pathSecurity from './utils/pathSecurity.js';
+import validateRequest from './validation/validateRequest.js';
+
 // Convenience exports für häufig verwendete Utils
 export const utils = {
   circuitBreaker,
