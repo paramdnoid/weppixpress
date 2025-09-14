@@ -1,310 +1,15 @@
-import { runMigrations } from './src/core/database/migrate.js';
-import { errorHandler, notFound } from './src/api/middleware/errorHandler.js';
-import { securityMiddlewareStack } from './src/api/middleware/inputSanitization.js';
-import { errorMonitoring, requestMonitoring } from './src/api/middleware/monitoring.js';
-import { apiVersioning, corsPreflightHandler, requestContext, requestTimeout } from './src/api/middleware/requestContext.js';
-import adminRoutes from './src/api/routes/admin.js';
-import authRoutes from './src/api/routes/auth.js';
-import dashboardRoutes from './src/api/routes/dashboard.js';
-import fileRoutes from './src/api/routes/files.js';
-import healthRoutes from './src/api/routes/health.js';
-import uploadRoutes from './src/api/routes/upload.js';
-import websiteInfoRoutes from './src/api/routes/websiteInfo.js';
-import cacheService from './src/core/services/cacheService.js';
-import databaseService from './src/core/services/databaseService.js';
-import monitoringService from './src/core/services/monitoringService.js';
-// Swagger disabled - docs directory removed in new architecture
-import circuitBreakerRegistry from './src/shared/utils/circuitBreaker.js';
-import logger from './src/shared/utils/logger.js';
-import { WebSocketManager } from './src/core/services/websocketService.js';
-import compression from 'compression';
-import cookieParser from 'cookie-parser';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import express from 'express';
-import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import path from 'path';
-import RedisStore from 'rate-limit-redis';
-import { createClient } from 'redis';
-import { fileURLToPath } from 'url';
+import app from './src/app.js';
+import { serverConfig } from './config/index.js';
+import logger from './src/utils/logger.js';
+import { WebSocketManager } from './src/websockets/websocketService.js';
+import { gracefulShutdown } from './src/utils/gracefulShutdown.js';
 
-dotenv.config();
+const PORT = serverConfig.port;
+const HOST = serverConfig.host;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-
-// Initialize application on startup
-if (process.env.NODE_ENV !== 'test') {
-  await runMigrations();
-  await cacheService.initialize();
-}
-
-// Performance optimizations
-app.use(compression({
-  filter: (req, res) => {
-    if (req.headers['x-no-compression']) return false;
-    return compression.filter(req, res);
-  },
-  level: 6,
-  threshold: 1024 // Only compress responses over 1kb
-}));
-
-// Request context and tracking
-app.use(requestContext);
-app.use(requestMonitoring);
-app.use(requestTimeout(60 * 1000)); // 1 minute timeout
-app.use(corsPreflightHandler);
-app.use(apiVersioning);
-
-// Body parsing - optimized for streaming uploads
-app.use('/api/upload/*/stream', express.raw({
-  type: 'application/octet-stream',
-  limit: '100mb' // Higher limit for streaming uploads
-}));
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cookieParser());
-
-if (process.env.NODE_ENV !== 'production') {
-  app.use(morgan('dev'));
-}
-
-const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:5173'];
-
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
-
-app.use(helmet({
-  contentSecurityPolicy: {
-    useDefaults: true,
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      fontSrc: ["'self'", 'https://cdnjs.cloudflare.com'],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null
-    }
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  },
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
-}));
-
-// Apply security middleware with selective checks for upload routes
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api/upload')) {
-    // Apply only NoSQL sanitization and HPP protection for upload routes
-    // Skip XSS cleaning as it might interfere with file paths
-    return securityMiddlewareStack[0](req, res, () =>
-      securityMiddlewareStack[2](req, res, next)
-    );
-  }
-  return securityMiddlewareStack[0](req, res, () =>
-    securityMiddlewareStack[1](req, res, () =>
-      securityMiddlewareStack[2](req, res, next)
-    )
-  );
-});
-
-const rateLimitRedisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
-
-if (process.env.NODE_ENV !== 'test') {
-  rateLimitRedisClient.connect().catch(err => logger.error('Redis connection failed:', err));
-  
-  const generalLimiter = rateLimit({
-    store: new RedisStore({
-      sendCommand: (...args) => rateLimitRedisClient.sendCommand(args),
-      prefix: 'rl:general:'
-    }),
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: parseInt(process.env.RATE_LIMIT_GENERAL_MAX) || 500, // Increased for batch processing
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: (req) => {
-      const shouldSkip = req.path.startsWith('/api/health') ||
-                        req.path.startsWith('/api-docs') ||
-                        req.path.startsWith('/api/upload'); // Skip rate limiting for all upload endpoints
-
-      if (shouldSkip && req.path.startsWith('/api/upload')) {
-        logger.debug('Skipping rate limit for upload endpoint', { path: req.path, method: req.method });
-      }
-
-      return shouldSkip;
-    },
-    handler: (req, res) => {
-      logger.warn('Rate limit exceeded', {
-        ip: req.ip,
-        userAgent: req.get('User-Agent'),
-        path: req.path,
-        method: req.method
-      });
-      res.status(429).json({
-        error: {
-          message: 'Too many requests, please try again later.',
-          code: 'RATE_LIMIT_EXCEEDED',
-          retryAfter: 60
-        }
-      });
-    }
-  });
-
-  const authLimiter = rateLimit({
-    store: new RedisStore({
-      sendCommand: (...args) => rateLimitRedisClient.sendCommand(args),
-      prefix: 'rl:auth:'
-    }),
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_AUTH_MAX) || 5,
-    skipSuccessfulRequests: true,
-    handler: (req, res) => {
-      logger.warn('Auth rate limit exceeded', {
-        ip: req.ip,
-        userAgent: req.get('User-Agent'),
-        path: req.path
-      });
-      res.status(429).json({
-        error: {
-          message: 'Too many authentication attempts. Please try again in 15 minutes.',
-          code: 'AUTH_RATE_LIMIT_EXCEEDED',
-          retryAfter: 900
-        }
-      });
-    }
-  });
-
-
-  // Temporarily disable rate limiting for upload testing
-  // app.use(generalLimiter);
-  // app.use('/api/auth', authLimiter);
-}
-
-// setupSwagger(app); // Disabled - docs directory removed
-
-// Serve dashboard static files with optimized caching
-app.use('/dashboard', express.static(path.join(__dirname, 'public/dashboard'), {
-  maxAge: process.env.NODE_ENV === 'production' ? '1d' : '0',
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, path) => {
-    if (path.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
-  }
-}));
-
-// Dashboard route
-app.get('/dashboard', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public/dashboard/index.html'));
-});
-
-app.use('/api/health', healthRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/files', fileRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/website-info', websiteInfoRoutes);
-
-// System monitoring endpoints
-app.get('/api/ws/stats', (_req, res) => {
-  res.json(wsManager.getStats());
-});
-
-app.get('/api/security/info', (_req, res) => {
-  res.json({
-    securityFeatures: {
-      helmet: 'enabled',
-      cors: 'configured',
-      rateLimiting: 'redis-based',
-      inputSanitization: 'xss-clean, hpp, mongo-sanitize',
-      compression: 'gzip',
-      logging: 'gdpr-compliant'
-    },
-    version: process.env.npm_package_version || '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-app.get('/api/cache/health', async (_req, res) => {
-  const health = await cacheService.healthCheck();
-  res.json(health);
-});
-
-app.get('/api/database/health', async (_req, res) => {
-  const health = await databaseService.healthCheck();
-  res.json(health);
-});
-
-app.get('/api/system/health', async (_req, res) => {
-  const health = await monitoringService.getHealthStatus();
-  res.json(health);
-});
-
-app.get('/api/system/metrics', async (req, res) => {
-  const timeRange = req.query.range || 'last_hour';
-  const report = monitoringService.getPerformanceReport(timeRange);
-  res.json(report);
-});
-
-app.get('/api/system/errors', async (_req, res) => {
-  try {
-    const data =
-      (typeof monitoringService.getErrorMetrics === 'function' && await monitoringService.getErrorMetrics()) ||
-      (typeof monitoringService.getRecentErrors === 'function' && await monitoringService.getRecentErrors()) ||
-      [];
-    res.json(data);
-  } catch (_e) {
-    res.json([]);
-  }
-});
-
-app.get('/api/system/circuit-breakers', async (_req, res) => {
-  const metrics = circuitBreakerRegistry.getAllMetrics();
-  const healthStatus = circuitBreakerRegistry.getHealthStatus();
-  res.json({
-    metrics,
-    healthStatus
-  });
-});
-
-app.post('/api/system/circuit-breakers/reset', async (req, res) => {
-  const { serviceName } = req.body;
-
-  if (serviceName) {
-    const breaker = circuitBreakerRegistry.getBreaker(serviceName);
-    breaker.reset();
-    res.json({ message: `Circuit breaker for ${serviceName} reset` });
-  } else {
-    circuitBreakerRegistry.resetAll();
-    res.json({ message: 'All circuit breakers reset' });
-  }
-});
-
-app.use(notFound);
-app.use(errorMonitoring);
-app.use(errorHandler);
-
-const PORT = process.env.PORT || 3001;
-
-const server = app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`🚀 Backend + WS running on http://localhost:${PORT}`);
-  logger.info(`📚 API Docs available at http://localhost:${PORT}/api-docs`);
+const server = app.listen(PORT, HOST, () => {
+  logger.info(`🚀 Backend + WS running on http://${HOST}:${PORT}`);
+  logger.info(`📚 API Docs available at http://${HOST}:${PORT}/api-docs`);
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     logger.error(`Port ${PORT} is already in use. Please try a different port or stop the existing process.`);
@@ -318,34 +23,33 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 // Optimize server performance settings
-server.requestTimeout = 0;    // disable per-request timeout
-server.headersTimeout = 0;    // allow slow multipart headers for big forms
-server.keepAliveTimeout = 65_000; // keep-alive > typical proxy idle
-server.maxHeadersCount = 2000; // increase header limit for complex requests
+server.requestTimeout = 0;
+server.headersTimeout = 0;
+server.keepAliveTimeout = 65_000;
+server.maxHeadersCount = 2000;
 
 // Enable TCP_NODELAY for better real-time performance
 server.on('connection', (socket) => {
   socket.setNoDelay(true);
-  socket.setKeepAlive(true, 60000); // Keep alive for 60 seconds
+  socket.setKeepAlive(true, 60000);
 });
 
 const wsManager = new WebSocketManager(server);
-
-// Make WebSocket manager globally available for controllers
 global.wsManager = wsManager;
 
-// Global error handlers for unhandled promise rejections and uncaught exceptions
+// Graceful shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown(server, wsManager, 'SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown(server, wsManager, 'SIGINT'));
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Promise Rejection:', {
     reason: reason.message || reason,
     stack: reason.stack,
     promise: promise.toString()
   });
-  
-  // In production, you might want to gracefully shutdown
-  if (process.env.NODE_ENV === 'production') {
+
+  if (serverConfig.nodeEnv === 'production') {
     logger.error('Unhandled promise rejection. Shutting down gracefully...');
-    gracefulShutdown('UNHANDLED_REJECTION');
+    gracefulShutdown(server, wsManager, 'UNHANDLED_REJECTION');
   }
 });
 
@@ -355,46 +59,9 @@ process.on('uncaughtException', (error) => {
     stack: error.stack,
     timestamp: new Date().toISOString()
   });
-  
+
   logger.error('Uncaught exception. Shutting down...');
-  gracefulShutdown('UNCAUGHT_EXCEPTION');
+  gracefulShutdown(server, wsManager, 'UNCAUGHT_EXCEPTION');
 });
-
-async function gracefulShutdown(signal) {
-  logger.info(`${signal} received. Shutting down gracefully...`);
-  
-  try {
-    // Stop monitoring
-    monitoringService.stopMonitoring();
-    
-    // Close WebSocket connections
-    wsManager.close();
-    
-    // Close server
-    server.close(async () => {
-      logger.info('HTTP server closed');
-      
-      try {
-        await cacheService.close();
-        await databaseService.close();
-        if (rateLimitRedisClient) {
-          await rateLimitRedisClient.quit();
-        }
-        
-        logger.info('All connections closed. Process terminated');
-        process.exit(0);
-      } catch (error) {
-        logger.error('Error during graceful shutdown:', error);
-        process.exit(1);
-      }
-    });
-  } catch (error) {
-    logger.error('Error during graceful shutdown:', error);
-    process.exit(1);
-  }
-}
-
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 export default app;

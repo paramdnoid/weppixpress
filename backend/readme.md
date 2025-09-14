@@ -1,82 +1,174 @@
+# weppiXPRESS Backend
 
+A robust Node.js/Express backend application following modern best practices.
 
-# Backend
+## 📁 Project Structure
 
-## Übersicht
-Das Backend ist eine Node.js/Express API zur Authentifizierung, Benutzerverwaltung, Mailversand und Dateiverwaltung.
+```
+backend/
+├── config/                 # Configuration files
+│   ├── database.js         # Database configuration
+│   ├── redis.js           # Redis configuration
+│   ├── server.js          # Server configuration
+│   └── index.js           # Configuration exports
+├── src/
+│   ├── controllers/       # Route controllers
+│   ├── middleware/        # Custom middleware
+│   ├── models/           # Data models
+│   ├── routes/           # API routes
+│   ├── services/         # Business logic services
+│   ├── utils/           # Utility functions
+│   ├── validators/      # Input validation schemas
+│   ├── database/        # Database migrations
+│   ├── websockets/      # WebSocket handlers
+│   └── app.js          # Express app configuration
+├── tests/               # Test files
+│   ├── unit/           # Unit tests
+│   └── integration/    # Integration tests
+├── scripts/            # Utility scripts
+├── docs/              # Documentation
+├── server.js          # Application entry point
+├── ecosystem.config.js # PM2 configuration
+└── .env.example       # Environment variables template
+```
 
-### Technologie-Stack
-- Node.js >= 16
-- Express 4.x
-- MariaDB oder MySQL
-- Redis (optional für Caching und Rate Limiting)
-- JSON Web Tokens (JWT) für Authentifizierung
-- Nodemailer für E-Mail-Versand
-- Speakeasy für 2-Faktor-Authentifizierung
-- dotenv für Umgebungsvariablen
+## 🚀 Getting Started
 
-## Einrichtung
+### Prerequisites
 
-1. Abhängigkeiten installieren:
+- Node.js (v18 or higher)
+- MariaDB/MySQL
+- Redis
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
    ```bash
    npm install
    ```
-2. Umgebungsvariablen:
-   - Kopiere `.env.example` nach `.env` und fülle die Werte:
-     ```
-     DB_HOST=localhost
-     DB_USER=<dein_user>
-     DB_PASSWORD=<dein_passwort>
-     DB_NAME=weppixpress
-     JWT_SECRET=<dein_jwt_geheimnis>
-     JWT_EXPIRES_IN=1d
-     SMTP_HOST=smtp.example.com
-     SMTP_PORT=587
-     SMTP_USER=mailer@example.com
-     SMTP_PASS=<mail_passwort>
-     REDIS_URL=redis://localhost:6379
-     ```
-3. Datenbankmigration:
+3. Copy environment file:
+   ```bash
+   cp .env.example .env
+   ```
+4. Configure your environment variables in `.env`
+5. Run database migrations:
    ```bash
    npm run migrate
    ```
-4. Entwicklungsserver starten:
+6. Start the development server:
    ```bash
    npm run dev
    ```
-5. Tests ausführen:
-   ```bash
-   npm test
-   ```
 
-## API-Endpunkte
+## 📝 Available Scripts
 
-### Authentifizierung
-| Methode | Pfad                           | Beschreibung                             |
-|---------|--------------------------------|------------------------------------------|
-| POST    | `/api/auth/register`           | Nutzer registrieren                      |
-| POST    | `/api/auth/login`              | Anmeldung, liefert JWT                  |
-| POST    | `/api/auth/logout`             | Abmeldung                                |
-| GET     | `/api/auth/verify-email`       | E-Mail-Verifikation (Query-Parameter: token) |
-| POST    | `/api/auth/forgot-password`    | Passwort vergessen (E-Mail versenden)    |
-| POST    | `/api/auth/reset-password`     | Passwort zurücksetzen (mit Token)        |
+### Development
+- `npm run dev` - Start development server with hot reload
+- `npm start` - Start production server
 
-### Benutzer
-| Methode | Pfad                  | Beschreibung                |
-|---------|-----------------------|-----------------------------|
-| GET     | `/api/users/me`       | Informationen zum eigenen Konto |
-| GET     | `/api/users/:id`      | Nutzerinformationen abrufen |
+### Testing
+- `npm test` - Run all tests
+- `npm run test:unit` - Run unit tests only
+- `npm run test:integration` - Run integration tests only
+- `npm run test:watch` - Run tests in watch mode
 
-## Deployment
+### Database
+- `npm run migrate` - Run database migrations
+- `npm run db:migrate` - Alias for migrate
+- `npm run db:seed` - Seed database with sample data
 
-1. Umgebungsvariablen in der Produktionsumgebung setzen.
-2. Optional: Prozessmanager verwenden (z.B. PM2):
-   ```bash
-   pm2 start server.js --name weppixpress-backend
-   ```
-3. Logs überwachen (z.B. mit `pm2 logs weppixpress-backend`).
+### Code Quality
+- `npm run lint` - Check code style
+- `npm run lint:fix` - Fix linting issues
+- `npm run format` - Format code with Prettier
+- `npm run build` - Run linting and tests
 
-## Weiterführende Themen
-- Error-Handling mit globaler Middleware
-- Performance-Optimierungen (Caching, Pagination)
-- Sicherer Umgang mit Secrets (Vault, CI/CD)
+### Maintenance
+- `npm run clean` - Clean logs and temporary files
+- `npm run logs` - View application logs
+- `npm run logs:error` - View error logs
+- `npm run security:audit` - Check for security vulnerabilities
+- `npm run security:fix` - Fix security issues
+
+### Deployment
+- `npm run deploy` - Deploy to production server
+- `npm run pm2:start` - Start with PM2
+- `npm run pm2:stop` - Stop PM2 processes
+- `npm run pm2:restart` - Restart PM2 processes
+- `npm run pm2:logs` - View PM2 logs
+
+## 🏗️ Architecture
+
+### Configuration Management
+- Centralized configuration in `/config` directory
+- Environment-specific settings
+- Type-safe configuration exports
+
+### Middleware Stack
+- Request context and monitoring
+- Security middleware (helmet, CORS, rate limiting)
+- Input sanitization and validation
+- Error handling and logging
+
+### Service Layer
+- Business logic separated from controllers
+- Database abstraction
+- Caching layer
+- External service integrations
+
+### Error Handling
+- Centralized error handling middleware
+- Structured error responses
+- Comprehensive logging
+- Circuit breaker pattern for external services
+
+## 🔒 Security Features
+
+- Helmet.js for security headers
+- Rate limiting with Redis
+- Input sanitization (XSS, NoSQL injection)
+- JWT authentication with refresh tokens
+- 2FA support
+- CORS configuration
+- File upload validation
+
+## 🚀 Performance Optimizations
+
+- Compression middleware
+- Connection pooling
+- Caching strategies
+- Request timeout handling
+- WebSocket support
+- Graceful shutdown handling
+
+## 📊 Monitoring & Logging
+
+- Winston logging with multiple transports
+- Request/response monitoring
+- Error tracking and metrics
+- Health check endpoints
+- Performance monitoring
+
+## 🧪 Testing
+
+- Unit tests for individual functions
+- Integration tests for API endpoints
+- Test database configuration
+- Mocking external dependencies
+
+## 📚 API Documentation
+
+API documentation is available at `/api-docs` when running the server.
+
+## 🤝 Contributing
+
+1. Follow the existing code style
+2. Write tests for new features
+3. Update documentation as needed
+4. Run linting and tests before committing
+
+## 📄 License
+
+This project is licensed under the MIT License.

@@ -6,12 +6,29 @@
   "scripts": {
     "start": "nodemon server.js",
     "dev": "node server.js",
-    "migrate": "node src/core/database/migrate.js",
-    "lint": "eslint . --ext .js",
-    "lint:fix": "eslint . --ext .js --fix",
+    "test": "NODE_ENV=test mocha 'tests/**/*.test.js'",
+    "test:unit": "NODE_ENV=test mocha 'tests/unit/**/*.test.js'",
+    "test:integration": "NODE_ENV=test mocha 'tests/integration/**/*.test.js'",
+    "test:watch": "NODE_ENV=test mocha 'tests/**/*.test.js' --watch",
+    "migrate": "node src/database/migrate.js",
+    "lint": "eslint src/ --ext .js",
+    "lint:fix": "eslint src/ --ext .js --fix",
+    "format": "prettier --write 'src/**/*.js'",
+    "build": "npm run lint && npm test",
+    "clean": "rm -rf logs/* && rm -rf temp/* && rm -rf uploads/temp/*",
+    "db:migrate": "npm run migrate",
+    "db:seed": "node scripts/seed.js",
+    "logs": "tail -f logs/app.log",
+    "logs:error": "tail -f logs/error.log",
+    "security:audit": "npm audit",
+    "security:fix": "npm audit fix",
     "deploy": "npm run deploy:sync && npm run deploy:permissions",
     "deploy:sync": "rsync -avz --delete --exclude=docs --exclude=.git --exclude=.env --exclude=.env.* --exclude=*.log ./ root@km14307.keymachine.de:/home/users/weppi/www/dev.weppixpress.com/backend/",
-    "deploy:permissions": "ssh root@km14307.keymachine.de 'chown -R www-data:www-data /home/users/weppi/www/dev.weppixpress.com/backend && chmod -R 755 /home/users/weppi/www/dev.weppixpress.com/backend'"
+    "deploy:permissions": "ssh root@km14307.keymachine.de 'chown -R www-data:www-data /home/users/weppi/www/dev.weppixpress.com/backend && chmod -R 755 /home/users/weppi/www/dev.weppixpress.com/backend'",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:logs": "pm2 logs"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -49,6 +66,7 @@
     "eslint": "^9.33.0",
     "mocha": "^11.7.1",
     "nodemon": "^3.0.3",
+    "prettier": "^3.0.0",
     "supertest": "^7.1.4"
   }
 }
