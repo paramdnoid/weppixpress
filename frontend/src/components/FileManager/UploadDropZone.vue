@@ -27,6 +27,13 @@
       <!-- Toolbar buttons (top-right) -->
       <div class="toolbar-buttons">
         <button
+          class="btn-toolbar"
+          @click="toggleProgress"
+          title="Minimize"
+        >
+          <Icon icon="tabler:minus" width="12" height="12" />
+        </button>
+        <button
           v-if="hasActiveUploads || hasPausedUploads"
           class="btn-toolbar"
           @click="hasAnyActiveUploads ? pauseAllUploads() : resumeAllUploads()"
@@ -38,13 +45,6 @@
             height="12"
             :class="hasAnyActiveUploads ? 'text-warning' : 'text-success'"
           />
-        </button>
-        <button
-          class="btn-toolbar"
-          @click="toggleProgress"
-          title="Minimize"
-        >
-          <Icon icon="tabler:minus" width="12" height="12" />
         </button>
         <button
           class="btn-toolbar"
@@ -628,9 +628,9 @@ onUnmounted(() => {
 }
 
 .upload-overlay {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
   width: 350px;
   background: rgba(var(--tblr-bg-surface-rgb), 0.95);
   backdrop-filter: blur(10px);
@@ -639,7 +639,7 @@ onUnmounted(() => {
   padding: 1rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   z-index: 1001;
-  max-height: 60vh;
+  max-height: calc(100vh - 140px);
   overflow-y: auto;
 }
 
