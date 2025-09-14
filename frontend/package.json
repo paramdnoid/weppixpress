@@ -5,18 +5,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
-    "build:analyze": "ANALYZE=true vite build",
-    "preview": "vite preview",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage",
-    "lighthouse": "lighthouse http://localhost:5000 --output html --output-path ./lighthouse-report.html",
-    "bundle-report": "vite-bundle-visualizer",
     "clean": "rimraf dist node_modules/.vite",
     "optimize:images": "imagemin 'src/assets/images/**/*' --out-dir=src/assets/images/optimized",
     "generate:icons": "pwa-asset-generator src/assets/images/logo-dark.svg public --icon-only --favicon --mstile --opaque false",
-    "worker:build": "vite build --config vite.config.js"
+    "deploy": "npm run build && npm run deploy:sync",
+    "deploy:sync": "rsync -avz --delete dist/ root@km14307.keymachine.de:/home/users/weppi/www/dev.weppixpress.com/frontend/ && ssh root@km14307.keymachine.de 'chown -R weppi:weppi /home/users/weppi/www/dev.weppixpress.com/frontend && chmod -R 755 /home/users/weppi/www/dev.weppixpress.com/frontend'"
   },
   "dependencies": {
     "@iconify/vue": "^4.1.1",
