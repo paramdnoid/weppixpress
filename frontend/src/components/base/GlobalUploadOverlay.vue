@@ -86,9 +86,6 @@
             />
             {{ activeBatches.length }} active batch{{ activeBatches.length > 1 ? 'es' : '' }}
           </small>
-          <small class="text-info">
-            {{ uploadStore.running }} running
-          </small>
         </div>
       </div>
 

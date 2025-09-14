@@ -306,27 +306,52 @@ export async function deleteFiles(req, res, next) {
       return sendErrorResponse(res, 400, 'Paths must be an array');
     }
 
+    logger.info(`Delete request for user ${userId}: ${paths.length} paths`, { paths });
+
     const deletedItems = [];
+    const errors = [];
+
     for (const relativePath of paths) {
       let fullPath;
       try {
         const sanitizedPath = sanitizeUploadPath(relativePath);
         fullPath = secureResolve(baseDirUser, sanitizedPath);
+        logger.debug(`Processing deletion: ${relativePath} -> ${fullPath}`);
       } catch (error) {
-        logger.warn(`Invalid path for deletion: ${relativePath}`, error);
+        const errorMsg = `Invalid path for deletion: ${relativePath} - ${error.message}`;
+        logger.warn(errorMsg, error);
+        errors.push(errorMsg);
         continue;
       }
 
       try {
+        // First check if file/folder exists
         const stats = await fsp.stat(fullPath);
+        logger.debug(`Found ${stats.isDirectory() ? 'directory' : 'file'}: ${fullPath}`);
+
         if (stats.isDirectory()) {
+          // Try to fix permissions before deletion
+          try {
+            await fsp.chmod(fullPath, 0o755);
+          } catch (chmodError) {
+            logger.debug(`Could not change permissions for ${fullPath}: ${chmodError.message}`);
+          }
           await fsp.rm(fullPath, { recursive: true, force: true });
+          logger.info(`Successfully deleted directory: ${fullPath}`);
         } else {
+          // Try to fix permissions before deletion
+          try {
+            await fsp.chmod(fullPath, 0o644);
+          } catch (chmodError) {
+            logger.debug(`Could not change permissions for ${fullPath}: ${chmodError.message}`);
+          }
           await fsp.unlink(fullPath);
+          logger.info(`Successfully deleted file: ${fullPath}`);
         }
+
         deletedItems.push(relativePath);
 
-        // Invalidate cache for user and parent directory  
+        // Invalidate cache for user and parent directory
         await FileCache.invalidateUserFiles(userId);
         const parentDir = relativePath.split('/').slice(0, -1).join('/') || '/';
         await FileCache.invalidateFilePath(userId, parentDir);
@@ -336,12 +361,29 @@ export async function deleteFiles(req, res, next) {
           global.wsManager.broadcastFileDeleted(deletedPath);
         }
       } catch (error) {
-        logger.error(`Failed to delete ${fullPath}:`, error);
+        const errorMsg = `Failed to delete ${fullPath}: ${error.message}`;
+        logger.error(errorMsg, {
+          path: relativePath,
+          fullPath,
+          error: error.message,
+          code: error.code
+        });
+        errors.push(errorMsg);
       }
     }
 
-    res.json({ success: true, deleted: deletedItems });
+    logger.info(`Delete operation completed for user ${userId}: ${deletedItems.length}/${paths.length} successful`, {
+      deleted: deletedItems,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+    res.json({
+      success: true,
+      deleted: deletedItems,
+      errors: errors.length > 0 ? errors : undefined
+    });
   } catch (error) {
+    logger.error('Delete files operation failed:', error);
     next(error);
   }
 }

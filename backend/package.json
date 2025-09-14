@@ -10,7 +10,7 @@
     "lint": "eslint . --ext .js",
     "lint:fix": "eslint . --ext .js --fix",
     "deploy": "npm run deploy:sync && npm run deploy:permissions",
-    "deploy:sync": "rsync -avz --delete --exclude=docs --exclude=.git --exclude=.env.* --exclude=*.log ./ root@km14307.keymachine.de:/home/users/weppi/www/dev.weppixpress.com/backend/",
+    "deploy:sync": "rsync -avz --delete --exclude=docs --exclude=.git --exclude=.env --exclude=.env.* --exclude=*.log ./ root@km14307.keymachine.de:/home/users/weppi/www/dev.weppixpress.com/backend/",
     "deploy:permissions": "ssh root@km14307.keymachine.de 'chown -R www-data:www-data /home/users/weppi/www/dev.weppixpress.com/backend && chmod -R 755 /home/users/weppi/www/dev.weppixpress.com/backend'"
   },
   "dependencies": {
