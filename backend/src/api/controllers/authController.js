@@ -1,6 +1,7 @@
 import sendMail from '../../shared/utils/mail.js';
 import logger from '../../shared/utils/logger.js';
 import { sendValidationError, sendUnauthorizedError, sendNotFoundError, sendConflictError, sendInternalServerError, handleValidationErrors } from '../../shared/utils/httpResponses.js';
+import { getEmailTemplate } from '../../shared/utils/emailTemplates.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';
@@ -40,10 +41,16 @@ export async function register(req, res, next) {
     // Mail-Token generieren und senden
     const token = crypto.randomBytes(32).toString('hex');
     await setVerificationToken(email, token);
+
+    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+    const emailHtml = await getEmailTemplate('emailVerification', {
+      VERIFY_URL: verifyUrl
+    });
+
     await sendMail({
       to: email,
-      subject: 'Please verify your email address',
-      html: `<p>Please confirm your registration by clicking the link below:</p><a href="${process.env.FRONTEND_URL}/verify-email?token=${token}">Verify Email</a>`
+      subject: 'Bitte bestätige deine E-Mail-Adresse - weppiXPRESS',
+      html: emailHtml
     });
     res.status(201).json({ message: 'Registration successful. Please check your email for verification.' });
   } catch (err) {
