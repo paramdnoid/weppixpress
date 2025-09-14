@@ -12,10 +12,20 @@
     @dragleave="handleDragLeave"
   >
     <!-- Drag overlay -->
-    <div v-show="isDragOver" class="drag-overlay">
+    <div
+      v-show="isDragOver"
+      class="drag-overlay"
+    >
       <div class="drag-content">
-        <Icon icon="tabler:cloud-upload" width="48" height="48" class="text-primary" />
-        <h4 class="mt-2 mb-1">Drop files here</h4>
+        <Icon
+          icon="tabler:cloud-upload"
+          width="48"
+          height="48"
+          class="text-primary"
+        />
+        <h4 class="mt-2 mb-1">
+          Drop files here
+        </h4>
         <p class="text-muted">
           {{ allowFolders ? 'Drop files or folders to upload' : 'Drop files to upload' }}
         </p>
@@ -24,12 +34,12 @@
 
 
     <!-- Content slot -->
-    <slot></slot>
+    <slot />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useUploadStore } from '@/stores/upload'
 
 const props = defineProps({
@@ -55,9 +65,12 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['upload-started', 'upload-completed', 'upload-failed'])
+const emit = defineEmits(['upload-started', 'upload-completed', 'upload-failed', 'batch-started'])
 
 const uploadStore = useUploadStore()
+
+// Computed properties
+const hasActiveUploads = computed(() => uploadStore.hasActiveUploads)
 
 // Drag and drop state
 const isDragOver = ref(false)
@@ -219,6 +232,7 @@ async function uploadFiles(files) {
     const batch = await uploadStore.startBatch(files, props.currentPath)
 
     if (batch) {
+      emit('batch-started', batch)
     }
   } catch (error) {
     console.error('Upload failed:', error)

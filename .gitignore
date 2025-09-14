@@ -11,8 +11,7 @@ uploads
 
 # Environment-Dateien
 .env
-.env.local
-.env.*.local
+.env.*
 
 # macOS
 .DS_Store
@@ -34,3 +33,5 @@ coverage/
 # IDE/Editor
 .vscode/extensions.json
 .vscode/settings.json
+
+.claude

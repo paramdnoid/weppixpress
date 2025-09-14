@@ -120,7 +120,6 @@ export const useFileStore = defineStore('files', () => {
 
   // ===== WEBSOCKET HANDLERS =====
   function handleWebSocketOpen(event: Event) {
-    //console.log('WebSocket connected to file service')
     state.value.wsConnected = true
     state.value.wsReconnectAttempts = 0
     state.value = { ...state.value }
@@ -143,19 +142,15 @@ export const useFileStore = defineStore('files', () => {
   function handleWebSocketMessage(event: MessageEvent) {
     try {
       const data = JSON.parse(event.data)
-      //console.log('WebSocket message received:', data)
 
       switch (data.type) {
         case 'welcome':
-          //console.log('WebSocket welcome received, client ID:', data.clientId)
           break
 
         case 'subscribed':
-          //console.log('Successfully subscribed to path:', data.path)
           break
 
         case 'unsubscribed':
-          //console.log('Successfully unsubscribed from path:', data.path)
           break
 
         case 'file_created':

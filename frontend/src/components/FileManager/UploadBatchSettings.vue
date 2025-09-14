@@ -3,7 +3,12 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h6 class="mb-0">
-          <Icon icon="tabler:settings" width="16" height="16" class="me-2" />
+          <Icon
+            icon="tabler:settings"
+            width="16"
+            height="16"
+            class="me-2"
+          />
           Upload Batch Settings
         </h6>
         <button
@@ -17,29 +22,32 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-6">
-            <label for="batchSize" class="form-label">
+            <label
+              for="batchSize"
+              class="form-label"
+            >
               Files per Batch
               <small class="text-muted">(for large uploads)</small>
             </label>
             <input
+              id="batchSizeRange"
               type="range"
               class="form-range mb-2"
-              id="batchSizeRange"
               :value="localBatchSize"
               min="10"
               max="1000"
               step="10"
               @input="updateBatchSize(($event.target as HTMLInputElement).value)"
-            />
+            >
             <input
+              id="batchSize"
               type="number"
               class="form-control form-control-sm"
-              id="batchSize"
               :value="localBatchSize"
               min="10"
               max="1000"
               @input="updateBatchSize(($event.target as HTMLInputElement).value)"
-            />
+            >
             <div class="form-text">
               Current: <strong>{{ localBatchSize }}</strong> files per batch
               <br>
@@ -48,29 +56,32 @@
           </div>
 
           <div class="col-md-6">
-            <label for="registrationChunk" class="form-label">
+            <label
+              for="registrationChunk"
+              class="form-label"
+            >
               Registration Chunk Size
               <small class="text-muted">(API requests)</small>
             </label>
             <input
+              id="registrationChunkRange"
               type="range"
               class="form-range mb-2"
-              id="registrationChunkRange"
               :value="localRegistrationChunk"
               min="50"
               max="1000"
               step="50"
               @input="updateRegistrationChunk(($event.target as HTMLInputElement).value)"
-            />
+            >
             <input
+              id="registrationChunk"
               type="number"
               class="form-control form-control-sm"
-              id="registrationChunk"
               :value="localRegistrationChunk"
               min="50"
               max="1000"
               @input="updateRegistrationChunk(($event.target as HTMLInputElement).value)"
-            />
+            >
             <div class="form-text">
               Current: <strong>{{ localRegistrationChunk }}</strong> files per request
               <br>
@@ -85,34 +96,52 @@
         <div class="row g-3">
           <div class="col-md-4">
             <div class="text-center">
-              <div class="fs-4 text-primary">{{ batchStats.total }}</div>
-              <div class="small text-muted">Total Batches</div>
+              <div class="fs-4 text-primary">
+                {{ batchStats.total }}
+              </div>
+              <div class="small text-muted">
+                Total Batches
+              </div>
             </div>
           </div>
           <div class="col-md-4">
             <div class="text-center">
-              <div class="fs-4 text-success">{{ batchStats.active }}</div>
-              <div class="small text-muted">Active</div>
+              <div class="fs-4 text-success">
+                {{ batchStats.active }}
+              </div>
+              <div class="small text-muted">
+                Active
+              </div>
             </div>
           </div>
           <div class="col-md-4">
             <div class="text-center">
-              <div class="fs-4 text-info">{{ batchStats.totalFiles }}</div>
-              <div class="small text-muted">Total Files</div>
+              <div class="fs-4 text-info">
+                {{ batchStats.totalFiles }}
+              </div>
+              <div class="small text-muted">
+                Total Files
+              </div>
             </div>
           </div>
         </div>
 
-        <div v-if="batchStats.totalFiles > 0" class="mt-3">
+        <div
+          v-if="batchStats.totalFiles > 0"
+          class="mt-3"
+        >
           <div class="d-flex justify-content-between mb-1">
             <small class="text-muted">Overall Progress</small>
             <small class="text-muted">{{ batchStats.completedFiles }}/{{ batchStats.totalFiles }}</small>
           </div>
-          <div class="progress" style="height: 6px;">
+          <div
+            class="progress"
+            style="height: 6px;"
+          >
             <div
               class="progress-bar"
               :style="{ width: batchStats.progress + '%' }"
-            ></div>
+            />
           </div>
         </div>
 

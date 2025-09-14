@@ -10,9 +10,8 @@
     "lint": "eslint . --ext .js",
     "lint:fix": "eslint . --ext .js --fix",
     "deploy": "npm run deploy:sync && npm run deploy:permissions",
-    "deploy:sync": "rsync -avz --delete --exclude=docs --exclude=.git --exclude .env --exclude=*.log ./ root@km14307.keymachine.de:/home/users/weppi/www/dev.weppixpress.com/backend/",
-    "deploy:permissions": "ssh root@km14307.keymachine.de 'chown -R weppi:weppi /home/users/weppi/www/dev.weppixpress.com/backend && chmod -R 755 /home/users/weppi/www/dev.weppixpress.com/backend'",
-    "deploy:start": "ssh root@km14307.keymachine.de 'cd /home/users/weppi/www/dev.weppixpress.com/backend && npm install --production && pm2 delete weppixpress-backend 2>/dev/null; pm2 start ecosystem.config.js && pm2 save'"
+    "deploy:sync": "rsync -avz --delete --exclude=docs --exclude=.git --exclude=.env.* --exclude=*.log ./ root@km14307.keymachine.de:/home/users/weppi/www/dev.weppixpress.com/backend/",
+    "deploy:permissions": "ssh root@km14307.keymachine.de 'chown -R www-data:www-data /home/users/weppi/www/dev.weppixpress.com/backend && chmod -R 755 /home/users/weppi/www/dev.weppixpress.com/backend'"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

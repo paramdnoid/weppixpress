@@ -5,8 +5,9 @@ export async function findUserByEmail(email) {
   return res[0] || null;
 }
 
-export async function createUser(first_name, last_name, email, passwordHash) {
-  await pool.query('INSERT INTO users (first_name, last_name, email, password) VALUES (?, ?, ?, ?)', [first_name, last_name, email, passwordHash]);
+export async function createUser(first_name, last_name, email, passwordHash, role = 'user') {
+  const result = await pool.query('INSERT INTO users (first_name, last_name, email, role, password) VALUES (?, ?, ?, ?, ?)', [first_name, last_name, email, role, passwordHash]);
+  return result.insertId;
 }
 
 export async function setVerificationToken(email, token) {

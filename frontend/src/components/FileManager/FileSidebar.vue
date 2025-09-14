@@ -89,7 +89,7 @@ const scrollContainer = ref(null)
 
 
 // Watch for prop changes and trigger autoscroll
-watch(() => props.selectedPath, (newVal, oldVal) => {
+watch(() => props.selectedPath, (newVal, _oldVal) => {
   if (newVal) {
     // Add a small delay to allow tree expansion animations to complete
     setTimeout(() => {
@@ -124,7 +124,7 @@ const scrollToSelectedNode = (path) => {
         const idSelector1 = `node-${normalizedPath}`
         const idSelector2 = `node-${path}`
         nodeElement = document.getElementById(idSelector1) || document.getElementById(idSelector2)
-      } catch (e) {
+      } catch {
         // Silently fail
       }
     }

@@ -107,7 +107,7 @@
 </template>
 
 <script setup>
-import { computed, ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import FileGridItem from './FileGridItem.vue'
 import { useFileManager } from '@/composables/useFileManager'
@@ -285,7 +285,7 @@ const handleDocumentMouseMove = (event) => {
   emit('selectionChange', intersectingItems, event.ctrlKey || event.metaKey)
 }
 
-const handleDocumentMouseUp = (event) => {
+const handleDocumentMouseUp = (_event) => {
   if (!isDragging.value) return
   
   isDragging.value = false

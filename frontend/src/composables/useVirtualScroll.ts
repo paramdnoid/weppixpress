@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onUnmounted, type Ref } from 'vue'
+import { ref, computed, onUnmounted, type Ref } from 'vue'
 
 export interface VirtualScrollOptions {
   itemHeight: number | ((item: any, index: number) => number)

@@ -169,7 +169,6 @@ export const useUploadStore = defineStore('upload', () => {
       throw new Error('Authentication required. Please log in to upload files.')
     }
 
-    console.log(`📁 Starting upload of ${files.length} files - splitting into batches of ${maxFilesPerBatch.value}`)
 
     const createdBatches: UploadBatch[] = []
     const filesPerBatch = maxFilesPerBatch.value
@@ -180,11 +179,8 @@ export const useUploadStore = defineStore('upload', () => {
       const end = Math.min(start + filesPerBatch, files.length)
       const batchFiles = files.slice(start, end)
 
-      console.log(`📦 Creating batch ${batchIndex + 1}/${Math.ceil(files.length / filesPerBatch)} with ${batchFiles.length} files`)
-
       // Add delay between session creation to avoid rate limits
       if (batchIndex > 0 && batchIndex % 10 === 0) {
-        console.log(`⏸️  Pausing for rate limiting after ${batchIndex} batches...`)
         await new Promise(resolve => setTimeout(resolve, 2000))
       }
 
@@ -268,7 +264,6 @@ export const useUploadStore = defineStore('upload', () => {
     batches.value = [...createdBatches, ...batches.value]
     persistImmediate() // Persist immediately for new batches
 
-    console.log(`✅ Created ${createdBatches.length} upload batches with total ${files.length} files`)
 
     // Start initial tasks
     enqueueNext()
@@ -460,14 +455,12 @@ export const useUploadStore = defineStore('upload', () => {
   function setBatchSize(size: number) {
     if (size >= 1 && size <= 1000) {
       maxFilesPerBatch.value = size
-      console.log(`📊 Batch size set to ${size} files per batch`)
     }
   }
 
   function setRegistrationChunkSize(size: number) {
     if (size >= 10 && size <= 1000) {
       maxRegistrationChunk.value = size
-      console.log(`📊 Registration chunk size set to ${size} files per request`)
     }
   }
 

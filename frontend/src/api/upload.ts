@@ -69,7 +69,7 @@ export const uploadApi = {
     return { file: { path: fileId } }
   },
 
-  async completeSession(sessionId: string, files?: string[]) {
+  async completeSession(sessionId: string, _files?: string[]) {
     // Session completion is handled automatically
     // Just return success for compatibility
     const status = await this.getSessionStatus(sessionId)
@@ -79,22 +79,22 @@ export const uploadApi = {
     }
   },
 
-  async pauseSession(sessionId: string) {
+  async pauseSession(_sessionId: string) {
     // Session pause/resume is handled client-side in the optimized version
     return { status: 'paused' }
   },
 
-  async resumeSession(sessionId: string) {
+  async resumeSession(_sessionId: string) {
     // Session pause/resume is handled client-side in the optimized version
     return { status: 'active' }
   },
 
-  async abortFile(sessionId: string, fileId: string) {
+  async abortFile(_sessionId: string, _fileId: string) {
     // File abortion is handled client-side in the optimized version
     return { status: 'aborted' }
   },
 
-  async abortSession(sessionId: string) {
+  async abortSession(_sessionId: string) {
     // Session abortion is handled client-side in the optimized version
     return { status: 'aborted' }
   },

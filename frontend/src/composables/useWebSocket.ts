@@ -96,7 +96,6 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
       lastError.value = null
       
       const wsUrl = getWebSocketUrl(path)
-      console.log(`Connecting to WebSocket: ${wsUrl}`)
       
       socket.value = protocols ? new WebSocket(wsUrl, protocols) : new WebSocket(wsUrl)
 
@@ -106,7 +105,6 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
         reconnectAttempts.value = 0
         lastError.value = null
         
-        console.log('WebSocket connected successfully')
         
         // Process queued messages
         while (messageQueue.length > 0) {
@@ -121,7 +119,6 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
       socket.value.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          //console.log('WebSocket message received:', data)
           onMessage?.(event)
         } catch (error) {
           console.error('Error parsing WebSocket message:', error)
@@ -132,11 +129,6 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
         isConnected.value = false
         isConnecting.value = false
         
-        console.log('WebSocket connection closed:', { 
-          code: event.code, 
-          reason: event.reason,
-          wasClean: event.wasClean 
-        })
         
         onClose?.(event)
 
@@ -147,7 +139,6 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
             30000 // Max 30 seconds
           )
           
-          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.value + 1}/${maxReconnectAttempts})`)
           
           reconnectTimeoutId = window.setTimeout(() => {
             reconnectAttempts.value++
@@ -178,11 +169,9 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
     if (socket.value?.readyState === WebSocket.OPEN) {
       const message = typeof data === 'string' ? data : JSON.stringify(data)
       socket.value.send(message)
-      //console.log('WebSocket message sent:', data)
     } else {
       // Queue message for when connection is established
       messageQueue.push(data)
-      console.log('WebSocket not connected, queuing message:', data)
       
       // Try to establish connection if not already connecting
       if (!isConnecting.value && !isConnected.value) {

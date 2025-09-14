@@ -33,54 +33,54 @@
         @open-upload-settings="showUploadSettingsModal"
       />
 
-    <div class="d-flex border-top splitter-container flex-fill position-relative">
-      <FileSidebar 
-        :is-collapsed="isCollapsed" 
-        :width="sidebarWidth" 
-        :tree-data="treeData"
-        :selected-path="fileStore.state.currentPath" 
-        :load-children="loadTreeChildren" 
-        :toggle-node="toggleNode"
-        @node-select="handleTreeNodeSelect"
+      <div class="d-flex border-top splitter-container flex-fill position-relative">
+        <FileSidebar 
+          :is-collapsed="isCollapsed" 
+          :width="sidebarWidth" 
+          :tree-data="treeData"
+          :selected-path="fileStore.state.currentPath" 
+          :load-children="loadTreeChildren" 
+          :toggle-node="toggleNode"
+          @node-select="handleTreeNodeSelect"
+        />
+
+        <div
+          v-show="!isCollapsed"
+          class="splitter"
+          role="separator"
+          @mousedown="startDragging"
+        />
+
+        <FileView 
+          ref="fileViewRef" 
+          :items="fileStore.currentItems" 
+          :item-key="getItemKey" 
+          :breadcrumbs="fileStore.breadcrumbs" 
+          :view-mode="viewMode" 
+          :sort-key="fileStore.state.sorting.key" 
+          :sort-dir="fileStore.state.sorting.order"
+          :selected-items="fileStore.state.selectedIds" 
+          :is-loading="fileStore.state.isLoading" 
+          :error="fileStore.state.error" 
+          :empty-message="emptyStateMessage" 
+          @navigate="handleBreadcrumbNavigate"
+          @item-dbl-click="handleItemDoubleClickLocal"
+          @sort="fileStore.setSorting"
+          @retry="handleRetry"
+          @delete-selected="handleDeleteSelectedFiles"
+          @selection-change="handleSelectionChange"
+        />
+      </div>
+
+      <FileManagerModals
+        ref="modalsRef"
+        :item-to-rename="itemToRename"
+        :is-loading="fileStore.state.isLoading"
+        @rename="handleRename"
+        @create-folder="handleCreateFolder"
       />
 
-      <div
-        v-show="!isCollapsed"
-        class="splitter"
-        role="separator"
-        @mousedown="startDragging"
-      />
-
-      <FileView 
-        ref="fileViewRef" 
-        :items="fileStore.currentItems" 
-        :item-key="getItemKey" 
-        :breadcrumbs="fileStore.breadcrumbs" 
-        :view-mode="viewMode" 
-        :sort-key="fileStore.state.sorting.key" 
-        :sort-dir="fileStore.state.sorting.order"
-        :selected-items="fileStore.state.selectedIds" 
-        :is-loading="fileStore.state.isLoading" 
-        :error="fileStore.state.error" 
-        :empty-message="emptyStateMessage" 
-        @navigate="handleBreadcrumbNavigate"
-        @item-dbl-click="handleItemDoubleClickLocal"
-        @sort="fileStore.setSorting"
-        @retry="handleRetry"
-        @delete-selected="handleDeleteSelectedFiles"
-        @selection-change="handleSelectionChange"
-      />
-    </div>
-
-    <FileManagerModals
-      ref="modalsRef"
-      :item-to-rename="itemToRename"
-      :is-loading="fileStore.state.isLoading"
-      @rename="handleRename"
-      @create-folder="handleCreateFolder"
-    />
-
-    <UploadBatchSettingsModal ref="uploadSettingsModal" />
+      <UploadBatchSettingsModal ref="uploadSettingsModal" />
     </div>
   </UploadDropZone>
 </template>

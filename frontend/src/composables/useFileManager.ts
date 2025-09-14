@@ -3,10 +3,9 @@ import { useFileStore } from '@/stores/files'
 import { fileCache } from '@/services/cacheService'
 import { FileUtilsService } from '@/services/fileUtilsService'
 import { getFileIconMeta } from '@/composables/useFileIcons'
-import type { FileItem, SortDirection, SelectionMode } from '@/types/files'
+import type { FileItem, SelectionMode } from '@/types/files'
 
 type ViewMode = 'grid' | 'list'
-type SortKey = 'name' | 'size' | 'modified' | 'extension' | 'type'
 
 // ===== CONSTANTS =====
 const SORT_OPTIONS = [
@@ -185,7 +184,6 @@ export function useFileManager() {
       fileStore.navigateToPath(item.path)
     } else {
       // Handle file opening - could be extended with file preview
-      console.log('Opening file:', item.name)
       // For now, just download the file
       const url = FileUtilsService.getDownloadUrl(item)
       if (url !== '#') {

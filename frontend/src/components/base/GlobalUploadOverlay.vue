@@ -1,20 +1,27 @@
 <template>
   <!-- Global Upload Progress Overlay -->
-  <div v-show="hasActiveUploads && showProgressOverlay" class="upload-overlay">
+  <div
+    v-show="hasActiveUploads && showProgressOverlay"
+    class="upload-overlay"
+  >
     <!-- Toolbar buttons (top-right) -->
     <div class="toolbar-buttons">
       <button
         class="btn-toolbar"
-        @click="toggleProgress"
         title="Minimize"
+        @click="toggleProgress"
       >
-        <Icon icon="tabler:minus" width="12" height="12" />
+        <Icon
+          icon="tabler:minus"
+          width="12"
+          height="12"
+        />
       </button>
       <button
         v-if="hasActiveUploads || hasPausedUploads"
         class="btn-toolbar"
-        @click="hasAnyActiveUploads ? pauseAllUploads() : resumeAllUploads()"
         :title="hasAnyActiveUploads ? 'Pause All' : 'Resume All'"
+        @click="hasAnyActiveUploads ? pauseAllUploads() : resumeAllUploads()"
       >
         <Icon
           :icon="hasAnyActiveUploads ? 'tabler:player-pause' : 'tabler:player-play'"
@@ -25,24 +32,37 @@
       </button>
       <button
         class="btn-toolbar"
-        @click="cancelAllUploads"
         title="Cancel All"
+        @click="cancelAllUploads"
       >
-        <Icon icon="tabler:x" width="12" height="12" class="text-danger" />
+        <Icon
+          icon="tabler:x"
+          width="12"
+          height="12"
+          class="text-danger"
+        />
       </button>
     </div>
 
     <div class="upload-progress-container">
       <div class="upload-stats">
         <h5 class="mb-2">
-          <Icon icon="tabler:upload" width="16" height="16" class="me-2" />
+          <Icon
+            icon="tabler:upload"
+            width="16"
+            height="16"
+            class="me-2"
+          />
           Uploading {{ activeBatches.length }} batch{{ activeBatches.length > 1 ? 'es' : '' }}
         </h5>
-        <div class="progress mb-2" style="height: 8px;">
+        <div
+          class="progress mb-2"
+          style="height: 8px;"
+        >
           <div
             class="progress-bar progress-bar-striped progress-bar-animated"
             :style="{ width: overallProgress + '%' }"
-          ></div>
+          />
         </div>
         <div class="d-flex justify-content-between">
           <small class="text-muted">
@@ -55,10 +75,15 @@
         <div class="d-flex justify-content-between">
           <small
             class="text-info cursor-pointer"
-            @click="showActiveBatches = !showActiveBatches"
             :title="showActiveBatches ? 'Hide active batches' : 'Show active batches'"
+            @click="showActiveBatches = !showActiveBatches"
           >
-            <Icon :icon="showActiveBatches ? 'tabler:chevron-down' : 'tabler:chevron-right'" width="12" height="12" class="me-1" />
+            <Icon
+              :icon="showActiveBatches ? 'tabler:chevron-down' : 'tabler:chevron-right'"
+              width="12"
+              height="12"
+              class="me-1"
+            />
             {{ activeBatches.length }} active batch{{ activeBatches.length > 1 ? 'es' : '' }}
           </small>
           <small class="text-info">
@@ -68,7 +93,10 @@
       </div>
 
       <!-- Active batches -->
-      <div v-show="showActiveBatches" class="batch-list">
+      <div
+        v-show="showActiveBatches"
+        class="batch-list"
+      >
         <div
           v-for="batch in activeBatches.slice(0, 3)"
           :key="batch.id"
@@ -80,8 +108,8 @@
               <button
                 v-if="batch.status === 'active' || batch.status === 'paused'"
                 class="btn-toolbar me-1"
-                @click="batch.status === 'active' ? pauseBatch(batch.id) : resumeBatch(batch.id)"
                 :title="batch.status === 'active' ? 'Pause' : 'Resume'"
+                @click="batch.status === 'active' ? pauseBatch(batch.id) : resumeBatch(batch.id)"
               >
                 <Icon
                   :icon="batch.status === 'active' ? 'tabler:player-pause' : 'tabler:player-play'"
@@ -91,14 +119,21 @@
               </button>
               <button
                 class="btn-toolbar"
-                @click="cancelBatch(batch.id)"
                 title="Cancel"
+                @click="cancelBatch(batch.id)"
               >
-                <Icon icon="tabler:x" width="14" height="14" />
+                <Icon
+                  icon="tabler:x"
+                  width="14"
+                  height="14"
+                />
               </button>
             </div>
           </div>
-          <div class="progress" style="height: 4px;">
+          <div
+            class="progress"
+            style="height: 4px;"
+          >
             <div
               class="progress-bar"
               :class="{
@@ -107,7 +142,7 @@
                 'bg-danger': batch.status === 'error'
               }"
               :style="{ width: getBatchProgress(batch) + '%' }"
-            ></div>
+            />
           </div>
         </div>
 
@@ -122,22 +157,32 @@
             <div class="batch-actions">
               <button
                 class="btn btn-sm btn-outline-secondary"
-                @click="uploadStore.removeBatch(batch.id)"
                 title="Close"
+                @click="uploadStore.removeBatch(batch.id)"
               >
-                <Icon icon="tabler:x" width="16" height="16" />
+                <Icon
+                  icon="tabler:x"
+                  width="16"
+                  height="16"
+                />
               </button>
             </div>
           </div>
-          <div class="progress" style="height: 4px;">
+          <div
+            class="progress"
+            style="height: 4px;"
+          >
             <div
               class="progress-bar bg-success"
               style="width: 100%"
-            ></div>
+            />
           </div>
         </div>
 
-        <div v-if="activeBatches.length > 3" class="text-muted">
+        <div
+          v-if="activeBatches.length > 3"
+          class="text-muted"
+        >
           <small>+ {{ activeBatches.length - 3 }} more batch{{ activeBatches.length - 3 > 1 ? 'es' : '' }}</small>
         </div>
       </div>

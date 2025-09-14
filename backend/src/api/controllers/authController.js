@@ -34,7 +34,8 @@ export async function register(req, res, next) {
       return sendConflictError(res, 'User already exists');
     }
     const hash = await bcrypt.hash(password, 12);
-    await createUser(first_name, last_name, email, hash);
+    const userId = await createUser(first_name, last_name, email, hash);
+    logger.info('User registered successfully', { userId, email, action: 'register' });
 
     // Mail-Token generieren und senden
     const token = crypto.randomBytes(32).toString('hex');

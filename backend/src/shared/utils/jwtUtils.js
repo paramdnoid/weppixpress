@@ -193,10 +193,10 @@ function isTokenExpired(token) {
  */
 const REFRESH_TOKEN_COOKIE_CONFIG =  {
   httpOnly: true,
-  sameSite: 'strict',
+  sameSite: 'lax', // Changed from 'strict' to 'lax' for better cross-site compatibility
   secure: process.env.NODE_ENV === 'production',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/api/auth'
+  path: '/api' // Changed from '/api/auth' to '/api' to allow refresh on all API routes
 };
 
 /**
