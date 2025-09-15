@@ -115,6 +115,22 @@
           <li v-if="selectedCount > 0">
             <hr class="dropdown-divider">
           </li>
+          <li v-if="selectedCount === 1">
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center"
+              :disabled="isLoading"
+              @click="$emit('renameSelected')"
+            >
+              <Icon
+                icon="mdi:rename"
+                width="16"
+                height="16"
+                class="me-2"
+              />
+              Rename
+            </button>
+          </li>
           <li v-if="selectedCount > 0">
             <button
               type="button"
@@ -311,6 +327,7 @@ const props = defineProps({
 const emit = defineEmits([
   'toggleSidebar',
   'createFolder',
+  'renameSelected',
   'deleteSelected',
   'clearSelection',
   'copySelected',

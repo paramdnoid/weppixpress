@@ -172,6 +172,21 @@ export function useFileManager() {
     const itemKey = FileUtilsService.getItemKey(item)
     clearLongPress(itemKey)
   }
+
+  // ===== CONTEXT MENU HANDLER =====
+  function handleContextMenu(item: FileItem, event: MouseEvent): void {
+    event.preventDefault()
+
+    // Emit a custom event that parent components can listen to
+    const contextMenuEvent = new CustomEvent('file-context-menu', {
+      detail: { item, event },
+      bubbles: true
+    })
+
+    if (event.target) {
+      (event.target as HTMLElement).dispatchEvent(contextMenuEvent)
+    }
+  }
   
   // ===== UI INTERACTIONS =====
   function handleItemClick(item: FileItem, event?: MouseEvent): void {
@@ -326,8 +341,9 @@ export function useFileManager() {
     // UI Handlers
     handleItemClick,
     handleItemDoubleClick,
+    handleContextMenu,
     deleteSelectedFiles,
-    
+
     // Long Press Handlers
     handleMouseDown,
     handleMouseUp,

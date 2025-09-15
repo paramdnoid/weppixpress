@@ -12,6 +12,7 @@
       'long-pressing': isLongPressing && longPressItem === props.item
     }"
     @dblclick="handleDoubleClick"
+    @contextmenu="(event) => handleContextMenu(props.item, event)"
     @mousedown="(event) => handleMouseDown(props.item, event)"
     @mouseup="(event) => handleMouseUp(props.item, event)"
     @mouseleave="() => handleMouseLeave(props.item)"
@@ -37,9 +38,9 @@
 import { computed } from 'vue'
 import { useFileManager } from '@/composables/useFileManager'
 
-const { 
-  getFileIcon, 
-  getFileColor, 
+const {
+  getFileIcon,
+  getFileColor,
   getFileSize,
   handleMouseDown,
   handleMouseUp,
@@ -47,6 +48,7 @@ const {
   handleTouchStart,
   handleTouchEnd,
   handleTouchMove,
+  handleContextMenu,
   isLongPressing,
   longPressItem
 } = useFileManager()
