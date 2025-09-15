@@ -30,7 +30,7 @@ const _props = defineProps({
   placeholder: { type: String, default: '' }
 });
 
-const emit = defineEmits(['update:modelValue'])
+const _emit = defineEmits(['update:modelValue'])
 
 const show = ref(false);
 </script>

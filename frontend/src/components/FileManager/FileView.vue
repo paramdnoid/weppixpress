@@ -5,8 +5,11 @@
     @keydown="handleKeydown"
   >
     <!-- File Content Area -->
-    <div class="d-flex flex-column position-relative file-view">
-      <div class="content-scroll overflow-auto flex-grow-1">
+    <div
+      class="d-flex flex-column position-relative file-view"
+      @contextmenu="handleAreaContextMenu"
+    >
+      <div class="content-scroll overflow-auto flex-grow-1 d-flex flex-column">
         <!-- Navigation Bar (moved from FileGrid) -->
         <div class="nav-scroller bg-body p-1 border-bottom">
           <nav
@@ -45,7 +48,7 @@
         <!-- Error State -->
         <div
           v-if="error"
-          class="text-center text-danger py-6"
+          class="d-flex flex-column justify-content-center align-items-center text-center text-danger flex-grow-1"
         >
           <Icon
             icon="mdi:alert-circle"
@@ -70,7 +73,7 @@
         <!-- Empty State -->
         <div
           v-else-if="items.length === 0"
-          class="text-center text-muted py-6"
+          class="d-flex flex-column justify-content-center align-items-center text-center text-muted flex-grow-1"
         >
           <Icon
             icon="tabler:folder-off"
@@ -151,7 +154,8 @@ const emit = defineEmits([
   'item-dbl-click',
   'sort',
   'delete-selected',
-  'selection-change'
+  'selection-change',
+  'area-context-menu'
 ])
 
 const searchQuery = computed(() => props.searchValue)
@@ -186,6 +190,16 @@ function handleKeydown(event) {
       break
   }
 }
+
+function handleAreaContextMenu(event) {
+  // Only show context menu if clicking on empty area (not on file items)
+  if (event.target.closest('.file-grid-item') || event.target.closest('.file-table-row')) {
+    return
+  }
+
+  event.preventDefault()
+  emit('area-context-menu', event)
+}
 </script>
 
 <style scoped>
@@ -211,6 +225,8 @@ function handleKeydown(event) {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .empty-icon {

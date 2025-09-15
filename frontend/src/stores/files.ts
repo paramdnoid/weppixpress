@@ -119,7 +119,7 @@ export const useFileStore = defineStore('files', () => {
   })
 
   // ===== WEBSOCKET HANDLERS =====
-  function handleWebSocketOpen(event: Event) {
+  function handleWebSocketOpen(_event: Event) {
     state.value.wsConnected = true
     state.value.wsReconnectAttempts = 0
     state.value = { ...state.value }
@@ -128,7 +128,7 @@ export const useFileStore = defineStore('files', () => {
     subscribeToPath(state.value.currentPath)
   }
 
-  function handleWebSocketClose(event: CloseEvent) {
+  function handleWebSocketClose(_event: CloseEvent) {
     state.value.wsConnected = false
     state.value = { ...state.value }
   }

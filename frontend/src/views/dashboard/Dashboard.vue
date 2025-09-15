@@ -324,27 +324,27 @@
                   </thead>
                   <tbody>
                     <tr
-                      v-for="error in overview?.errors?.topErrors"
-                      :key="`${error.type}-${error.code}`"
+                      v-for="errorItem in overview?.errors?.topErrors"
+                      :key="`${errorItem.type}-${errorItem.code}`"
                       class="border-bottom"
                     >
                       <td>
                         <div class="d-flex flex-column">
-                          <span class="badge bg-red-lt text-red fw-bold">{{ error.type }}</span>
-                          <small class="text-muted mt-1">#{{ error.code }}</small>
+                          <span class="badge bg-red-lt text-red fw-bold">{{ errorItem.type }}</span>
+                          <small class="text-muted mt-1">#{{ errorItem.code }}</small>
                         </div>
                       </td>
                       <td>
                         <div
                           class="text-truncate fw-medium"
                           style="max-width: 350px;"
-                          :title="error.message"
+                          :title="errorItem.message"
                         >
-                          {{ error.message }}
+                          {{ errorItem.message }}
                         </div>
                       </td>
                       <td class="text-center">
-                        <span class="badge bg-red text-white fs-6">{{ error.count }}</span>
+                        <span class="badge bg-red text-white fs-6">{{ errorItem.count }}</span>
                       </td>
                       <td class="text-center">
                         <div class="text-muted small">
@@ -352,7 +352,7 @@
                             icon="tabler:clock"
                             class="me-1"
                           />
-                          {{ formatTimestamp(error.lastOccurrence) }}
+                          {{ formatTimestamp(errorItem.lastOccurrence) }}
                         </div>
                       </td>
                     </tr>

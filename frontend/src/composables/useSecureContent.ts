@@ -58,7 +58,7 @@ function sanitizeHtml(content: string, options: SecureContentOptions = {}): stri
     ]
     
     dangerousTags.forEach(tag => {
-      const regex = new RegExp(`<${tag}[^>]*>.*?<\/${tag}>`, 'gis')
+      const regex = new RegExp(`<${tag}[^>]*>.*?</${tag}>`, 'gis')
       sanitized = sanitized.replace(regex, '')
     })
     

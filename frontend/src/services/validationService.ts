@@ -90,7 +90,7 @@ export class ValidationService {
       // Remove parent directory references
       .replace(/\.\./g, '')
       // Normalize slashes
-      .replace(/[\\\/]+/g, '/')
+      .replace(/[\\/]+/g, '/')
       // Remove leading multiple slashes but keep single leading slash
       .replace(/^\/+/, '/')
       // Remove trailing slashes except for root

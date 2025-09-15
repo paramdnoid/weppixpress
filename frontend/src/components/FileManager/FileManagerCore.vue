@@ -70,6 +70,7 @@
           @retry="handleRetry"
           @delete-selected="handleDeleteSelectedFiles"
           @selection-change="handleSelectionChange"
+          @area-context-menu="handleAreaContextMenu"
         />
       </div>
 
@@ -83,13 +84,17 @@
 
       <UploadBatchSettingsModal ref="uploadSettingsModal" />
 
-      <!-- Context Menu is now handled via direct DOM manipulation -->
+      <ContextMenu
+        ref="contextMenuRef"
+        :items="contextMenuItems"
+        @item-click="handleContextMenuClick"
+      />
     </div>
   </UploadDropZone>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useFileManager } from '@/composables/useFileManager'
 import { useAuthStore } from '@/stores/auth'
 import FileToolbar from './FileToolbar.vue'
@@ -98,6 +103,7 @@ import FileView from './FileView.vue'
 import FileManagerModals from './FileManagerModals.vue'
 import UploadDropZone from './UploadDropZone.vue'
 import UploadBatchSettingsModal from './UploadBatchSettingsModal.vue'
+import ContextMenu from '@/components/ui/ContextMenu.vue'
 
 // Use the consolidated composable
 const {
@@ -123,6 +129,81 @@ const modalsRef = ref()
 const itemToRename = ref(null)
 const fileViewRef = ref(null)
 const uploadSettingsModal = ref(null)
+const contextMenuRef = ref(null)
+
+// Context menu items
+const contextMenuItems = computed(() => {
+  const items = [
+    {
+      id: 'create-folder',
+      label: 'New Folder',
+      icon: 'tabler:folder-plus',
+      shortcut: 'Ctrl+Shift+N'
+    },
+    {
+      id: 'separator-1',
+      separator: true
+    },
+    {
+      id: 'upload-files',
+      label: 'Upload Files',
+      icon: 'tabler:upload',
+      shortcut: 'Ctrl+U'
+    },
+    {
+      id: 'upload-folder',
+      label: 'Upload Folder',
+      icon: 'tabler:folder-upload'
+    }
+  ]
+
+  // Add delete option if items are selected
+  if (fileStore.selectedItems.length > 0) {
+    items.push(
+      {
+        id: 'separator-delete',
+        separator: true
+      },
+      {
+        id: 'delete-selected',
+        label: `Delete ${fileStore.selectedItems.length} item${fileStore.selectedItems.length > 1 ? 's' : ''}`,
+        icon: 'tabler:trash',
+        shortcut: 'Delete'
+      }
+    )
+  }
+
+  items.push(
+    {
+      id: 'separator-2',
+      separator: true
+    },
+    {
+      id: 'paste',
+      label: 'Paste',
+      icon: 'tabler:clipboard',
+      shortcut: 'Ctrl+V',
+      disabled: !fileStore.hasClipboard
+    },
+    {
+      id: 'separator-3',
+      separator: true
+    },
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      icon: 'tabler:refresh',
+      shortcut: 'F5'
+    },
+    {
+      id: 'properties',
+      label: 'Properties',
+      icon: 'tabler:info-circle'
+    }
+  )
+
+  return items
+})
 
 // Tree data management
 const treeData = ref([
@@ -536,6 +617,73 @@ async function handlePasteItems() {
     }
   } catch (error) {
     console.error('Paste failed:', error)
+  }
+}
+
+// Handle area context menu
+function handleAreaContextMenu(event) {
+  event.preventDefault()
+  if (contextMenuRef.value) {
+    contextMenuRef.value.show(event)
+  }
+}
+
+// Handle context menu item clicks
+function handleContextMenuClick(item) {
+  switch (item.id) {
+    case 'create-folder':
+      showCreateFolderModal()
+      break
+
+    case 'upload-files':
+      // Trigger file input click
+      const fileInput = document.createElement('input')
+      fileInput.type = 'file'
+      fileInput.multiple = true
+      fileInput.onchange = (e) => {
+        if (e.target.files?.length > 0) {
+          handleFilesSelected(Array.from(e.target.files))
+        }
+      }
+      fileInput.click()
+      break
+
+    case 'upload-folder':
+      // Trigger folder input click
+      const folderInput = document.createElement('input')
+      folderInput.type = 'file'
+      folderInput.webkitdirectory = true
+      folderInput.onchange = (e) => {
+        if (e.target.files?.length > 0) {
+          handleFilesSelected(Array.from(e.target.files))
+        }
+      }
+      folderInput.click()
+      break
+
+    case 'paste':
+      if (fileStore.hasClipboard) {
+        handlePasteItems()
+      }
+      break
+
+    case 'delete-selected':
+      if (fileStore.selectedItems.length > 0) {
+        handleDeleteSelectedFiles()
+      }
+      break
+
+    case 'refresh':
+      fileStore.loadFiles(fileStore.state.currentPath)
+      break
+
+    case 'properties':
+      // Show current folder properties - you can implement this
+      console.log('Show folder properties for:', fileStore.state.currentPath)
+      break
+
+    default:
+      console.log('Unhandled context menu action:', item.id)
   }
 }
 

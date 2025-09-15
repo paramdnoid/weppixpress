@@ -333,7 +333,7 @@ async function toggleOpen(forceReload = false, silent = false) {
   if (!silent && props.loadChildren && (forceReload || !hasLoadedChildren.value)) {
     try {
       await loadChildrenSafely()
-    } catch (_error) {
+    } catch {
       return
     }
   }

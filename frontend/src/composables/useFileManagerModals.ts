@@ -8,7 +8,6 @@ export function useFileManagerModals() {
 
   function openRenameModal(item: { name: string; type: string }, onRename: (data: { oldName: string; newName: string; item: any }) => void | Promise<void>) {
 
-    let modalId: string
     const handleRename = async (data: { oldName: string; newName: string; item: any }) => {
       try {
         await onRename(data)
@@ -19,7 +18,7 @@ export function useFileManagerModals() {
       }
     }
 
-    modalId = modal.open({
+    const modalId = modal.open({
       title: `Rename ${item.name}`,
       size: 'sm',
       component: markRaw(RenameModalContent),
@@ -35,7 +34,6 @@ export function useFileManagerModals() {
 
   function openNewFolderModal(onCreateFolder: (name: string) => void | Promise<void>) {
 
-    let modalId: string
     const handleCreateFolder = async (name: string) => {
       try {
         await onCreateFolder(name)
@@ -46,7 +44,7 @@ export function useFileManagerModals() {
       }
     }
 
-    modalId = modal.open({
+    const modalId = modal.open({
       title: 'Create New Folder',
       size: 'sm',
       component: markRaw(NewFolderModalContent),

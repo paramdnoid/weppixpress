@@ -72,7 +72,7 @@
     <!-- Empty State -->
     <div
       v-if="showEmptyState"
-      class="empty-state col-span-full text-center py-5 text-muted"
+      class="empty-state col-span-full d-flex flex-column justify-content-center align-items-center text-center text-muted"
     >
       <Icon
         icon="tabler:folder-off"
@@ -84,7 +84,7 @@
     <!-- Loading State -->
     <div
       v-if="loading"
-      class="loading-state col-span-full text-center py-5"
+      class="loading-state col-span-full d-flex flex-column justify-content-center align-items-center text-center"
     >
       <div
         class="spinner-border spinner-border-sm mb-2"
@@ -425,10 +425,14 @@ const showEmptyState = computed(() =>
 .explorer-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-auto-rows: max-content;
   gap: 0.75rem;
   padding: 1rem;
   background: transparent;
   position: relative;
+  min-height: 100%;
+  flex: 1;
+  align-content: start;
 }
 
 /* Virtual Grid */
@@ -468,6 +472,18 @@ const showEmptyState = computed(() =>
 .empty-state,
 .loading-state {
   grid-column: 1 / -1;
+}
+
+/* Empty state specific styles - only for the empty state div */
+.explorer-grid .empty-state {
+  min-height: 400px;
+  height: 100%;
+}
+
+/* Ensure file grid items don't get full height */
+.explorer-grid .file-grid-item {
+  height: auto;
+  min-height: auto;
 }
 
 .empty-icon {

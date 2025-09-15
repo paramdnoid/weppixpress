@@ -241,26 +241,26 @@
                 </thead>
                 <tbody>
                   <tr
-                    v-for="error in errorData?.topErrors"
-                    :key="`${error.type}-${error.code}-${error.message}`"
+                    v-for="errorItem in errorData?.topErrors"
+                    :key="`${errorItem.type}-${errorItem.code}-${errorItem.message}`"
                   >
                     <td
                       class="text-truncate"
                       style="max-width: 400px;"
                     >
-                      <strong>{{ error.message }}</strong>
+                      <strong>{{ errorItem.message }}</strong>
                     </td>
                     <td>
-                      <span class="badge bg-danger">{{ error.type }}</span>
+                      <span class="badge bg-danger">{{ errorItem.type }}</span>
                     </td>
                     <td>
-                      <code>{{ error.code }}</code>
+                      <code>{{ errorItem.code }}</code>
                     </td>
                     <td>
-                      <strong class="text-danger">{{ error.count }}</strong>
+                      <strong class="text-danger">{{ errorItem.count }}</strong>
                     </td>
                     <td class="text-muted">
-                      {{ formatTimestamp(error.lastOccurrence) }}
+                      {{ formatTimestamp(errorItem.lastOccurrence) }}
                     </td>
                     <td>
                       <div
@@ -269,11 +269,11 @@
                       >
                         <div 
                           class="progress-bar bg-danger"
-                          :style="{ width: ((error.count / Math.max((errorData?.topErrors?.[0]?.count || 0), 1)) * 100) + '%' }"
+                          :style="{ width: ((errorItem.count / Math.max((errorData?.topErrors?.[0]?.count || 0), 1)) * 100) + '%' }"
                         />
                       </div>
                       <small class="text-muted">
-                        {{ ((error.count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100).toFixed(1) }}% of total
+                        {{ ((errorItem.count / Math.max((errorData?.summary?.totalErrors || 0), 1)) * 100).toFixed(1) }}% of total
                       </small>
                     </td>
                   </tr>

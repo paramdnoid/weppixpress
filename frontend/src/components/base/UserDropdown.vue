@@ -152,7 +152,7 @@
 import { ref } from 'vue'
 
 defineProps({
-  user: Object
+  user: { type: Object, default: () => ({}) }
 })
 
 const showConfirm = ref(false)
