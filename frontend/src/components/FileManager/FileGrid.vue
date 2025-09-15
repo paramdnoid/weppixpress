@@ -67,6 +67,7 @@
       :is-selected="isSelected(item.raw)"
       :tab-index="index === 0 ? 0 : -1"
       @double-click="$emit('itemDoubleClick', item.raw)"
+      @context-menu="(item, event) => $emit('itemContextMenu', item, event)"
     />
 
     <!-- Empty State -->
@@ -182,7 +183,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['itemDoubleClick', 'selectionChange', 'navigate'])
+const emit = defineEmits(['itemDoubleClick', 'selectionChange', 'navigate', 'itemContextMenu'])
 
 // Virtual scroll setup for 'virtual' mode
 const {

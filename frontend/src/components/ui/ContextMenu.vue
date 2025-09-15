@@ -16,7 +16,7 @@
           :class="{
             disabled: item.disabled,
             separator: item.separator,
-            danger: item.id === 'delete-selected'
+            danger: item.id === 'delete-selected' || item.id === 'cut'
           }"
           @click="handleItemClick(item)"
         >

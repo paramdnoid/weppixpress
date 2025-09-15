@@ -108,6 +108,7 @@
           @item-double-click="item => $emit('item-dbl-click', item)"
           @navigate="item => $emit('navigate', item)"
           @selection-change="(items, additive) => $emit('selection-change', items, additive)"
+          @item-context-menu="(item, event) => $emit('item-context-menu', item, event)"
         />
 
         <!-- Table View -->
@@ -155,7 +156,8 @@ const emit = defineEmits([
   'sort',
   'delete-selected',
   'selection-change',
-  'area-context-menu'
+  'area-context-menu',
+  'item-context-menu'
 ])
 
 const searchQuery = computed(() => props.searchValue)

@@ -12,7 +12,7 @@
       'long-pressing': isLongPressing && longPressItem === props.item
     }"
     @dblclick="handleDoubleClick"
-    @contextmenu="(event) => handleContextMenu(props.item, event)"
+    @contextmenu="handleContextMenu"
     @mousedown="(event) => handleMouseDown(props.item, event)"
     @mouseup="(event) => handleMouseUp(props.item, event)"
     @mouseleave="() => handleMouseLeave(props.item)"
@@ -48,7 +48,6 @@ const {
   handleTouchStart,
   handleTouchEnd,
   handleTouchMove,
-  handleContextMenu,
   isLongPressing,
   longPressItem
 } = useFileManager()
@@ -60,10 +59,15 @@ const props = defineProps({
   tabIndex: { type: Number, default: -1 }
 })
 
-const emit = defineEmits(['doubleClick'])
+const emit = defineEmits(['doubleClick', 'contextMenu'])
 
 const handleDoubleClick = (event) => {
   emit('doubleClick', props.item, event)
+}
+
+const handleContextMenu = (event) => {
+  event.preventDefault()
+  emit('contextMenu', props.item, event)
 }
 
 const icon = computed(() => getFileIcon(props.item))

@@ -71,6 +71,7 @@
           @delete-selected="handleDeleteSelectedFiles"
           @selection-change="handleSelectionChange"
           @area-context-menu="handleAreaContextMenu"
+          @item-context-menu="handleItemContextMenu"
         />
       </div>
 
@@ -133,7 +134,53 @@ const contextMenuRef = ref(null)
 
 // Context menu items
 const contextMenuItems = computed(() => {
-  const items = [
+  const items = []
+
+  // Add file-specific actions if items are selected
+  if (fileStore.selectedItems.length > 0) {
+    // Single item actions
+    if (fileStore.selectedItems.length === 1) {
+      items.push({
+        id: 'rename',
+        label: 'Rename',
+        icon: 'tabler:edit',
+        shortcut: 'F2'
+      })
+    }
+
+    // Multi-item actions
+    items.push(
+      {
+        id: 'copy',
+        label: 'Copy',
+        icon: 'tabler:copy',
+        shortcut: 'Ctrl+C'
+      },
+      {
+        id: 'cut',
+        label: 'Cut',
+        icon: 'tabler:cut',
+        shortcut: 'Ctrl+X'
+      },
+      {
+        id: 'separator-file-actions',
+        separator: true
+      },
+      {
+        id: 'delete-selected',
+        label: `Delete ${fileStore.selectedItems.length} item${fileStore.selectedItems.length > 1 ? 's' : ''}`,
+        icon: 'tabler:trash',
+        shortcut: 'Delete'
+      },
+      {
+        id: 'separator-after-delete',
+        separator: true
+      }
+    )
+  }
+
+  // General actions
+  items.push(
     {
       id: 'create-folder',
       label: 'New Folder',
@@ -154,26 +201,7 @@ const contextMenuItems = computed(() => {
       id: 'upload-folder',
       label: 'Upload Folder',
       icon: 'tabler:folder-upload'
-    }
-  ]
-
-  // Add delete option if items are selected
-  if (fileStore.selectedItems.length > 0) {
-    items.push(
-      {
-        id: 'separator-delete',
-        separator: true
-      },
-      {
-        id: 'delete-selected',
-        label: `Delete ${fileStore.selectedItems.length} item${fileStore.selectedItems.length > 1 ? 's' : ''}`,
-        icon: 'tabler:trash',
-        shortcut: 'Delete'
-      }
-    )
-  }
-
-  items.push(
+    },
     {
       id: 'separator-2',
       separator: true
@@ -628,9 +656,45 @@ function handleAreaContextMenu(event) {
   }
 }
 
+// Handle item context menu
+function handleItemContextMenu(item, event) {
+  event.preventDefault()
+
+  // Ensure the clicked item is selected if not already
+  if (!fileStore.selectedItems.some(selectedItem =>
+    getItemKey(selectedItem) === getItemKey(item)
+  )) {
+    // If not selected, select only this item using handleSelectionChange
+    handleSelectionChange([item], false)
+  }
+
+  // Show context menu
+  if (contextMenuRef.value) {
+    contextMenuRef.value.show(event)
+  }
+}
+
 // Handle context menu item clicks
 function handleContextMenuClick(item) {
   switch (item.id) {
+    case 'rename':
+      if (fileStore.selectedItems.length === 1) {
+        handleRenameSelected()
+      }
+      break
+
+    case 'copy':
+      if (fileStore.selectedItems.length > 0) {
+        handleCopySelected()
+      }
+      break
+
+    case 'cut':
+      if (fileStore.selectedItems.length > 0) {
+        handleCutSelected()
+      }
+      break
+
     case 'create-folder':
       showCreateFolderModal()
       break
