@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import { filesize } from 'filesize';
 import { promises as fsp } from 'fs';
 import { resolve as _resolve, basename, dirname, join, relative } from 'path';
+import websocketProvider from '../services/websocketProvider.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -356,9 +357,9 @@ export async function deleteFiles(req, res, next) {
         const parentDir = relativePath.split('/').slice(0, -1).join('/') || '/';
         await FileCache.invalidateFilePath(userId, parentDir);
 
-        if (global.wsManager) {
+        if (websocketProvider.isAvailable()) {
           const deletedPath = ('/' + relativePath).replace(/\/+/, '/');
-          global.wsManager.broadcastFileDeleted(deletedPath);
+          websocketProvider.broadcastFileDeleted(deletedPath);
         }
       } catch (error) {
         const errorMsg = `Failed to delete ${fullPath}: ${error.message}`;
@@ -442,9 +443,19 @@ export async function moveFiles(req, res, next) {
             let candidate = `${base} (moved)`;
             let candidatePath = join(destPath, candidate);
             let i = 2;
-            while (true) {
-              try { await fsp.access(candidatePath); candidate = `${base} (moved ${i++})`; candidatePath = join(destPath, candidate); }
-              catch { break; }
+            const MAX_ATTEMPTS = 1000; // Prevent infinite loop
+            while (i <= MAX_ATTEMPTS) {
+              try {
+                await fsp.access(candidatePath);
+                candidate = `${base} (moved ${i++})`;
+                candidatePath = join(destPath, candidate);
+              }
+              catch {
+                break;
+              }
+            }
+            if (i > MAX_ATTEMPTS) {
+              throw new Error(`Unable to find unique filename after ${MAX_ATTEMPTS} attempts`);
             }
             fullDestPath = candidatePath;
           }
@@ -464,11 +475,11 @@ export async function moveFiles(req, res, next) {
         const sourceParent = sourcePath.split('/').slice(0, -1).join('/') || '/';
         await FileCache.invalidateFilePath(userId, sourceParent);
 
-        if (global.wsManager) {
+        if (websocketProvider.isAvailable()) {
           const deletedPath = ('/' + sourcePath).replace(/\/+/, '/');
           const createdPath = ('/' + destRel).replace(/\/+/, '/');
-          global.wsManager.broadcastFileDeleted(deletedPath);
-          global.wsManager.broadcastFileCreated({
+          websocketProvider.broadcastFileDeleted(deletedPath);
+          websocketProvider.broadcastFileCreated({
             name: finalName,
             path: createdPath,
             type: srcStats.isDirectory() ? 'folder' : 'file'
@@ -532,8 +543,8 @@ export async function createFolder(req, res, next) {
     await FileCache.invalidateUserFiles(userId);
     await FileCache.invalidateFilePath(userId, path || '/');
 
-    if (global.wsManager) {
-      global.wsManager.broadcastFileCreated({
+    if (websocketProvider.isAvailable()) {
+      websocketProvider.broadcastFileCreated({
         ...folderInfo,
         path: ('/' + folderInfo.path).replace(/\/+/, '/'),
       });
@@ -593,11 +604,11 @@ export async function renameItem(req, res, next) {
       itemType = st.isDirectory() ? 'folder' : 'file';
     } catch {}
 
-    if (global.wsManager) {
+    if (websocketProvider.isAvailable()) {
       const deletedPath = ('/' + oldPath).replace(/\/+/, '/');
       const createdPath = ('/' + newRelativePath).replace(/\/+/, '/');
-      global.wsManager.broadcastFileDeleted(deletedPath);
-      global.wsManager.broadcastFileCreated({
+      websocketProvider.broadcastFileDeleted(deletedPath);
+      websocketProvider.broadcastFileCreated({
         name: finalName,
         path: createdPath,
         type: itemType
@@ -678,9 +689,19 @@ export async function copyFiles(req, res, next) {
             let candidate = `${base} (copy)`;
             let candidatePath = join(destPath, candidate);
             let i = 2;
-            while (true) {
-              try { await fsp.access(candidatePath); candidate = `${base} (copy ${i++})`; candidatePath = join(destPath, candidate); }
-              catch { break; }
+            const MAX_ATTEMPTS = 1000; // Prevent infinite loop
+            while (i <= MAX_ATTEMPTS) {
+              try {
+                await fsp.access(candidatePath);
+                candidate = `${base} (copy ${i++})`;
+                candidatePath = join(destPath, candidate);
+              }
+              catch {
+                break;
+              }
+            }
+            if (i > MAX_ATTEMPTS) {
+              throw new Error(`Unable to find unique filename after ${MAX_ATTEMPTS} attempts`);
             }
             logger.warn(`Adjusted destination to avoid self-nesting: ${fullDestPath} -> ${candidatePath}`);
             fullDestPath = candidatePath;
@@ -716,9 +737,9 @@ export async function copyFiles(req, res, next) {
         await FileCache.invalidateFilePath(userId, destination);
         
         // Broadcast file created event
-        if (global.wsManager) {
+        if (websocketProvider.isAvailable()) {
           const createdPath = ('/' + destRelativePath).replace(/\/+/, '/');
-          global.wsManager.broadcastFileCreated({
+          websocketProvider.broadcastFileCreated({
             name: basename(fullDestPath),
             path: createdPath,
             type: stats.isDirectory() ? 'folder' : 'file'

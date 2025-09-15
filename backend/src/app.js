@@ -95,7 +95,7 @@ if (serverConfig.nodeEnv !== 'test') {
     }
   });
 
-  // app.use(_generalLimiter);
+  app.use(_generalLimiter);
 }
 
 // Routes

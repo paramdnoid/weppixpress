@@ -17,11 +17,11 @@ class OptimizedSessionManager {
     this.files = new Map();
     this.activeStreams = new Map(); // Track active upload streams
 
-    // Start cleanup interval - DISABLED FOR TESTING
-    // this.cleanupInterval = setInterval(() => this.cleanupStale(), 5 * 60 * 1000); // Every 5 minutes
+    // Start cleanup interval for production
+    this.cleanupInterval = setInterval(() => this.cleanupStale(), 5 * 60 * 1000); // Every 5 minutes
 
-    // Run initial cleanup on startup to handle restarts - DISABLED FOR TESTING
-    // setTimeout(() => this.cleanupStale(), 30 * 1000); // After 30 seconds
+    // Run initial cleanup on startup to handle restarts
+    setTimeout(() => this.cleanupStale(), 30 * 1000); // After 30 seconds
   }
 
   // Cleanup stale sessions and streams

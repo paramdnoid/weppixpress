@@ -43,16 +43,36 @@ export async function register(req, res, next) {
     await setVerificationToken(email, token);
 
     const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
-    const emailHtml = await getEmailTemplate('emailVerification', {
-      VERIFY_URL: verifyUrl
-    });
 
-    await sendMail({
-      to: email,
-      subject: 'Bitte bestätige deine E-Mail-Adresse - weppiXPRESS',
-      html: emailHtml
-    });
-    res.status(201).json({ message: 'Registration successful. Please check your email for verification.' });
+    try {
+      const emailHtml = await getEmailTemplate('emailVerification', {
+        VERIFY_URL: verifyUrl
+      });
+
+      await sendMail({
+        to: email,
+        subject: 'Bitte bestätige deine E-Mail-Adresse - weppiXPRESS',
+        html: emailHtml
+      });
+      res.status(201).json({ message: 'Registration successful. Please check your email for verification.' });
+    } catch (emailError) {
+      logger.warn('Email sending failed during registration', {
+        action: 'register',
+        email,
+        userId,
+        error: emailError.message
+      });
+
+      // In development, allow registration to succeed even if email fails
+      if (process.env.NODE_ENV === 'local' || process.env.NODE_ENV === 'development') {
+        res.status(201).json({
+          message: 'Registration successful. Email verification disabled in development mode.',
+          warning: 'Email sending failed - check SMTP configuration'
+        });
+      } else {
+        throw emailError;
+      }
+    }
   } catch (err) {
     logger.error('Registration error', { action: 'register', ip: req.ip, error: err.message });
     next(err);

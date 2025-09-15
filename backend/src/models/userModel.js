@@ -1,13 +1,15 @@
 import pool from '../services/dbConnection.js';
 
 export async function findUserByEmail(email) {
-  const res = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+  const res = await pool.query('SELECT id, first_name, last_name, email, password, role, is_verified, is_2fa_enabled, fa2_secret FROM users WHERE email = ?', [email]);
   return res[0] || null;
 }
 
 export async function createUser(first_name, last_name, email, passwordHash, role = 'user') {
-  const result = await pool.query('INSERT INTO users (first_name, last_name, email, role, password) VALUES (?, ?, ?, ?, ?)', [first_name, last_name, email, role, passwordHash]);
-  return result.insertId;
+  await pool.query('INSERT INTO users (first_name, last_name, email, role, password) VALUES (?, ?, ?, ?, ?)', [first_name, last_name, email, role, passwordHash]);
+  // For UUID primary keys, insertId might not be reliable, get the user by email instead
+  const user = await findUserByEmail(email);
+  return user?.id || null;
 }
 
 export async function setVerificationToken(email, token) {
@@ -21,7 +23,7 @@ export async function setResetToken(email, token, expires) {
   await pool.query('UPDATE users SET reset_token = ?, reset_token_expires_at = ? WHERE email = ?', [token, expires, email]);
 }
 export async function getUserByResetToken(token) {
-  const res = await pool.query('SELECT * FROM users WHERE reset_token = ? AND reset_token_expires_at > NOW()', [token]);
+  const res = await pool.query('SELECT id, email, reset_token, reset_token_expires_at FROM users WHERE reset_token = ? AND reset_token_expires_at > NOW()', [token]);
   return res[0] || null;
 }
 export async function updatePassword(userId, hash) {
@@ -34,7 +36,7 @@ export async function disable2FA(userId) {
   await pool.query('UPDATE users SET is_2fa_enabled = 0, fa2_secret = NULL WHERE id = ?', [userId]);
 }
 export async function getUserById(id) {
-  const res = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
+  const res = await pool.query('SELECT id, first_name, last_name, email, role, is_verified, is_2fa_enabled, fa2_secret FROM users WHERE id = ?', [id]);
   return res[0] || null;
 }
 

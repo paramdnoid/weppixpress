@@ -3,6 +3,7 @@ import { serverConfig } from './config/index.js';
 import logger from './src/utils/logger.js';
 import { WebSocketManager } from './src/websockets/websocketService.js';
 import { gracefulShutdown } from './src/utils/gracefulShutdown.js';
+import websocketProvider from './src/services/websocketProvider.js';
 
 const PORT = serverConfig.port;
 const HOST = serverConfig.host;
@@ -22,10 +23,10 @@ const server = app.listen(PORT, HOST, () => {
   }
 });
 
-// Optimize server performance settings
-server.requestTimeout = 0;
-server.headersTimeout = 0;
-server.keepAliveTimeout = 65_000;
+// Configure server timeouts for security and performance
+server.requestTimeout = 120_000; // 2 minutes for request body
+server.headersTimeout = 60_000;  // 1 minute for headers
+server.keepAliveTimeout = 65_000; // 65 seconds (should be > headersTimeout)
 server.maxHeadersCount = 2000;
 
 // Enable TCP_NODELAY for better real-time performance
@@ -35,7 +36,7 @@ server.on('connection', (socket) => {
 });
 
 const wsManager = new WebSocketManager(server);
-global.wsManager = wsManager;
+websocketProvider.setManager(wsManager);
 
 // Graceful shutdown handlers
 process.on('SIGTERM', () => gracefulShutdown(server, wsManager, 'SIGTERM'));
