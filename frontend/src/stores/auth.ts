@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import api, { setAuthHandlers } from '@/api/axios'
 
-interface User {
+export interface User {
   id: string;
   email: string;
   firstName: string;
@@ -11,12 +11,6 @@ interface User {
   has2FA?: boolean;
 }
 
-interface AuthState {
-  user: User | null;
-  accessToken: string | null;
-  pending2FA: string | null;
-  verifiedEmail: boolean;
-}
 
 // API configuration is handled in @/api/axios.ts
 

@@ -6,7 +6,6 @@ export function useUploadBatchModal() {
   const modal = useModal()
 
   function openUploadBatchSettings() {
-    console.log('Opening upload batch settings modal with component:', UploadBatchSettingsModalContent)
     return modal.open({
       title: 'Upload Batch Settings',
       size: 'lg',

@@ -104,7 +104,12 @@
                 :disabled="modal.loading"
                 @click="close(modal.id)"
               >
-                <Icon icon="tabler:x" class="me-1" width="16" height="16" />
+                <Icon
+                  icon="tabler:x"
+                  class="me-1"
+                  width="16"
+                  height="16"
+                />
                 Cancel
               </button>
               <button

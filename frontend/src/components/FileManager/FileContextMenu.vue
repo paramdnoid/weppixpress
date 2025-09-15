@@ -22,7 +22,12 @@
           :disabled="isLoading"
           @click="handleAction('rename')"
         >
-          <Icon icon="mdi:rename" width="16" height="16" class="me-2" />
+          <Icon
+            icon="mdi:rename"
+            width="16"
+            height="16"
+            class="me-2"
+          />
           Rename
         </button>
         <button
@@ -31,7 +36,12 @@
           :disabled="isLoading"
           @click="handleAction('copy')"
         >
-          <Icon icon="mdi:content-copy" width="16" height="16" class="me-2" />
+          <Icon
+            icon="mdi:content-copy"
+            width="16"
+            height="16"
+            class="me-2"
+          />
           Copy
         </button>
         <button
@@ -40,7 +50,12 @@
           :disabled="isLoading"
           @click="handleAction('cut')"
         >
-          <Icon icon="mdi:content-cut" width="16" height="16" class="me-2" />
+          <Icon
+            icon="mdi:content-cut"
+            width="16"
+            height="16"
+            class="me-2"
+          />
           Cut
         </button>
         <hr class="context-menu-divider">
@@ -50,7 +65,12 @@
           :disabled="isLoading"
           @click="handleAction('delete')"
         >
-          <Icon icon="mdi:delete" width="16" height="16" class="me-2" />
+          <Icon
+            icon="mdi:delete"
+            width="16"
+            height="16"
+            class="me-2"
+          />
           Delete
         </button>
         <hr class="context-menu-divider">
@@ -63,7 +83,12 @@
         :disabled="isLoading"
         @click="handleAction('createFolder')"
       >
-        <Icon icon="mdi:folder-plus" width="16" height="16" class="me-2" />
+        <Icon
+          icon="mdi:folder-plus"
+          width="16"
+          height="16"
+          class="me-2"
+        />
         New Folder
       </button>
 
@@ -73,7 +98,12 @@
         :disabled="isLoading || (!clipboardHasItems && clipboardItemCount === 0)"
         @click="handleAction('paste')"
       >
-        <Icon icon="mdi:content-paste" width="16" height="16" class="me-2" />
+        <Icon
+          icon="mdi:content-paste"
+          width="16"
+          height="16"
+          class="me-2"
+        />
         Paste<span v-if="clipboardItemCount > 0"> ({{ clipboardItemCount }})</span>
       </button>
 
@@ -88,7 +118,12 @@
             class="d-none"
             @change="handleFileUpload"
           >
-          <Icon icon="mdi:upload" width="16" height="16" class="me-2" />
+          <Icon
+            icon="mdi:upload"
+            width="16"
+            height="16"
+            class="me-2"
+          />
           Upload Files
         </label>
       </div>
@@ -101,7 +136,12 @@
             class="d-none"
             @change="handleFolderUpload"
           >
-          <Icon icon="mdi:folder-upload" width="16" height="16" class="me-2" />
+          <Icon
+            icon="mdi:folder-upload"
+            width="16"
+            height="16"
+            class="me-2"
+          />
           Upload Folder
         </label>
       </div>
@@ -113,7 +153,12 @@
         class="context-menu-item"
         @click="handleAction('uploadSettings')"
       >
-        <Icon icon="tabler:settings" width="16" height="16" class="me-2" />
+        <Icon
+          icon="tabler:settings"
+          width="16"
+          height="16"
+          class="me-2"
+        />
         Upload Settings
       </button>
     </div>
@@ -152,7 +197,6 @@ const position = ref({ x: 0, y: 0 })
 const contextMenuRef = ref<HTMLElement>()
 
 function show(event: MouseEvent, item?: any) {
-  console.log('FileContextMenu show() called')
   event.preventDefault()
 
   // Store the selected item for context menu actions
@@ -169,18 +213,12 @@ function show(event: MouseEvent, item?: any) {
     y: event.clientY
   }
 
-  console.log('Setting isVisible to true, position:', position.value)
   isVisible.value = true
-  console.log('isVisible is now:', isVisible.value)
 
   nextTick(() => {
-    console.log('nextTick: contextMenuRef.value:', contextMenuRef.value)
-    console.log('nextTick: DOM element exists:', document.querySelector('.context-menu'))
-
     // Move the context menu to document.body to avoid container issues
     if (contextMenuRef.value && contextMenuRef.value.parentElement) {
       document.body.appendChild(contextMenuRef.value)
-      console.log('Moved context menu to document.body')
     }
 
     // Adjust position if menu would be off-screen

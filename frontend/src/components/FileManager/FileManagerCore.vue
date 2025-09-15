@@ -274,7 +274,6 @@ function handleContextMenuAction(action, item) {
   switch (action) {
     case 'rename':
       if (item) {
-        contextMenuItem.value = item
         modalsRef.value?.showRenameModal(item)
       }
       break
@@ -306,7 +305,6 @@ function handleContextMenuAction(action, item) {
       showUploadSettingsModal()
       break
     default:
-      console.warn('Unknown context menu action:', action)
   }
 }
 
@@ -633,7 +631,6 @@ onMounted(async () => {
     // Clean up any existing context menus on load
     const existingMenus = document.querySelectorAll('.simple-context-menu, .context-menu')
     existingMenus.forEach(menu => menu.remove())
-    console.log('Cleaned up existing context menus:', existingMenus.length)
 
     // Listen for context menu events from file items
     document.addEventListener('file-context-menu', (event) => {

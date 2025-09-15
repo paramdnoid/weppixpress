@@ -369,7 +369,7 @@ const getErrorRateStatus = (rate: number) => {
   return 'success'
 }
 
-const calculateTrend = (type: string) => {
+const calculateTrend = (_type: string) => {
   // This would calculate actual trend from historical data
   // For now, return sample trend
   return Math.floor(Math.random() * 20) - 10 // -10 to +10%

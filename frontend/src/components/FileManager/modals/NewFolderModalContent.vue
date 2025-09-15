@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<Props>(), {
   modalId: '',
   onCreateFolder: undefined
 })
-const emit = defineEmits<{
+const _emit = defineEmits<{
   close: []
   confirm: []
   createFolder: [name: string]

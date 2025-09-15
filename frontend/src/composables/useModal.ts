@@ -1,6 +1,5 @@
 import { useModalStore, type ModalConfig } from '@/stores/modal'
 import type { Component } from 'vue'
-import { markRaw } from 'vue'
 
 export function useModal() {
   const modalStore = useModalStore()

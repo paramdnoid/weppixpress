@@ -43,7 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
   itemToRename: () => ({ name: '', type: 'file' }),
   onRename: undefined
 })
-const emit = defineEmits<{
+const _emit = defineEmits<{
   close: []
   confirm: []
   rename: [data: { oldName: string; newName: string; item: any }]

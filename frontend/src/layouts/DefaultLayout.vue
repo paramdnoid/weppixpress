@@ -89,13 +89,13 @@ onMounted(async () => {
     try {
         const res = await auth.fetchUser();
         data.value = res.data;
-    } catch (e) {
+    } catch (_e) {
         // Optional: Token refresh fallback
         try {
             await auth.refresh();
             const res = await auth.fetchUser();
             data.value = res.data;
-        } catch (err) {
+        } catch (_err) {
             data.value = { message: 'Nicht autorisiert' };
         }
     }

@@ -39,6 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
   size: 'md',
   disabled: false,
   loading: false,
+  icon: undefined,
   iconPosition: 'left',
   tag: 'button',
   block: false

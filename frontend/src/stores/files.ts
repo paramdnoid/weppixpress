@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, shallowRef, triggerRef } from 'vue'
-import type { FileItem, PaginatedResponse, FileOperation, SelectionMode, SortDirection } from '@/types'
+import type { FileItem, FileOperation, SelectionMode, SortDirection } from '@/types'
 import { fileApi } from '@/api/files'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { debounce } from 'lodash-es'

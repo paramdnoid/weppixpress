@@ -3,7 +3,7 @@
  * Provides utilities to prevent XSS attacks when handling user-generated content
  */
 
-import { computed, ref, type Ref } from 'vue'
+import { computed, type Ref } from 'vue'
 
 export interface SecureContentOptions {
   /**

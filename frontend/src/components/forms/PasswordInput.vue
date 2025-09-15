@@ -23,12 +23,14 @@
 <script setup>
 import { ref } from 'vue';
 
-const props = defineProps({
-  modelValue: String,
-  id: String,
-  label: String,
-  placeholder: String
+const _props = defineProps({
+  modelValue: { type: String, default: '' },
+  id: { type: String, default: '' },
+  label: { type: String, default: '' },
+  placeholder: { type: String, default: '' }
 });
+
+const emit = defineEmits(['update:modelValue'])
 
 const show = ref(false);
 </script>

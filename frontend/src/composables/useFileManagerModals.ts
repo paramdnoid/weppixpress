@@ -7,7 +7,6 @@ export function useFileManagerModals() {
   const modal = useModal()
 
   function openRenameModal(item: { name: string; type: string }, onRename: (data: { oldName: string; newName: string; item: any }) => void | Promise<void>) {
-    console.log('Opening rename modal with component:', RenameModalContent)
 
     let modalId: string
     const handleRename = async (data: { oldName: string; newName: string; item: any }) => {

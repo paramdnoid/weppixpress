@@ -104,7 +104,12 @@ interface MetricsCardProps {
 const props = withDefaults(defineProps<MetricsCardProps>(), {
   format: 'number',
   showProgress: false,
-  progressLabel: 'Usage'
+  progressLabel: 'Usage',
+  trend: undefined,
+  subtitle: undefined,
+  status: undefined,
+  sparklineData: undefined,
+  percentage: undefined
 })
 
 const sparklineCanvas = ref<HTMLCanvasElement>()
