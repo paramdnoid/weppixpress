@@ -193,16 +193,55 @@ export async function forgotPassword(req, res, next) {
   }
   try {
     const { email } = req.body;
+
+    // Check if user exists
+    const user = await findUserByEmail(email);
+    if (!user) {
+      // Don't reveal whether the email exists for security reasons
+      return res.json({ message: 'If an account with that email exists, a password reset email has been sent' });
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 1000 * 60 * 30);
+    const expiryHours = 2; // Link valid for 2 hours
+    const expires = new Date(Date.now() + 1000 * 60 * 60 * expiryHours);
     await setResetToken(email, token, expires);
-    await sendMail({
-      to: email,
-      subject: 'Password Reset Request',
-      html: `<p>Click the link below to reset your password:</p><a href="${process.env.FRONTEND_URL}/reset-password?token=${token}">Reset Password</a>`
-    });
-    res.json({ message: 'Password reset email has been sent' });
+
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    try {
+      const emailHtml = await getEmailTemplate('passwordReset', {
+        USER_NAME: user.first_name || 'Nutzer',
+        RESET_URL: resetUrl,
+        EXPIRY_TIME: expiryHours
+      });
+
+      await sendMail({
+        to: email,
+        subject: 'Passwort zurücksetzen - weppiXPRESS',
+        html: emailHtml
+      });
+
+      logger.info('Password reset email sent', { email, action: 'forgot_password' });
+      res.json({ message: 'If an account with that email exists, a password reset email has been sent' });
+    } catch (emailError) {
+      logger.error('Failed to send password reset email', {
+        email,
+        action: 'forgot_password',
+        error: emailError.message
+      });
+
+      // In development, provide more detailed error
+      if (process.env.NODE_ENV === 'local' || process.env.NODE_ENV === 'development') {
+        res.status(500).json({
+          message: 'Failed to send password reset email',
+          error: emailError.message
+        });
+      } else {
+        throw emailError;
+      }
+    }
   } catch (err) {
+    logger.error('Password reset request error', { action: 'forgot_password', ip: req.ip, error: err.message });
     next(err);
   }
 }

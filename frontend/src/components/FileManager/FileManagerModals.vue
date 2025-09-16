@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineExpose } from 'vue'
+import { ref } from 'vue'
 import { useFileManagerModals } from '@/composables/useFileManagerModals'
 
 interface Props {
