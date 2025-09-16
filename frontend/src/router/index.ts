@@ -10,7 +10,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/verify-email', name: 'VerifyEmail', component: () => import('@/views/auth/VerifyEmail.vue') },
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/auth/ForgotPassword.vue') },
   { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/auth/ResetPassword.vue') },
-  
+
   { path: '/files', name: 'Files', component: () => import('@/views/files/Files.vue'), meta: { requiresAuth: true } },
   { path: '/flows', name: 'Flows', component: () => import('@/views/workflow/Flows.vue'), meta: { requiresAuth: true } },
   { path: '/mails', name: 'Mails', component: () => import('@/views/communication/Mails.vue'), meta: { requiresAuth: true } },
