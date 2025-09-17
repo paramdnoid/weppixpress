@@ -68,51 +68,49 @@
 <script setup>
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import PasswordInput from '@/components/forms/PasswordInput.vue';
+import { useAuthForm } from '@/composables/useAuthForm';
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 
-const loading = ref(false);
 const password = ref('');
 const confirmPassword = ref('');
-const info = ref('');
-const error = ref('');
 const store = useAuthStore();
 const router = useRouter();
 
 const params = new URLSearchParams(window.location.search);
 const token = params.get('token');
+
+// Clear form fields after successful reset
+const clearFields = () => {
+  password.value = '';
+  confirmPassword.value = '';
+};
+
+// Use shared auth form composable
+const { loading, error, info, handleSubmit, setInfo } = useAuthForm({
+  clearFields,
+  successMessage: 'Passwort erfolgreich geändert!'
+});
+
 async function onReset() {
-  loading.value = true;
+  // Client-side validation first
   if (password.value !== confirmPassword.value) {
     error.value = "Passwörter stimmen nicht überein!";
-    info.value = "";
-    loading.value = false;
     return;
   }
-  try {
+
+  await handleSubmit(async () => {
     await store.resetPassword(token, password.value);
-    info.value = 'Passwort geändert. Du kannst dich einloggen.';
-    window.$toast('Passwort erfolgreich geändert!', { type: 'success' });
-    password.value = '';
-    confirmPassword.value = '';
-    error.value = '';
+  });
+
+  // Set info message and redirect after successful reset
+  if (!error.value) {
+    setInfo('Passwort geändert. Du kannst dich einloggen.');
     setTimeout(() => {
       router.push('/login');
     }, 2000);
-  } catch (e) {
-    error.value = e.response?.data?.message || 'Fehler';
-    window.$toast('Fehler: ' + error.value, { type: 'danger' });
-    info.value = '';
-  } finally {
-    loading.value = false;
   }
 }
 </script>
 
-<style>
-.form-disabled {
-  pointer-events: none;
-  opacity: 0.6;
-}
-</style>

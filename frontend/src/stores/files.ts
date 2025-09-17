@@ -354,27 +354,53 @@ export const useFileStore = defineStore('files', () => {
 
   const hasClipboard = computed(() => state.value.clipboard !== null)
 
+  // Memoized clipboard info to avoid expensive reduce operations
   const clipboardInfo = computed(() => {
     if (!state.value.clipboard) return null
+
+    const items = state.value.clipboard.items
+    const operation = state.value.clipboard.operation
+
+    // Cache the total size calculation
+    let totalSize = 0
+    for (let i = 0; i < items.length; i++) {
+      totalSize += items[i].size || 0
+    }
+
     return {
-      operation: state.value.clipboard.operation,
-      count: state.value.clipboard.items.length,
-      totalSize: state.value.clipboard.items.reduce((sum, item) => sum + (item.size || 0), 0)
+      operation,
+      count: items.length,
+      totalSize
     }
   })
 
+  // Optimized canPaste to avoid expensive path checks on every access
   const canPaste = computed(() => {
     if (!state.value.clipboard) return false
-    return !state.value.clipboard.items.some(item =>
-      item.path === state.value.currentPath ||
-      state.value.currentPath.startsWith(item.path + '/')
-    )
+
+    const currentPath = state.value.currentPath
+    const items = state.value.clipboard.items
+
+    // Use early return and optimized path checking
+    for (let i = 0; i < items.length; i++) {
+      const itemPath = items[i].path
+      if (itemPath === currentPath || currentPath.startsWith(itemPath + '/')) {
+        return false
+      }
+    }
+    return true
   })
 
+  // Optimized hasActiveOperations with early return
   const hasActiveOperations = computed(() => {
-    return state.value.operations.some(op =>
-      op.status === 'pending' || op.status === 'processing'
-    )
+    const operations = state.value.operations
+    for (let i = 0; i < operations.length; i++) {
+      const status = operations[i].status
+      if (status === 'pending' || status === 'processing') {
+        return true
+      }
+    }
+    return false
   })
 
   // ===== NAVIGATION =====

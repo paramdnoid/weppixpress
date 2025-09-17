@@ -111,41 +111,40 @@
 <script setup>
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import PasswordInput from '@/components/forms/PasswordInput.vue';
+import { useAuthForm } from '@/composables/useAuthForm';
 
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-const loading = ref(false);
+
 const store = useAuthStore();
 const email = ref('');
 const password = ref('');
 const firstName = ref('');
 const lastName = ref('');
-const error = ref('');
-const info = ref('');
+
+// Clear form fields after successful registration
+const clearFields = () => {
+  email.value = '';
+  password.value = '';
+  firstName.value = '';
+  lastName.value = '';
+};
+
+// Use shared auth form composable
+const { loading, error, info, handleSubmit, setInfo } = useAuthForm({
+  clearFields,
+  showToast: false // We'll handle this manually for info messages
+});
 
 async function onRegister() {
-  loading.value = true;
-  try {
+  await handleSubmit(async () => {
     await store.register(firstName.value, lastName.value, email.value, password.value);
-    info.value = 'Bitte E-Mail bestätigen (Link gesendet)!';
-    window.$toast('Bitte bestätige deine E-Mail-Adresse.', { type: 'info' });
-    email.value = '';
-    password.value = '';
-    firstName.value = '';
-    lastName.value = '';
-    error.value = '';
-  } catch (e) {
-    error.value = e.response?.data?.message || 'Fehler';
-    info.value = '';
-  } finally {
-    loading.value = false;
+  });
+
+  // Set info message after successful registration
+  if (!error.value) {
+    setInfo('Bitte E-Mail bestätigen (Link gesendet)!');
   }
 }
 </script>
 
-<style>
-.form-disabled {
-  pointer-events: none;
-  opacity: 0.6;
-}
-</style>

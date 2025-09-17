@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 interface ChartProps {
   title: string
@@ -234,6 +234,11 @@ onMounted(() => {
   
   // Redraw on window resize
   window.addEventListener('resize', updateChart)
+})
+
+onUnmounted(() => {
+  // Clean up resize event listener to prevent memory leaks
+  window.removeEventListener('resize', updateChart)
 })
 </script>
 

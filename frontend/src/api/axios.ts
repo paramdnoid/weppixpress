@@ -1,4 +1,5 @@
 import axios from 'axios'
+import SecureTokenStorage from '@/utils/tokenStorage'
 
 // Configure base URL correctly - use proxy in development
 const API_BASE_URL = '/api'
@@ -24,7 +25,7 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken')
+    const token = SecureTokenStorage.getAccessToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

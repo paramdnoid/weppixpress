@@ -134,6 +134,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   nodeToggle: [payload: { node: FileItem; isOpen: boolean }]
   selectNode: [path: string]
+  updateNode: [payload: { node: FileItem; updates: any }]
 }>()
 
 // Small derived state helpers
@@ -167,10 +168,15 @@ function applyCachedChildrenIfAvailable(): boolean {
     const onlyFolders = cachedItems.filter(i => i.type === 'folder')
     const preservedChildren = preserveTreeState(onlyFolders)
     children.value = preservedChildren
-    props.node.children = preservedChildren
-    
-    // Update hasSubfolders based on actual folder count
-    props.node.hasSubfolders = onlyFolders.length > 0
+
+    // Emit updates instead of direct mutation
+    emit('updateNode', {
+      node: props.node,
+      updates: {
+        children: preservedChildren,
+        hasSubfolders: onlyFolders.length > 0
+      }
+    })
     
     hasLoadedChildren.value = true
     return true
@@ -244,10 +250,15 @@ async function loadChildrenSafely(): Promise<FileItem[] | null> {
       // Preserve expanded state of existing children
       const preservedChildren = preserveTreeState(onlyFolders)
       children.value = preservedChildren
-      props.node.children = preservedChildren
-      
-      // Update hasSubfolders based on actual folder count
-      props.node.hasSubfolders = onlyFolders.length > 0
+
+      // Emit updates instead of direct mutation
+      emit('updateNode', {
+        node: props.node,
+        updates: {
+          children: preservedChildren,
+          hasSubfolders: onlyFolders.length > 0
+        }
+      })
       
       hasLoadedChildren.value = true
     }
@@ -324,7 +335,6 @@ async function toggleOpen(forceReload = false, silent = false) {
   // If closing, just toggle
   if (isOpen.value) {
     isOpen.value = false
-    props.node._isOpen = false
     if (!silent) emit('nodeToggle', { node: props.node, isOpen: false })
     return
   }
@@ -340,7 +350,6 @@ async function toggleOpen(forceReload = false, silent = false) {
 
   // Open the node
   isOpen.value = true
-  props.node._isOpen = true
   await nextTick()
   if (!silent) emit('nodeToggle', { node: props.node, isOpen: true })
 }
@@ -362,7 +371,6 @@ function handleKeyDown(event: KeyboardEvent) {
       if (isOpen.value) {
         event.preventDefault()
         isOpen.value = false
-        props.node._isOpen = false
         emit('nodeToggle', { node: props.node, isOpen: false })
       }
       break
@@ -458,15 +466,21 @@ async function handleReorganize(targetPath?: string) {
         const loadedChildren = await props.loadChildren(props.node)
         if (Array.isArray(loadedChildren)) {
           const folderChildren = loadedChildren.filter(i => i.type === 'folder')
-          // Update hasSubfolders based on actual count (handles both create and delete)
-          props.node.hasSubfolders = folderChildren.length > 0
+          // Update hasSubfolders and children via emit
+          emit('updateNode', {
+            node: props.node,
+            updates: {
+              hasSubfolders: folderChildren.length > 0,
+              children: folderChildren
+            }
+          })
           children.value = folderChildren
           hasLoadedChildren.value = true
-          
+
           // If no more subfolders, close the node
           if (folderChildren.length === 0 && isOpen.value) {
             isOpen.value = false
-            props.node._isOpen = false
+            emit('nodeToggle', { node: props.node, isOpen: false })
           }
         }
       } catch (error) {

@@ -1,12 +1,14 @@
 <template>
   <!-- Text Content -->
   <div class="col-12 col-md-5 order-2 order-md-1">
-    <h1 
-      :key="`main-${currentIndex}`" 
-      class="display-6 fw-bold mb-4 text-dark hero-main-text" 
+    <h1
+      :key="`main-${currentIndex}`"
+      class="display-6 fw-bold mb-4 text-dark hero-main-text"
       data-aos="fade-right"
-      v-html="mainTexts[currentIndex]"
-    />
+    >
+      {{ mainTexts[currentIndex].main }}
+      <span class="text-muted">{{ mainTexts[currentIndex].muted }}</span>
+    </h1>
     <p 
       :key="`sub-${currentIndex}`" 
       class="fs-5 mb-4 text-muted hero-sub-text"
@@ -157,10 +159,10 @@ const images = [
 ]
 
 const mainTexts = [
-  'Abläufe steuern. Prozesse <span class="text-muted">vereinfachen.</span>',
-  'Effizient planen. Klar <span class="text-muted">kommunizieren.</span>',
-  'Kommunikation, die <span class="text-muted">verbindet.</span>',
-  'Dateien einfach verwalten, jederzeit <span class="text-muted">verfügbar.</span>'
+  { main: 'Abläufe steuern. Prozesse ', muted: 'vereinfachen.' },
+  { main: 'Effizient planen. Klar ', muted: 'kommunizieren.' },
+  { main: 'Kommunikation, die ', muted: 'verbindet.' },
+  { main: 'Dateien einfach verwalten, jederzeit ', muted: 'verfügbar.' }
 ]
 
 const subTexts = [

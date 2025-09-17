@@ -36,47 +36,37 @@
           />
           <span class="d-none d-lg-inline ms-1">Menu</span>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li>
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center"
-              :disabled="isLoading"
-              @click="$emit('createFolder')"
+        <div class="dropdown-menu dropdown-menu-start context-menu-styled">
+          <div class="context-menu-content">
+            <div
+              class="context-menu-item"
+              :class="{ disabled: isLoading }"
+              @click="!isLoading && $emit('createFolder')"
             >
               <Icon
                 icon="mdi:folder-plus"
-                width="16"
-                height="16"
-                class="me-2"
+                class="menu-icon"
               />
-              New Folder
-            </button>
-          </li>
-          <li>
-            <hr class="dropdown-divider">
-          </li>
-          <li>
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center"
+              <span class="menu-label">New Folder</span>
+            </div>
+            <div class="context-menu-item separator">
+              <div class="separator" />
+            </div>
+            <div
+              class="context-menu-item"
               @click="$emit('openUploadSettings')"
             >
               <Icon
                 icon="tabler:settings"
-                width="16"
-                height="16"
-                class="me-2"
+                class="menu-icon"
               />
-              Upload Settings
-            </button>
-          </li>
-          <li>
-            <hr class="dropdown-divider">
-          </li>
-          <li>
-            <div class="px-3 py-2">
-              <label class="d-flex align-items-center cursor-pointer mb-0">
+              <span class="menu-label">Upload Settings</span>
+            </div>
+            <div class="context-menu-item separator">
+              <div class="separator" />
+            </div>
+            <div class="context-menu-item">
+              <label class="d-flex align-items-center cursor-pointer mb-0 w-100">
                 <input
                   type="file"
                   multiple
@@ -85,17 +75,13 @@
                 >
                 <Icon
                   icon="mdi:upload"
-                  width="16"
-                  height="16"
-                  class="me-2"
+                  class="menu-icon"
                 />
-                Upload Files
+                <span class="menu-label">Upload Files</span>
               </label>
             </div>
-          </li>
-          <li>
-            <div class="px-3 py-2">
-              <label class="d-flex align-items-center cursor-pointer mb-0">
+            <div class="context-menu-item">
+              <label class="d-flex align-items-center cursor-pointer mb-0 w-100">
                 <input
                   type="file"
                   webkitdirectory
@@ -104,101 +90,87 @@
                 >
                 <Icon
                   icon="mdi:folder-upload"
-                  width="16"
-                  height="16"
-                  class="me-2"
+                  class="menu-icon"
                 />
-                Upload Folder
+                <span class="menu-label">Upload Folder</span>
               </label>
             </div>
-          </li>
-          <li v-if="selectedCount > 0">
-            <hr class="dropdown-divider">
-          </li>
-          <li v-if="selectedCount === 1">
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center"
-              :disabled="isLoading"
-              @click="$emit('renameSelected')"
+            <div
+              v-if="selectedCount > 0"
+              class="context-menu-item separator"
+            >
+              <div class="separator" />
+            </div>
+            <div
+              v-if="selectedCount === 1"
+              class="context-menu-item"
+              :class="{ disabled: isLoading }"
+              @click="!isLoading && $emit('renameSelected')"
             >
               <Icon
                 icon="mdi:rename"
-                width="16"
-                height="16"
-                class="me-2"
+                class="menu-icon"
               />
-              Rename
-            </button>
-          </li>
-          <li v-if="selectedCount > 0">
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center"
-              :disabled="isLoading"
-              @click="$emit('copySelected')"
+              <span class="menu-label">Rename</span>
+            </div>
+            <div
+              v-if="selectedCount > 0"
+              class="context-menu-item"
+              :class="{ disabled: isLoading }"
+              @click="!isLoading && $emit('copySelected')"
             >
               <Icon
                 icon="mdi:content-copy"
-                width="16"
-                height="16"
-                class="me-2"
+                class="menu-icon"
               />
-              Copy (<span v-text="selectedCount" />)
-            </button>
-          </li>
-          <li v-if="selectedCount > 0">
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center"
-              :disabled="isLoading"
-              @click="$emit('cutSelected')"
+              <span class="menu-label">Copy ({{ selectedCount }})</span>
+            </div>
+            <div
+              v-if="selectedCount > 0"
+              class="context-menu-item"
+              :class="{ disabled: isLoading }"
+              @click="!isLoading && $emit('cutSelected')"
             >
               <Icon
                 icon="mdi:content-cut"
-                width="16"
-                height="16"
-                class="me-2"
+                class="menu-icon"
               />
-              Cut (<span v-text="selectedCount" />)
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center"
-              :disabled="isLoading || (!clipboardHasItems && clipboardItemCount === 0)"
-              @click="$emit('pasteItems')"
+              <span class="menu-label">Cut ({{ selectedCount }})</span>
+            </div>
+            <div
+              class="context-menu-item"
+              :class="{ disabled: isLoading || (!clipboardHasItems && clipboardItemCount === 0) }"
+              @click="!(isLoading || (!clipboardHasItems && clipboardItemCount === 0)) && $emit('pasteItems')"
             >
               <Icon
                 icon="mdi:content-paste"
-                width="16"
-                height="16"
-                class="me-2"
+                class="menu-icon"
               />
-              Paste<span v-if="clipboardItemCount > 0"> (<span v-text="clipboardItemCount" />)</span>
-            </button>
-          </li>
-          <li v-if="selectedCount > 0">
-            <hr class="dropdown-divider">
-          </li>
-          <li v-if="selectedCount > 0">
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center text-danger"
-              :disabled="isLoading"
-              @click="$emit('deleteSelected')"
+              <span class="menu-label">
+                Paste
+                <span v-if="clipboardItemCount > 0"> ({{ clipboardItemCount }})</span>
+              </span>
+            </div>
+            <div
+              v-if="selectedCount > 0"
+              class="context-menu-item separator"
+            >
+              <div class="separator" />
+            </div>
+            <div
+              v-if="selectedCount > 0"
+              class="context-menu-item danger"
+              :class="{ disabled: isLoading }"
+              @click="!isLoading && $emit('deleteSelected')"
             >
               <Icon
                 icon="mdi:delete"
-                width="16"
-                height="16"
-                class="me-2"
+                class="menu-icon"
               />
-              Delete (<span v-text="selectedCount" />)
-            </button>
-          </li>
-        </ul>
+              <span class="menu-label">Delete ({{ selectedCount }})</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Search Input -->
@@ -255,26 +227,23 @@
           />
           <span class="d-none d-lg-inline ms-1">Sort By</span>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li
-            v-for="option in sortOptions"
-            :key="option.value"
-          >
-            <button
-              type="button"
-              class="dropdown-item d-flex align-items-center justify-content-between"
+        <div class="dropdown-menu dropdown-menu-end context-menu-styled">
+          <div class="context-menu-content">
+            <div
+              v-for="option in sortOptions"
+              :key="option.value"
+              class="context-menu-item"
               @click="$emit('sort', option.value)"
             >
-              <span v-text="option.label" />
+              <span class="menu-label">{{ option.label }}</span>
               <Icon
                 v-if="sortKey === option.value"
                 :icon="sortDir === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                width="16"
-                height="16"
+                class="menu-icon-end"
               />
-            </button>
-          </li>
-        </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </nav>
 
@@ -413,17 +382,6 @@ function handleFolderUpload(event) {
   box-shadow: none;
 }
 
-/* Style for delete action in dropdown */
-.dropdown-item.text-danger:hover {
-  background-color: var(--tblr-red-lt, #fdf2f2);
-  color: var(--tblr-red, #d63384);
-}
-
-/* Ensure dropdown divider has proper spacing */
-.dropdown-divider {
-  margin: 0.5rem 0;
-}
-
 /* Spinner animation */
 .spinner {
   animation: spin 1s linear infinite;
@@ -437,5 +395,125 @@ function handleFolderUpload(event) {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ContextMenu Styling for Dropdowns */
+.context-menu-styled {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  min-width: 220px;
+  max-width: 300px;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.context-menu-content {
+  padding: 6px 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #374151;
+  transition: all 0.15s ease;
+  font-weight: 400;
+}
+
+.context-menu-item:not(.separator):not(.disabled):hover {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+.context-menu-item.disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.context-menu-item.danger {
+  color: #dc2626;
+}
+
+.context-menu-item.danger:hover {
+  background-color: #fef2f2;
+  color: #b91c1c;
+}
+
+.context-menu-item.danger .menu-icon {
+  color: #dc2626;
+}
+
+.context-menu-item.danger:hover .menu-icon {
+  color: #b91c1c;
+}
+
+.context-menu-item.separator {
+  padding: 0;
+  cursor: default;
+}
+
+.separator {
+  height: 1px;
+  background-color: #f3f4f6;
+  margin: 6px 0;
+}
+
+.menu-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 12px;
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+.menu-icon-end {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+.context-menu-item:hover .menu-icon,
+.context-menu-item:hover .menu-icon-end {
+  color: #374151;
+}
+
+.menu-label {
+  flex: 1;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Focus styles */
+.context-menu-item:focus {
+  outline: none;
+  background-color: #f3f4f6;
+}
+
+/* First and last item radius */
+.context-menu-item:first-child {
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
+}
+
+.context-menu-item:last-child {
+  border-bottom-left-radius: 7px;
+  border-bottom-right-radius: 7px;
+}
+
+/* Upload label styling */
+.context-menu-item label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
 }
 </style>

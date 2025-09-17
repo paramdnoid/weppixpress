@@ -1,5 +1,6 @@
 import { useModal } from '@/composables/useModal'
 import { markRaw } from 'vue'
+import { modalFactory } from '@/utils/modalFactory'
 import RenameModalContent from '@/views/files/modals/RenameModalContent.vue'
 import NewFolderModalContent from '@/views/files/modals/NewFolderModalContent.vue'
 
@@ -58,40 +59,31 @@ export function useFileManagerModals() {
   }
 
   function openDeleteConfirmModal(items: string[], onConfirm: () => void | Promise<void>) {
-    const itemCount = items.length
-    const message = itemCount === 1
-      ? `Are you sure you want to delete "${items[0]}"?`
-      : `Are you sure you want to delete ${itemCount} items?`
+    const { message, options } = modalFactory.delete(items)
 
     return modal.danger(message, {
-      title: 'Confirm Delete',
-      confirmText: 'Delete',
+      title: options.title,
+      confirmText: options.confirmText,
       onConfirm
     })
   }
 
   function openMoveConfirmModal(items: string[], destination: string, onConfirm: () => void | Promise<void>) {
-    const itemCount = items.length
-    const message = itemCount === 1
-      ? `Move "${items[0]}" to "${destination}"?`
-      : `Move ${itemCount} items to "${destination}"?`
+    const { message, options } = modalFactory.move(items, destination)
 
     return modal.confirmDialog(message, {
-      title: 'Confirm Move',
-      confirmText: 'Move',
+      title: options.title,
+      confirmText: options.confirmText,
       onConfirm
     })
   }
 
   function openCopyConfirmModal(items: string[], destination: string, onConfirm: () => void | Promise<void>) {
-    const itemCount = items.length
-    const message = itemCount === 1
-      ? `Copy "${items[0]}" to "${destination}"?`
-      : `Copy ${itemCount} items to "${destination}"?`
+    const { message, options } = modalFactory.copy(items, destination)
 
     return modal.confirmDialog(message, {
-      title: 'Confirm Copy',
-      confirmText: 'Copy',
+      title: options.title,
+      confirmText: options.confirmText,
       onConfirm
     })
   }

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import api, { setAuthHandlers } from '@/api/axios'
+import SecureTokenStorage from '@/utils/tokenStorage'
 
 export interface User {
   id: string;
@@ -24,7 +25,7 @@ export const useAuthStore = defineStore('auth', {
         return null
       }
     })(),
-    accessToken: localStorage.getItem('accessToken') || null,
+    accessToken: SecureTokenStorage.getAccessToken() || null,
     pending2FA: null,
     verifiedEmail: false,
   }),
@@ -41,7 +42,7 @@ export const useAuthStore = defineStore('auth', {
         } else {
           this.accessToken = data.accessToken
           this.user = data.user
-          localStorage.setItem('accessToken', data.accessToken)
+          SecureTokenStorage.setAccessToken(data.accessToken)
           localStorage.setItem('user', JSON.stringify(data.user))
           api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`
           this.pending2FA = null
@@ -61,7 +62,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = null
         this.accessToken = null
         this.pending2FA = null
-        localStorage.removeItem('accessToken')
+        SecureTokenStorage.clearAll()
         localStorage.removeItem('user')
         delete api.defaults.headers.common['Authorization']
       }
@@ -88,7 +89,7 @@ export const useAuthStore = defineStore('auth', {
         });
         this.accessToken = data.accessToken;
         this.user = data.user;
-        localStorage.setItem('accessToken', data.accessToken)
+        SecureTokenStorage.setAccessToken(data.accessToken)
         localStorage.setItem('user', JSON.stringify(data.user))
         api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
         this.pending2FA = null;
@@ -102,7 +103,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         const { data } = await api.post('/auth/refresh');
         this.accessToken = data.accessToken;
-        localStorage.setItem('accessToken', data.accessToken);
+        SecureTokenStorage.setAccessToken(data.accessToken);
         
         // Update user if provided
         if (data.user) {
@@ -117,7 +118,7 @@ export const useAuthStore = defineStore('auth', {
         // Clear invalid tokens
         this.accessToken = null;
         this.user = null;
-        localStorage.removeItem('accessToken');
+        SecureTokenStorage.clearAll();
         localStorage.removeItem('user');
         delete api.defaults.headers.common['Authorization'];
         throw err;
@@ -184,15 +185,15 @@ setAuthHandlers({
 })
 
 // Initialize auth headers and validate existing token
-if (localStorage.getItem('accessToken')) {
-  const token = localStorage.getItem('accessToken');
-  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+const existingToken = SecureTokenStorage.getAccessToken()
+if (existingToken) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
   
   // Validate token by making a test request
   api.get('/auth/me').catch((error) => {
     if (error.response?.status === 401) {
       console.warn('Stored token is invalid, clearing...');
-      localStorage.removeItem('accessToken');
+      SecureTokenStorage.clearAll();
       localStorage.removeItem('user');
       delete api.defaults.headers.common['Authorization'];
     }

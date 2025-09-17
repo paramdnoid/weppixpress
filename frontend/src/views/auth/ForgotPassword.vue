@@ -59,31 +59,33 @@
 
 <script setup>
 import AuthLayout from '@/layouts/AuthLayout.vue';
+import { useAuthForm } from '@/composables/useAuthForm';
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-const loading = ref(false);
+
 const store = useAuthStore();
-const email = ref(''); const info = ref(''); const error = ref('');
+const email = ref('');
+
+// Clear email field after successful submission
+const clearFields = () => {
+  email.value = '';
+};
+
+// Use shared auth form composable
+const { loading, error, info, handleSubmit, setInfo } = useAuthForm({
+  clearFields,
+  showToast: false // We'll handle this manually for info messages
+});
+
 async function onForgot() {
-  loading.value = true;
-  try {
+  await handleSubmit(async () => {
     await store.forgotPassword(email.value);
-    info.value = 'Bitte Postfach prüfen!';
-    window.$toast('E-Mail zum Zurücksetzen wurde verschickt.', { type: 'info' });
-    email.value = '';
-    error.value = '';
-  } catch (e) {
-    error.value = e.response?.data?.message || 'Fehler';
-    info.value = '';
-  } finally {
-    loading.value = false;
+  });
+
+  // Set info message after successful submission
+  if (!error.value) {
+    setInfo('Bitte Postfach prüfen!');
   }
 }
 </script>
 
-<style>
-.form-disabled {
-  pointer-events: none;
-  opacity: 0.6;
-}
-</style>

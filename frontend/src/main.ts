@@ -13,6 +13,7 @@ if ((import.meta as any).env?.DEV) {
 
 import '@tabler/core/js/tabler.js'
 import './assets/styles/main.scss'
+import './assets/styles/utilities.scss'
 
 const app = createApp(App);
 app.use(createPinia());

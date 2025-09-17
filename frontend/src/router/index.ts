@@ -16,9 +16,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/mails', name: 'Mails', component: () => import('@/views/communication/Mails.vue'), meta: { requiresAuth: true } },
   { path: '/meetings', name: 'Meetings', component: () => import('@/views/communication/Meetings.vue'), meta: { requiresAuth: true } },
   { path: '/profile', name: 'Profile', component: () => import('@/views/profile/Profile.vue'), meta: { requiresAuth: true } },
-  { path: '/dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/Dashboard.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-  { path: '/error-analytics', name: 'ErrorAnalytics', component: () => import('@/views/dashboard/ErrorAnalytics.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-  { path: '/admin/users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { requiresAuth: true, requiresAdmin: true } }
+  { path: '/admin', name: 'Admin', component: () => import('@/views/admin/Admin.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
 ]
 
 const router = createRouter({

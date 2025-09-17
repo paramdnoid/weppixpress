@@ -164,51 +164,51 @@
       @keydown="handleKeyNavigation"
       @mousedown="handleGridMouseDown"
     >
-    <!-- Grid Items -->
-    <div
-      v-for="(item, index) in items"
-      :key="itemKey(item)"
-      class="explorer-item file-grid-item"
-      role="gridcell"
-      :tabindex="index === 0 ? 0 : -1"
-      :data-index="index"
-      :title="getTooltip(item)"
-      :aria-label="getAriaLabel(item)"
-      :aria-selected="isSelected(item)"
-      :class="{
-        selected: isSelected(item),
-        'long-pressing': isLongPressing && longPressItem === item
-      }"
-      @dblclick="$emit('itemDoubleClick', item)"
-      @contextmenu.prevent="$emit('itemContextMenu', item, $event)"
-      @mousedown="(event) => handleMouseDown(item, event)"
-      @mouseup="(event) => handleMouseUp(item, event)"
-      @mouseleave="() => handleMouseLeave(item)"
-      @touchstart.passive="(event) => handleTouchStart(item, event)"
-      @touchend="() => handleTouchEnd(item)"
-      @touchmove.passive="() => handleTouchMove(item)"
-      @click="(event) => handleItemClick(item, event)"
-    >
-      <div class="icon-wrap">
-        <Icon
-          :icon="getFileIcon(item)"
-          class="explorer-icon"
-          :class="`text-${getFileColor(item)}`"
+      <!-- Grid Items -->
+      <div
+        v-for="(item, index) in items"
+        :key="itemKey(item)"
+        class="explorer-item file-grid-item"
+        role="gridcell"
+        :tabindex="index === 0 ? 0 : -1"
+        :data-index="index"
+        :title="getTooltip(item)"
+        :aria-label="getAriaLabel(item)"
+        :aria-selected="isSelected(item)"
+        :class="{
+          selected: isSelected(item),
+          'long-pressing': isLongPressing && longPressItem === item
+        }"
+        @dblclick="$emit('itemDoubleClick', item)"
+        @contextmenu.prevent="$emit('itemContextMenu', item, $event)"
+        @mousedown="(event) => handleMouseDown(item, event)"
+        @mouseup="(event) => handleMouseUp(item, event)"
+        @mouseleave="() => handleMouseLeave(item)"
+        @touchstart.passive="(event) => handleTouchStart(item, event)"
+        @touchend="() => handleTouchEnd(item)"
+        @touchmove.passive="() => handleTouchMove(item)"
+        @click="(event) => handleItemClick(item, event)"
+      >
+        <div class="icon-wrap">
+          <Icon
+            :icon="getFileIcon(item)"
+            class="explorer-icon"
+            :class="`text-${getFileColor(item)}`"
+          />
+        </div>
+        <div
+          class="explorer-label"
+          v-text="item.name"
         />
       </div>
+
+
+      <!-- Selection Box -->
       <div
-        class="explorer-label"
-        v-text="item.name"
+        v-if="isDragging && selectionBox"
+        class="selection-box"
+        :style="selectionBoxStyle"
       />
-    </div>
-
-
-    <!-- Selection Box -->
-    <div
-      v-if="isDragging && selectionBox"
-      class="selection-box"
-      :style="selectionBoxStyle"
-    />
     </div>
   </div>
 </template>

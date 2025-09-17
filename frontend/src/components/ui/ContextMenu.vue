@@ -20,7 +20,10 @@
           }"
           @click="handleItemClick(item)"
         >
-          <div v-if="item.separator" class="separator" />
+          <div
+            v-if="item.separator"
+            class="separator"
+          />
           <template v-else>
             <Icon
               v-if="item.icon"

@@ -2,7 +2,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useFileStore } from '@/stores/files'
 import { fileCache } from '@/services/cacheService'
 import { FileUtilsService } from '@/services/fileUtilsService'
-import { getFileIconMeta } from '@/composables/useFileIcons'
 import type { FileItem, SelectionMode } from '@/types/files'
 
 type ViewMode = 'grid' | 'list'
@@ -325,7 +324,6 @@ export function useFileManager() {
     getExtension: FileUtilsService.getExtension,
     getFileIcon,
     getFileColor,
-    getFileIconMeta,
     getFileSize: FileUtilsService.getFileSize,
     getDateFormatted: FileUtilsService.getDateFormatted,
     getFileComparator: FileUtilsService.getFileComparator,

@@ -21,6 +21,12 @@
             <div v-if="verified">
               E-Mail bestätigt! Du wirst weitergeleitet...
             </div>
+            <div
+              v-else-if="error"
+              class="text-danger"
+            >
+              {{ error }}
+            </div>
             <div v-else>
               Lade...
             </div>
@@ -33,6 +39,7 @@
 
 <script setup>
 import AuthLayout from '@/layouts/AuthLayout.vue';
+import { useAuthForm } from '@/composables/useAuthForm';
 
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
@@ -41,6 +48,9 @@ import axios from 'axios';
 const verified = ref(false);
 const router = useRouter();
 
+// Use shared auth form composable for error handling
+const { error, extractErrorMessage } = useAuthForm();
+
 onMounted(async () => {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -48,15 +58,19 @@ onMounted(async () => {
     if (token) {
       await axios.get(`/api/auth/verify-email?token=${token}`);
       verified.value = true;
+
       if (window.$toast) {
         window.$toast('E-Mail bestätigt!', { type: 'success' });
       }
+
       setTimeout(() => {
         router.push('/login');
       }, 3000);
     }
   } catch (err) {
+    error.value = extractErrorMessage(err);
     console.error('VerifyEmail error:', err);
+
     if (window.$toast) {
       window.$toast('Fehler bei E-Mail-Verifizierung', { type: 'danger' });
     }

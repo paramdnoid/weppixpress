@@ -69,10 +69,10 @@
               @close="close(modal.id)"
             />
 
-            <!-- HTML Content -->
+            <!-- HTML Content (Sanitized) -->
             <div
               v-else-if="modal.html"
-              v-html="modal.html"
+              v-html="sanitizeHtml(modal.html)"
             />
 
             <!-- Text Content -->
@@ -146,6 +146,26 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useModalStore, type ActiveModal } from '@/stores/modal'
 import { Icon } from '@iconify/vue'
+
+// Simple HTML sanitization function to prevent XSS
+function sanitizeHtml(html: string): string {
+  if (!html) return ''
+
+  // Create a temporary div to safely parse HTML
+  const temp = document.createElement('div')
+  temp.textContent = html // This prevents script execution
+
+  // For basic HTML formatting, allow only safe tags
+  const allowedTags = ['p', 'br', 'strong', 'em', 'i', 'b', 'span', 'div']
+  const safeHtml = temp.innerHTML
+
+  // Strip out any script tags and dangerous attributes
+  return safeHtml
+    .replace(/<script[^>]*>.*?<\/script>/gis, '')
+    .replace(/on\w+="[^"]*"/gi, '') // Remove event handlers
+    .replace(/javascript:/gi, '') // Remove javascript: URLs
+    .replace(/data:/gi, '') // Remove data: URLs
+}
 
 const modalStore = useModalStore()
 

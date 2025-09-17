@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, readonly } from 'vue'
 import { uploadApi } from '@/api/upload'
+import SecureTokenStorage from '@/utils/tokenStorage'
 
 export type UploadStatus = 'queued' | 'uploading' | 'paused' | 'completed' | 'error' | 'canceled' | 'waiting_files'
 
@@ -164,7 +165,7 @@ export const useUploadStore = defineStore('upload', () => {
     if (!files || files.length === 0) return null
 
     // Check if user is authenticated
-    const token = localStorage.getItem('accessToken')
+    const token = SecureTokenStorage.getAccessToken()
     if (!token) {
       throw new Error('Authentication required. Please log in to upload files.')
     }

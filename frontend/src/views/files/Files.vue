@@ -91,10 +91,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import { useFileManager } from '@/composables/useFileManager'
 import { useAuthStore } from '@/stores/auth'
+import { useErrorHandler } from '@/utils/errorHandler'
 import FileToolbar from './FileToolbar.vue'
 import FileSidebar from './FileSidebar.vue'
 import FileView from './FileView.vue'
@@ -124,6 +125,9 @@ const {
 const authStore = useAuthStore()
 const fileManagerModals = useFileManagerModals()
 const uploadBatchModal = useUploadBatchModal()
+
+// Use shared utilities
+const { extractErrorMessage, formatErrorForDisplay } = useErrorHandler()
 
 const fileViewRef = ref(null)
 const contextMenuRef = ref(null)
@@ -307,7 +311,8 @@ function handleItemDoubleClickLocal(item) {
 function openFileLocal(item) {
   try {
     if (!item?.path) {
-      console.error('Cannot open file: invalid file item', item)
+      const error = new Error('Cannot open file: invalid file item')
+      console.error(extractErrorMessage(error), item)
       return
     }
 
@@ -326,8 +331,11 @@ function openFileLocal(item) {
       downloadFileLocal(item)
     }
   } catch (error) {
-    console.error('Error opening file:', error)
-    alert('Failed to open file. Please try again.')
+    const errorMessage = formatErrorForDisplay(error)
+    console.error('Error opening file:', errorMessage, error)
+    if (window.$toast) {
+      window.$toast(`Failed to open file: ${errorMessage}`, { type: 'danger' })
+    }
   }
 }
 
@@ -335,7 +343,8 @@ function openFileLocal(item) {
 function downloadFileLocal(item) {
   try {
     if (!item?.path) {
-      console.error('Cannot download file: invalid file item', item)
+      const error = new Error('Cannot download file: invalid file item')
+      console.error(extractErrorMessage(error), item)
       return
     }
 
@@ -501,7 +510,115 @@ function createDirectContextMenu(event, item) {
     </div>
   `
 
-  menu.innerHTML = menuItems
+  // Use safer DOM creation methods instead of innerHTML
+  function createMenuItem(action, iconSvg, label, disabled = false) {
+    const item = document.createElement('div')
+    item.className = 'context-menu-item'
+    if (disabled) item.classList.add('disabled')
+    item.setAttribute('data-action', action)
+
+    // Create SVG element safely without innerHTML
+    const iconContainer = document.createElement('div')
+    iconContainer.style.marginRight = '8px'
+    iconContainer.style.display = 'inline-flex'
+    iconContainer.style.alignItems = 'center'
+
+    // Parse SVG safely by creating a temporary container and validating
+    const tempDiv = document.createElement('div')
+    tempDiv.textContent = iconSvg // This sanitizes the content
+
+    // Create a proper SVG element
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('width', '16')
+    svg.setAttribute('height', '16')
+    svg.setAttribute('viewBox', '0 0 24 24')
+    svg.setAttribute('fill', 'none')
+    svg.setAttribute('stroke', 'currentColor')
+    svg.setAttribute('stroke-width', '2')
+
+    // Extract path data safely from the iconSvg string
+    const pathMatch = iconSvg.match(/d="([^"]*)"/)
+    if (pathMatch) {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      path.setAttribute('d', pathMatch[1])
+      svg.appendChild(path)
+    }
+
+    // Handle other SVG elements like circles, lines, etc.
+    const circleMatches = iconSvg.matchAll(/cx="([^"]*)" cy="([^"]*)" r="([^"]*)"/g)
+    for (const match of circleMatches) {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+      circle.setAttribute('cx', match[1])
+      circle.setAttribute('cy', match[2])
+      circle.setAttribute('r', match[3])
+      svg.appendChild(circle)
+    }
+
+    const lineMatches = iconSvg.matchAll(/x1="([^"]*)" y1="([^"]*)" x2="([^"]*)" y2="([^"]*)"/g)
+    for (const match of lineMatches) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      line.setAttribute('x1', match[1])
+      line.setAttribute('y1', match[2])
+      line.setAttribute('x2', match[3])
+      line.setAttribute('y2', match[4])
+      svg.appendChild(line)
+    }
+
+    iconContainer.appendChild(svg)
+
+    const labelSpan = document.createElement('span')
+    labelSpan.textContent = label
+
+    item.appendChild(iconContainer)
+    item.appendChild(labelSpan)
+    return item
+  }
+
+  function createSeparator() {
+    const separator = document.createElement('hr')
+    separator.style.cssText = 'margin: 0.25rem 0; border: none; border-top: 1px solid #dee2e6;'
+    return separator
+  }
+
+  // Build menu items safely
+  if (hasSelectedFiles.value) {
+    if (selectedCount.value === 1) {
+      menu.appendChild(createMenuItem('rename',
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>',
+        'Rename'
+      ))
+    }
+
+    menu.appendChild(createMenuItem('copy',
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
+      `Copy (${selectedCount.value})`
+    ))
+
+    menu.appendChild(createMenuItem('cut',
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>',
+      `Cut (${selectedCount.value})`
+    ))
+
+    menu.appendChild(createSeparator())
+
+    menu.appendChild(createMenuItem('delete',
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"></polyline><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path></svg>',
+      `Delete (${selectedCount.value})`
+    ))
+
+    menu.appendChild(createSeparator())
+  }
+
+  // General actions
+  menu.appendChild(createMenuItem('createFolder',
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>',
+    'New Folder'
+  ))
+
+  menu.appendChild(createMenuItem('paste',
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>',
+    'Paste'
+  ))
 
   // Add CSS for menu items
   const style = document.createElement('style')
@@ -686,7 +803,7 @@ function handleContextMenuClick(item) {
       showCreateFolderModal()
       break
 
-    case 'upload-files':
+    case 'upload-files': {
       // Trigger file input click
       const fileInput = document.createElement('input')
       fileInput.type = 'file'
@@ -698,8 +815,9 @@ function handleContextMenuClick(item) {
       }
       fileInput.click()
       break
+    }
 
-    case 'upload-folder':
+    case 'upload-folder': {
       // Trigger folder input click
       const folderInput = document.createElement('input')
       folderInput.type = 'file'
@@ -711,6 +829,7 @@ function handleContextMenuClick(item) {
       }
       folderInput.click()
       break
+    }
 
     case 'paste':
       if (fileStore.hasClipboard) {
@@ -730,11 +849,11 @@ function handleContextMenuClick(item) {
 
     case 'properties':
       // Show current folder properties - you can implement this
-      console.log('Show folder properties for:', fileStore.state.currentPath)
+      // Show folder properties modal would go here
       break
 
     default:
-      console.log('Unhandled context menu action:', item.id)
+      // Unhandled context menu action
   }
 }
 
@@ -821,21 +940,12 @@ onMounted(async () => {
       treeData.value[0].items = folders
     }
 
-    // Listen for upload completion events
-    window.addEventListener('upload-batch-completed', (event) => {
-      const { batch } = event.detail
-      handleUploadCompleted({ batch })
-    })
+    // Setup event listeners with proper cleanup
+    setupEventListeners()
 
     // Clean up any existing context menus on load
     const existingMenus = document.querySelectorAll('.simple-context-menu, .context-menu')
     existingMenus.forEach(menu => menu.remove())
-
-    // Listen for context menu events from file items
-    document.addEventListener('file-context-menu', (event) => {
-      const { item, event: mouseEvent } = event.detail
-      createDirectContextMenu(mouseEvent, item)
-    })
 
   } catch (error) {
     console.error('Failed to initialize file manager:', error)
@@ -889,6 +999,48 @@ onMounted(() => {
   }
 })
 
+// Store event listener functions for cleanup
+let uploadBatchCompletedHandler = null
+let fileContextMenuHandler = null
+
+// Update the event listener additions to store references
+function setupEventListeners() {
+  uploadBatchCompletedHandler = (event) => {
+    const { batch } = event.detail
+    handleUploadCompleted({ batch })
+  }
+
+  fileContextMenuHandler = (event) => {
+    const { item, event: mouseEvent } = event.detail
+    createDirectContextMenu(mouseEvent, item)
+  }
+
+  window.addEventListener('upload-batch-completed', uploadBatchCompletedHandler)
+  document.addEventListener('file-context-menu', fileContextMenuHandler)
+}
+
+onUnmounted(() => {
+  // Clean up event listeners to prevent memory leaks
+  if (uploadBatchCompletedHandler) {
+    window.removeEventListener('upload-batch-completed', uploadBatchCompletedHandler)
+  }
+  if (fileContextMenuHandler) {
+    document.removeEventListener('file-context-menu', fileContextMenuHandler)
+  }
+
+  // Clean up tree reorganize listener
+  const treeRoot = document.querySelector('.tree-root')
+  if (treeRoot) {
+    treeRoot.removeEventListener('tree:reorganize', onTreeReorganize)
+  }
+
+  // Clean up any remaining context menus
+  if (currentContextMenu) {
+    currentContextMenu.remove()
+    currentContextMenu = null
+  }
+})
+
 // Upload handlers
 async function handleFilesSelected(files) {
   try {
@@ -903,8 +1055,11 @@ async function handleFilesSelected(files) {
       fileStore.refreshCurrentPath()
     }, 1000)
   } catch (error) {
-    console.error('Failed to start upload:', error)
-    alert('Upload failed: ' + (error.message || 'Unknown error'))
+    const errorMessage = formatErrorForDisplay(error)
+    console.error('Failed to start upload:', errorMessage, error)
+    if (window.$toast) {
+      window.$toast(`Upload failed: ${errorMessage}`, { type: 'danger' })
+    }
   }
 }
 

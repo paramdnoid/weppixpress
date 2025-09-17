@@ -23,7 +23,11 @@
         />
         <strong class="me-auto">{{ toast.title }}</strong>
         <small class="text-muted d-flex align-items-center">
-          <Icon icon="tabler:clock" class="me-1" style="width: 0.75rem; height: 0.75rem;" />
+          <Icon
+            icon="tabler:clock"
+            class="me-1"
+            style="width: 0.75rem; height: 0.75rem;"
+          />
           {{ toast.time }}
         </small>
         <button

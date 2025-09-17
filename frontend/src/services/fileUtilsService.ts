@@ -4,8 +4,19 @@
  */
 
 import { fileCache } from './cacheService'
-import { getFileIconMeta } from '../composables/useFileIcons'
 import type { FileItem } from '../types/files'
+import {
+  imageExtensions,
+  videoExtensions,
+  audioExtensions,
+  codeExtensions,
+  archiveExtensions,
+  documentExtensions,
+  textExtensions,
+  spreadsheetExtensions,
+  presentationExtensions
+} from '@/utils/fileTypeRegistry'
+import { getFileIcon as getFileIconFromComposable, getFileColor as getFileColorFromComposable } from '@/composables/useFileIcons'
 
 // ===== FOLDER PATTERNS =====
 interface FolderPattern {
@@ -26,16 +37,7 @@ const FOLDER_PATTERNS: FolderPattern[] = [
   { pattern: /^config|conf$/i, icon: 'bx:cog', color: 'secondary' }
 ]
 
-// Pre-compute sets for O(1) file type checking based on common extensions
-const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'ico', 'tiff', 'tif', 'avif', 'heic', 'heif', 'svg'])
-const videoExtensions = new Set(['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm', 'm4v'])
-const audioExtensions = new Set(['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a'])
-const codeExtensions = new Set(['js', 'ts', 'jsx', 'tsx', 'vue', 'php', 'py', 'jav', 'c', 'cpp', 'cs', 'go', 'rs', 'kt', 'rb', 'swift', 'html', 'htm', 'css', 'scss', 'sass', 'less', 'styl'])
-const archiveExtensions = new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'])
-const documentExtensions = new Set(['pdf', 'doc', 'docx', 'odt', 'rtf', 'pages'])
-const textExtensions = new Set(['txt', 'md', 'mdx', 'log', 'cfg', 'conf', 'ini', 'toml', 'yaml', 'yml', 'json', 'xml'])
-const spreadsheetExtensions = new Set(['xls', 'xlsx', 'ods', 'csv', 'numbers'])
-const presentationExtensions = new Set(['ppt', 'pptx', 'odp', 'key'])
+// File type extensions now imported from consolidated registry above
 
 /**
  * File Utilities Service Class
@@ -83,8 +85,7 @@ export class FileUtilsService {
     }
 
     // Handle files - use the new useFileIcons composable
-    const { icon: fileIcon } = getFileIconMeta({ name: item.name })
-    icon = fileIcon
+    icon = getFileIconFromComposable({ name: item.name, type: item.type })
 
     fileCache.setIcon(cacheKey, icon)
     return icon
@@ -111,10 +112,8 @@ export class FileUtilsService {
       return color
     }
 
-    // Handle files - use the new useFileIcons composable  
-    const { class: colorClass } = getFileIconMeta({ name: item.name })
-    // Convert Bootstrap color classes to simple color names
-    color = colorClass.replace('text-', '') || 'primary'
+    // Handle files - use the new useFileIcons composable
+    color = getFileColorFromComposable({ name: item.name, type: item.type })
 
     fileCache.setColor(cacheKey, color)
     return color
