@@ -10,7 +10,10 @@
         <!-- Admin Navigation -->
         <div class="nav-section">
           <div class="nav-section-title">
-            <Icon icon="tabler:shield-check" class="me-2" />
+            <Icon
+              icon="tabler:shield-check"
+              class="me-2"
+            />
             Administration
           </div>
 
@@ -21,7 +24,10 @@
             :class="{ active: currentView === 'dashboard' }"
             @click.prevent="$emit('viewSelect', 'dashboard')"
           >
-            <Icon icon="tabler:dashboard" class="nav-icon" />
+            <Icon
+              icon="tabler:dashboard"
+              class="nav-icon"
+            />
             <span class="nav-title">Dashboard</span>
             <span class="nav-subtitle">System overview & metrics</span>
           </a>
@@ -33,7 +39,10 @@
             :class="{ active: currentView === 'analytics' }"
             @click.prevent="$emit('viewSelect', 'analytics')"
           >
-            <Icon icon="tabler:chart-line" class="nav-icon" />
+            <Icon
+              icon="tabler:chart-line"
+              class="nav-icon"
+            />
             <span class="nav-title">Error Analytics</span>
             <span class="nav-subtitle">Error monitoring & analysis</span>
           </a>
@@ -45,7 +54,10 @@
             :class="{ active: currentView === 'users' }"
             @click.prevent="$emit('viewSelect', 'users')"
           >
-            <Icon icon="tabler:users" class="nav-icon" />
+            <Icon
+              icon="tabler:users"
+              class="nav-icon"
+            />
             <span class="nav-title">User Management</span>
             <span class="nav-subtitle">Manage users & permissions</span>
           </a>
@@ -54,14 +66,17 @@
         <!-- System Status -->
         <div class="nav-section mt-4">
           <div class="nav-section-title">
-            <Icon icon="tabler:server" class="me-2" />
+            <Icon
+              icon="tabler:server"
+              class="me-2"
+            />
             System Status
           </div>
 
           <div class="nav-item-status">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <div class="status-dot bg-green me-2"></div>
+                <div class="status-dot bg-green me-2" />
                 <span class="small">System Health</span>
               </div>
               <span class="badge bg-green-lt text-green">Healthy</span>
@@ -71,7 +86,7 @@
           <div class="nav-item-status">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <div class="status-dot bg-yellow me-2"></div>
+                <div class="status-dot bg-yellow me-2" />
                 <span class="small">CPU Usage</span>
               </div>
               <span class="badge bg-yellow-lt text-yellow">75%</span>
@@ -81,7 +96,7 @@
           <div class="nav-item-status">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <div class="status-dot bg-blue me-2"></div>
+                <div class="status-dot bg-blue me-2" />
                 <span class="small">Memory</span>
               </div>
               <span class="badge bg-blue-lt text-blue">60%</span>
@@ -91,7 +106,7 @@
           <div class="nav-item-status">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <div class="status-dot bg-red me-2"></div>
+                <div class="status-dot bg-red me-2" />
                 <span class="small">Errors (24h)</span>
               </div>
               <span class="badge bg-red-lt text-red">12</span>
@@ -102,26 +117,45 @@
         <!-- Quick Stats -->
         <div class="nav-section mt-4">
           <div class="nav-section-title">
-            <Icon icon="tabler:chart-bar" class="me-2" />
+            <Icon
+              icon="tabler:chart-bar"
+              class="me-2"
+            />
             Quick Stats
           </div>
 
           <div class="stats-grid">
             <div class="stat-item">
-              <div class="stat-value">247</div>
-              <div class="stat-label">Total Users</div>
+              <div class="stat-value">
+                247
+              </div>
+              <div class="stat-label">
+                Total Users
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">15</div>
-              <div class="stat-label">Admins</div>
+              <div class="stat-value">
+                15
+              </div>
+              <div class="stat-label">
+                Admins
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">1.2k</div>
-              <div class="stat-label">Req/Min</div>
+              <div class="stat-value">
+                1.2k
+              </div>
+              <div class="stat-label">
+                Req/Min
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">99.8%</div>
-              <div class="stat-label">Uptime</div>
+              <div class="stat-value">
+                99.8%
+              </div>
+              <div class="stat-label">
+                Uptime
+              </div>
             </div>
           </div>
         </div>
@@ -129,38 +163,62 @@
         <!-- Recent Activity -->
         <div class="nav-section mt-4">
           <div class="nav-section-title">
-            <Icon icon="tabler:activity" class="me-2" />
+            <Icon
+              icon="tabler:activity"
+              class="me-2"
+            />
             Recent Activity
           </div>
 
           <div class="activity-list">
             <div class="activity-item">
               <div class="activity-icon bg-green-lt">
-                <Icon icon="tabler:user-plus" size="14" />
+                <Icon
+                  icon="tabler:user-plus"
+                  size="14"
+                />
               </div>
               <div class="activity-content">
-                <div class="activity-text">New user registered</div>
-                <div class="activity-time">2 minutes ago</div>
+                <div class="activity-text">
+                  New user registered
+                </div>
+                <div class="activity-time">
+                  2 minutes ago
+                </div>
               </div>
             </div>
 
             <div class="activity-item">
               <div class="activity-icon bg-blue-lt">
-                <Icon icon="tabler:database-export" size="14" />
+                <Icon
+                  icon="tabler:database-export"
+                  size="14"
+                />
               </div>
               <div class="activity-content">
-                <div class="activity-text">System backup completed</div>
-                <div class="activity-time">1 hour ago</div>
+                <div class="activity-text">
+                  System backup completed
+                </div>
+                <div class="activity-time">
+                  1 hour ago
+                </div>
               </div>
             </div>
 
             <div class="activity-item">
               <div class="activity-icon bg-yellow-lt">
-                <Icon icon="tabler:alert-triangle" size="14" />
+                <Icon
+                  icon="tabler:alert-triangle"
+                  size="14"
+                />
               </div>
               <div class="activity-content">
-                <div class="activity-text">High memory usage detected</div>
-                <div class="activity-time">3 hours ago</div>
+                <div class="activity-text">
+                  High memory usage detected
+                </div>
+                <div class="activity-time">
+                  3 hours ago
+                </div>
               </div>
             </div>
           </div>

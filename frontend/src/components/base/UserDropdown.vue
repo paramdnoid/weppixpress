@@ -49,6 +49,14 @@
       >
         Profile
       </router-link>
+      <router-link
+        v-if="user?.role === 'admin'"
+        to="/admin"
+        class="dropdown-item"
+        exact-active-class="active"
+      >
+        Administration
+      </router-link>
       <div class="dropdown-divider" />
       <div
         class="dropdown-item"

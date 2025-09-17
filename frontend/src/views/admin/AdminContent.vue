@@ -9,7 +9,10 @@
               Administration
             </div>
             <h2 class="page-title">
-              <Icon :icon="getCurrentViewIcon()" class="me-2" />
+              <Icon
+                :icon="getCurrentViewIcon()"
+                class="me-2"
+              />
               {{ getCurrentViewTitle() }}
             </h2>
             <div class="text-muted mt-1">
@@ -18,8 +21,14 @@
           </div>
           <div class="col-auto d-print-none">
             <div class="btn-list">
-              <span v-if="isLoading" class="badge bg-blue">
-                <Icon icon="tabler:loader-2" class="spinner me-1" />
+              <span
+                v-if="isLoading"
+                class="badge bg-blue"
+              >
+                <Icon
+                  icon="tabler:loader-2"
+                  class="spinner me-1"
+                />
                 Loading...
               </span>
             </div>
@@ -33,7 +42,10 @@
     <div class="page-body">
       <div class="container-fluid">
         <!-- Dashboard View -->
-        <div v-if="currentView === 'dashboard'" class="view-content">
+        <div
+          v-if="currentView === 'dashboard'"
+          class="view-content"
+        >
           <DashboardComponent
             :search-query="searchQuery"
             :time-range="timeRange"
@@ -45,7 +57,10 @@
         </div>
 
         <!-- Error Analytics View -->
-        <div v-if="currentView === 'analytics'" class="view-content">
+        <div
+          v-if="currentView === 'analytics'"
+          class="view-content"
+        >
           <ErrorAnalyticsComponent
             :search-query="searchQuery"
             :time-range="timeRange"
@@ -57,7 +72,10 @@
         </div>
 
         <!-- User Management View -->
-        <div v-if="currentView === 'users'" class="view-content">
+        <div
+          v-if="currentView === 'users'"
+          class="view-content"
+        >
           <UserManagementComponent
             :search-query="searchQuery"
             :time-range="timeRange"
