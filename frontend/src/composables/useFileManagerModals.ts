@@ -1,7 +1,7 @@
 import { useModal } from '@/composables/useModal'
 import { markRaw } from 'vue'
-import RenameModalContent from '@/components/FileManager/modals/RenameModalContent.vue'
-import NewFolderModalContent from '@/components/FileManager/modals/NewFolderModalContent.vue'
+import RenameModalContent from '@/views/files/modals/RenameModalContent.vue'
+import NewFolderModalContent from '@/views/files/modals/NewFolderModalContent.vue'
 
 export function useFileManagerModals() {
   const modal = useModal()

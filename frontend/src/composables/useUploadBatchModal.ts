@@ -1,6 +1,6 @@
 import { useModal } from '@/composables/useModal'
 import { markRaw } from 'vue'
-import UploadBatchSettingsModalContent from '@/components/FileManager/modals/UploadBatchSettingsModalContent.vue'
+import UploadBatchSettingsModalContent from '@/views/files/modals/UploadBatchSettingsModalContent.vue'
 
 export function useUploadBatchModal() {
   const modal = useModal()
