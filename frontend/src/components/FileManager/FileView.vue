@@ -10,20 +10,6 @@
       @contextmenu="handleAreaContextMenu"
     >
       <div class="content-scroll overflow-auto flex-grow-1 d-flex flex-column">
-        <!-- Navigation Bar (moved from FileGrid) -->
-        <div class="nav-scroller bg-body p-1 border-bottom">
-          <nav
-            class="nav me-1"
-            aria-label="Secondary navigation"
-          >
-            <!-- Breadcrumbs -->
-            <AppBreadcrumb
-              :items="breadcrumbs"
-              @navigate="$emit('navigate', $event)"
-            />
-          </nav>
-        </div>
-
         <!-- Error State -->
         <div
           v-if="error"
@@ -233,20 +219,5 @@ function handleAreaContextMenu(event) {
 
 .content-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--tblr-gray-400);
-}
-
-/* Navigation bar styling */
-.nav-scroller {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  overflow-y: hidden;
-  gap: 1rem;
-  flex: 0 0 auto;
-  height: 40.5px;
-  background: var(--tblr-body-bg, #fff);
 }
 </style>

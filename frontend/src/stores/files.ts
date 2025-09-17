@@ -401,7 +401,7 @@ export const useFileStore = defineStore('files', () => {
   async function navigateToPath(path: string | FileItem, forceRefresh = false): Promise<any> {
     const targetPath = typeof path === 'string' ? path : path.path
     const normalizedPath = normalizePath(targetPath)
-    
+
     // If already at this path and not forcing refresh, return early
     if (state.value.currentPath === normalizedPath && !forceRefresh) {
       return

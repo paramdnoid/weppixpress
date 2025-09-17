@@ -9,12 +9,10 @@ declare module 'vue' {
   export interface GlobalComponents {
     BaseButton: typeof import('./components/ui/BaseButton.vue')['default']
     FileGrid: typeof import('./components/FileManager/FileGrid.vue')['default']
-    FileGridItem: typeof import('./components/FileManager/FileGridItem.vue')['default']
     FileSidebar: typeof import('./components/FileManager/FileSidebar.vue')['default']
     FileTable: typeof import('./components/FileManager/FileTable.vue')['default']
-    FileTableRow: typeof import('./components/FileManager/FileTableRow.vue')['default']
     FileToolbar: typeof import('./components/FileManager/FileToolbar.vue')['default']
-    FileTreeNode: typeof import('./components/FileManager/FileTreeNode.vue')['default']
+    FileTree: typeof import('./components/FileManager/FileTree.vue')['default']
     FileView: typeof import('./components/FileManager/FileView.vue')['default']
     HeroShowcase: typeof import('./components/HeroShowcase.vue')['default']
     LoadingSpinner: typeof import('./components/ui/LoadingSpinner.vue')['default']
@@ -22,7 +20,6 @@ declare module 'vue' {
     PasswordInput: typeof import('./components/form/PasswordInput.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    SortableHeader: typeof import('./components/FileManager/SortableHeader.vue')['default']
     Toast: typeof import('./components/Toast.vue')['default']
     UserDropdown: typeof import('./components/UserDropdown.vue')['default']
   }
