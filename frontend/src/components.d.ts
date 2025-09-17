@@ -8,11 +8,8 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     BaseButton: typeof import('./components/ui/BaseButton.vue')['default']
-    BaseModal: typeof import('./components/ui/BaseModal.vue')['default']
     FileGrid: typeof import('./components/FileManager/FileGrid.vue')['default']
     FileGridItem: typeof import('./components/FileManager/FileGridItem.vue')['default']
-    FileManagerCore: typeof import('./components/FileManager/FileManagerCore.vue')['default']
-    FileManagerModals: typeof import('./components/FileManager/FileManagerModals.vue')['default']
     FileSidebar: typeof import('./components/FileManager/FileSidebar.vue')['default']
     FileTable: typeof import('./components/FileManager/FileTable.vue')['default']
     FileTableRow: typeof import('./components/FileManager/FileTableRow.vue')['default']

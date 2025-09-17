@@ -17,31 +17,10 @@
             aria-label="Secondary navigation"
           >
             <!-- Breadcrumbs -->
-            <nav aria-label="Breadcrumb">
-              <ol class="breadcrumb breadcrumb-muted breadcrumb-arrows ps-2">
-                <li
-                  v-for="(item, idx) in breadcrumbs"
-                  :key="item.path || idx"
-                  class="breadcrumb-item"
-                  :class="{ active: idx === breadcrumbs.length - 1 }"
-                >
-                  <button
-                    v-if="item.path && idx < breadcrumbs.length - 1"
-                    type="button"
-                    class="btn btn-link p-0 m-0 border-0"
-                    :title="item.name"
-                    :aria-label="`Navigate to ${item.name}`"
-                    @click.stop.prevent="$emit('navigate', item)"
-                    v-text="item.name"
-                  />
-                  <span
-                    v-else
-                    :title="item.name"
-                    v-text="item.name"
-                  />
-                </li>
-              </ol>
-            </nav>
+            <AppBreadcrumb
+              :items="breadcrumbs"
+              @navigate="$emit('navigate', $event)"
+            />
           </nav>
         </div>
 
@@ -133,6 +112,7 @@
 import { computed } from 'vue'
 import FileGrid from './FileGrid.vue'
 import FileTable from './FileTable.vue'
+import AppBreadcrumb from '@/components/base/AppBreadcrumb.vue'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -255,7 +235,7 @@ function handleAreaContextMenu(event) {
   background: var(--tblr-gray-400);
 }
 
-/* Breadcrumb / Navigation bar (moved from FileGrid) */
+/* Navigation bar styling */
 .nav-scroller {
   display: flex;
   justify-content: space-between;
@@ -268,36 +248,5 @@ function handleAreaContextMenu(event) {
   flex: 0 0 auto;
   height: 40.5px;
   background: var(--tblr-body-bg, #fff);
-}
-.breadcrumb,
-.breadcrumb-item {
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: 0;
-}
-.breadcrumb-item {
-  min-width: 0;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  font-weight: 300;
-}
-.breadcrumb-item .btn-link {
-  --tblr-btn-line-height: 1;
-  color: var(--tblr-primary);
-  text-decoration: none;
-  font-size: inherit;
-  font-weight: inherit;
-  min-width: 0;
-}
-.breadcrumb-item .btn-link:hover {
-  text-decoration: none;
-  background-color: transparent;
-}
-.breadcrumb-item.active {
-  font-weight: 400;
-  color: var(--tblr-dark);
 }
 </style>
