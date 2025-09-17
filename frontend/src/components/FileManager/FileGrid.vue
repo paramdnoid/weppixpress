@@ -122,10 +122,43 @@
       </nav>
     </div>
 
+    <!-- Error State -->
+    <ErrorState
+      v-if="error"
+      :message="error"
+      @retry="$emit('retry')"
+    />
+
+    <!-- Empty State -->
+    <EmptyState
+      v-else-if="showEmptyState"
+      :message="emptyMessage || 'No files or folders found'"
+      :action-text="searchQuery ? 'Clear search to see all files' : ''"
+      :action-visible="!!searchQuery"
+      @action="$emit('clearSearch')"
+    />
+
+    <!-- Loading State -->
+    <div
+      v-else-if="loading"
+      class="loading-state d-flex flex-column justify-content-center align-items-center text-center flex-grow-1"
+    >
+      <div
+        class="spinner-border spinner-border-sm mb-2"
+        role="status"
+      >
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <div class="text-muted">
+        Loading files...
+      </div>
+    </div>
+
     <!-- Grid Container -->
     <div
+      v-else
       ref="gridContainer"
-      class="explorer-grid flex-grow-1"
+      class="explorer-grid content-scroll"
       role="grid"
       :aria-label="`File grid with ${items.length} items`"
       @keydown="handleKeyNavigation"
@@ -169,33 +202,6 @@
       />
     </div>
 
-    <!-- Empty State -->
-    <div
-      v-if="showEmptyState"
-      class="empty-state col-span-full d-flex flex-column justify-content-center align-items-center text-center text-muted"
-    >
-      <Icon
-        icon="tabler:folder-off"
-        class="empty-icon mb-2"
-      />
-      <div v-text="emptyMessage || 'No files or folders found'" />
-    </div>
-
-    <!-- Loading State -->
-    <div
-      v-if="loading"
-      class="loading-state col-span-full d-flex flex-column justify-content-center align-items-center text-center"
-    >
-      <div
-        class="spinner-border spinner-border-sm mb-2"
-        role="status"
-      >
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <div class="text-muted">
-        Loading files...
-      </div>
-    </div>
 
     <!-- Selection Box -->
     <div
@@ -213,6 +219,8 @@ import { RecycleScroller } from 'vue-virtual-scroller'
 import { useFileManager } from '@/composables/useFileManager'
 import { useVirtualScroll } from '@/composables/useVirtualScroll'
 import AppBreadcrumb from '@/components/base/AppBreadcrumb.vue'
+import EmptyState from '@/components/base/EmptyState.vue'
+import ErrorState from '@/components/base/ErrorState.vue'
 
 const {
   getFileIcon,
@@ -267,9 +275,17 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  error: {
+    type: String,
+    default: ''
+  },
   emptyMessage: {
     type: String,
     default: null
+  },
+  searchQuery: {
+    type: String,
+    default: ''
   },
   // Virtualization props
   virtualizationMode: {
@@ -295,7 +311,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['itemDoubleClick', 'selectionChange', 'navigate', 'itemContextMenu', 'itemSelect'])
+const emit = defineEmits(['itemDoubleClick', 'selectionChange', 'navigate', 'itemContextMenu', 'itemSelect', 'retry', 'clearSearch'])
 
 // Virtual scroll setup for 'virtual' mode
 const {
@@ -365,12 +381,12 @@ const handleKeyNavigation = (event) => {
   }
 }
 
-// Mouse drag selection for empty grid area
+// Mouse drag selection for grid area
 const handleGridMouseDown = (event) => {
-  // Only start selection if clicking on empty area (not on grid items)
+  // Start selection if clicking in grid area (including on items)
   if (event.target === gridContainer.value || event.target.closest('.explorer-grid') === gridContainer.value) {
-    // Don't start drag on right click or if clicking on an item
-    if (event.button === 2 || event.target.closest('.file-grid-item')) {
+    // Don't start drag on right click
+    if (event.button === 2) {
       return
     }
 
@@ -549,7 +565,7 @@ const handleEscapeKey = (event) => {
 
 // Computed properties
 const showEmptyState = computed(() =>
-  !props.loading && props.items.length === 0
+  !props.loading && !props.error && props.items.length === 0
 )
 </script>
 
@@ -757,6 +773,31 @@ const showEmptyState = computed(() =>
   .explorer-item:hover .explorer-icon {
     transform: none;
   }
+}
+
+/* Content scroll styles */
+.content-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  height: 0;
+}
+
+.content-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-scroll::-webkit-scrollbar-track {
+  background: var(--tblr-gray-50);
+}
+
+.content-scroll::-webkit-scrollbar-thumb {
+  background: var(--tblr-gray-300);
+  border-radius: 4px;
+}
+
+.content-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--tblr-gray-400);
 }
 
 /* Mobile optimizations */

@@ -76,7 +76,7 @@ const EXT_MAP: Record<string, string> = {
   js: 'bi:filetype-js',
   mjs: 'bi:filetype-js',
   cjs: 'bi:filetype-js',
-  ts: 'bi:filetype-ts',
+  ts: 'bi:filetype-js',
   json: 'bi:filetype-json',
   jsonc: 'bi:filetype-json',
   map: 'bi:filetype-json',

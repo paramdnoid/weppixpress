@@ -1,8 +1,24 @@
 <template>
-  <div class="file-table-container">
+  <div class="file-table-container content-scroll">
+    <!-- Error State -->
+    <ErrorState
+      v-if="error"
+      :message="error"
+      @retry="$emit('retry')"
+    />
+
+    <!-- Empty State -->
+    <EmptyState
+      v-else-if="showEmptyState"
+      :message="emptyMessage || 'No files or folders found'"
+      :action-text="searchQuery ? 'Clear search to see all files' : ''"
+      :action-visible="!!searchQuery"
+      @action="$emit('clearSearch')"
+    />
+
     <!-- Loading State -->
     <div
-      v-if="loading"
+      v-else-if="loading"
       class="text-center py-5"
     >
       <div
@@ -14,18 +30,6 @@
       <div class="text-muted">
         Loading files...
       </div>
-    </div>
-
-    <!-- Empty State -->
-    <div
-      v-else-if="sortedItems.length === 0"
-      class="text-center py-5 text-muted"
-    >
-      <Icon
-        icon="tabler:folder-off"
-        class="empty-icon mb-2"
-      />
-      <div v-text="emptyMessage || 'No files or folders found'" />
     </div>
 
     <!-- Table -->
@@ -191,6 +195,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useFileManager } from '@/composables/useFileManager'
+import EmptyState from '@/components/base/EmptyState.vue'
+import ErrorState from '@/components/base/ErrorState.vue'
 
 const props = defineProps({
   items: {
@@ -218,13 +224,21 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  error: {
+    type: String,
+    default: ''
+  },
   emptyMessage: {
     type: String,
     default: null
+  },
+  searchQuery: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['itemSelect', 'itemDoubleClick', 'sort'])
+const emit = defineEmits(['itemSelect', 'itemDoubleClick', 'sort', 'retry', 'clearSearch'])
 
 // File manager composable
 const { getFileIcon, getFileColor, getDateFormatted, getFileSize, getFileComparator } = useFileManager()
@@ -235,6 +249,11 @@ const sortedItems = computed(() => {
   const comparator = getFileComparator(props.sortKey, props.sortDir)
   return items.sort(comparator)
 })
+
+// Computed properties
+const showEmptyState = computed(() =>
+  !props.loading && !props.error && sortedItems.value.length === 0
+)
 
 // Simple keyboard navigation
 const focusedRowIndex = ref(0)
@@ -298,7 +317,31 @@ function getAriaLabel(item) {
 <style scoped>
 .file-table-container {
   height: 100%;
-  overflow: auto;
+}
+
+.content-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.content-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.content-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.4);
 }
 
 .table {
@@ -354,8 +397,4 @@ function getAriaLabel(item) {
   background-color: var(--bs-gray-100);
 }
 
-.empty-icon {
-  font-size: 3rem;
-  opacity: 0.5;
-}
 </style>

@@ -9,59 +9,10 @@
       class="d-flex flex-column position-relative file-view"
       @contextmenu="handleAreaContextMenu"
     >
-      <div class="content-scroll overflow-auto flex-grow-1 d-flex flex-column">
-        <!-- Error State -->
-        <div
-          v-if="error"
-          class="d-flex flex-column justify-content-center align-items-center text-center text-danger flex-grow-1"
-        >
-          <Icon
-            icon="mdi:alert-circle"
-            class="empty-icon mb-2"
-          />
-          <div v-text="error" />
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-primary mt-2"
-            @click="$emit('retry')"
-          >
-            <Icon
-              icon="mdi:refresh"
-              width="16"
-              height="16"
-              class="me-1"
-            />
-            Try Again
-          </button>
-        </div>
-
-        <!-- Empty State -->
-        <div
-          v-else-if="items.length === 0"
-          class="d-flex flex-column justify-content-center align-items-center text-center text-muted flex-grow-1"
-        >
-          <Icon
-            icon="tabler:folder-off"
-            class="empty-icon mb-2"
-          />
-          <div v-text="emptyMessage" />
-          <div
-            v-if="searchQuery"
-            class="small mt-1"
-          >
-            <button
-              type="button"
-              class="btn btn-link btn-sm p-0"
-              @click="clearSearch"
-            >
-              Clear search to see all files
-            </button>
-          </div>
-        </div>
-
+      <div class="flex-grow-1 d-flex flex-column">
         <!-- Grid View -->
         <FileGrid
-          v-if="viewMode === 'grid' && !isLoading && !error && items.length > 0"
+          v-if="viewMode === 'grid'"
           :items="items"
           :item-key="itemKey"
           :breadcrumbs="breadcrumbs"
@@ -69,25 +20,33 @@
           :sort-dir="sortDir"
           :selected-items="selectedItems"
           :loading="isLoading"
+          :error="error"
           :empty-message="emptyMessage"
+          :search-query="searchQuery"
           @item-double-click="item => $emit('item-dbl-click', item)"
           @navigate="item => $emit('navigate', item)"
           @selection-change="(items, additive) => $emit('selection-change', items, additive)"
           @item-context-menu="(item, event) => $emit('item-context-menu', item, event)"
+          @retry="$emit('retry')"
+          @clear-search="clearSearch"
         />
 
         <!-- Table View -->
         <FileTable
-          v-else-if="(viewMode === 'list' || viewMode === 'table') && !isLoading && !error && items.length > 0"
+          v-else-if="viewMode === 'list' || viewMode === 'table'"
           :items="items"
           :item-key="itemKey"
           :sort-key="sortKey"
           :sort-dir="sortDir"
           :selected-items="selectedItems"
           :loading="isLoading"
+          :error="error"
           :empty-message="emptyMessage"
+          :search-query="searchQuery"
           @item-double-click="item => $emit('item-dbl-click', item)"
           @sort="$emit('sort', $event)"
+          @retry="$emit('retry')"
+          @clear-search="clearSearch"
         />
       </div>
     </div>
@@ -98,7 +57,6 @@
 import { computed } from 'vue'
 import FileGrid from './FileGrid.vue'
 import FileTable from './FileTable.vue'
-import AppBreadcrumb from '@/components/base/AppBreadcrumb.vue'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -189,35 +147,4 @@ function handleAreaContextMenu(event) {
   min-width: 0;
 }
 
-.content-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.empty-icon {
-  font-size: 64px;
-  color: var(--tblr-gray-300);
-  margin-bottom: 1rem;
-}
-
-
-.content-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-
-.content-scroll::-webkit-scrollbar-track {
-  background: var(--tblr-gray-50);
-}
-
-.content-scroll::-webkit-scrollbar-thumb {
-  background: var(--tblr-gray-300);
-  border-radius: 4px;
-}
-
-.content-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--tblr-gray-400);
-}
 </style>

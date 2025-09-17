@@ -945,7 +945,7 @@ function handleUploadFailed({ error, files }) {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100vh;
+  height: calc(100vh - 54px);
 }
 
 .splitter-container {
