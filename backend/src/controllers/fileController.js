@@ -10,6 +10,7 @@ import { promises as fsp } from 'fs';
 import { resolve as _resolve, basename, dirname, join, relative } from 'path';
 import websocketProvider from '../services/websocketProvider.js';
 import { fileURLToPath } from 'url';
+import archiver from 'archiver';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -863,4 +864,189 @@ async function copyDirectoryRecursive(source, destination, options = {}) {
       timeout: errors.some(e => e.includes('timeout'))
     }
   };
+}
+
+/**
+ * Express handler: Download a single file
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
+export async function downloadFile(req, res, next) {
+  try {
+    if (validateUserId(req, res)) {
+      return;
+    }
+
+    const filePath = req.query.path;
+    if (!filePath) {
+      return sendErrorResponse(res, 400, 'File path is required');
+    }
+
+    const userId = req.user.userId;
+    const baseDirUser = await ensureUserUploadDir(userId);
+
+    let fullPath;
+    try {
+      const sanitizedPath = sanitizeUploadPath(filePath);
+      fullPath = secureResolve(baseDirUser, sanitizedPath);
+    } catch (error) {
+      return sendErrorResponse(res, 400, 'Invalid file path: ' + error.message);
+    }
+
+    try {
+      const stats = await fsp.stat(fullPath);
+
+      if (stats.isDirectory()) {
+        return sendErrorResponse(res, 400, 'Cannot download a directory as a single file');
+      }
+
+      const fileName = basename(fullPath);
+
+      // Set headers for file download
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Length', stats.size);
+
+      // Stream the file
+      const fileStream = (await import('fs')).createReadStream(fullPath);
+      fileStream.pipe(res);
+
+      fileStream.on('error', (error) => {
+        logger.error(`Error streaming file ${fullPath}:`, error);
+        if (!res.headersSent) {
+          return sendInternalServerError(res, 'Failed to download file', req);
+        }
+      });
+
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return sendErrorResponse(res, 404, 'File not found');
+      }
+      logger.error(`Download file error:`, error);
+      return sendInternalServerError(res, 'Failed to download file', req);
+    }
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Express handler: Download selected files and folders as ZIP
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
+export async function downloadAsZip(req, res, next) {
+  try {
+    if (validateUserId(req, res)) {
+      return;
+    }
+
+    const { paths } = req.body;
+    if (!Array.isArray(paths) || paths.length === 0) {
+      return sendErrorResponse(res, 400, 'Paths array is required and must not be empty');
+    }
+
+    const userId = req.user.userId;
+    const baseDirUser = await ensureUserUploadDir(userId);
+
+    // Generate a zip filename based on selection
+    const zipFileName = paths.length === 1
+      ? `${basename(paths[0])}.zip`
+      : `selected_files_${new Date().toISOString().slice(0, 10)}.zip`;
+
+    // Set headers for ZIP download
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+    res.setHeader('Content-Type', 'application/zip');
+
+    // Create ZIP archive
+    const archive = archiver('zip', {
+      zlib: { level: 6 } // Compression level
+    });
+
+    // Handle archive errors
+    archive.on('error', (error) => {
+      logger.error('Archive error:', error);
+      if (!res.headersSent) {
+        return sendInternalServerError(res, 'Failed to create ZIP archive', req);
+      }
+    });
+
+    // Pipe archive to response
+    archive.pipe(res);
+
+    let addedFiles = 0;
+    const maxFiles = 10000; // Limit for safety
+
+    // Add each selected file/folder to archive
+    for (const relativePath of paths) {
+      if (addedFiles >= maxFiles) {
+        logger.warn(`ZIP creation stopped: maximum file limit (${maxFiles}) reached`);
+        break;
+      }
+
+      let fullPath;
+      try {
+        const sanitizedPath = sanitizeUploadPath(relativePath);
+        fullPath = secureResolve(baseDirUser, sanitizedPath);
+      } catch (error) {
+        logger.warn(`Invalid path for ZIP: ${relativePath}`, error);
+        continue;
+      }
+
+      try {
+        const stats = await fsp.stat(fullPath);
+        const itemName = basename(fullPath);
+
+        if (stats.isDirectory()) {
+          // Add directory recursively
+          await addDirectoryToArchive(archive, fullPath, itemName);
+        } else {
+          // Add single file
+          archive.file(fullPath, { name: itemName });
+          addedFiles++;
+        }
+      } catch (error) {
+        logger.warn(`Failed to add ${relativePath} to ZIP:`, error);
+        continue;
+      }
+    }
+
+    // Finalize the archive
+    await archive.finalize();
+
+    logger.info(`ZIP download completed for user ${userId}: ${paths.length} items processed`);
+
+  } catch (error) {
+    logger.error('Download as ZIP error:', error);
+    next(error);
+  }
+}
+
+/**
+ * Helper function to add directory contents to archive recursively
+ * @param {Object} archive - Archiver instance
+ * @param {string} dirPath - Full path to directory
+ * @param {string} archivePath - Path within archive
+ */
+async function addDirectoryToArchive(archive, dirPath, archivePath) {
+  try {
+    const entries = await fsp.readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(dirPath, entry.name);
+      const entryArchivePath = join(archivePath, entry.name);
+
+      if (entry.isDirectory()) {
+        // Recursively add subdirectory
+        await addDirectoryToArchive(archive, fullPath, entryArchivePath);
+      } else if (entry.isFile()) {
+        // Add file to archive
+        archive.file(fullPath, { name: entryArchivePath });
+      }
+    }
+  } catch (error) {
+    logger.warn(`Failed to read directory for ZIP: ${dirPath}`, error);
+  }
 }

@@ -27,6 +27,7 @@
           @clear-selection="fileStore.clearSelection"
           @copy-selected="handleCopySelected"
           @cut-selected="handleCutSelected"
+          @download-as-zip="handleDownloadAsZip"
           @paste-items="handlePasteItems"
           @search="fileStore.setSearch"
           @sort="fileStore.setSorting"
@@ -161,6 +162,12 @@ const contextMenuItems = computed(() => {
         label: 'Cut',
         icon: 'tabler:cut',
         shortcut: 'Ctrl+X'
+      },
+      {
+        id: 'download-zip',
+        label: 'Download as ZIP',
+        icon: 'tabler:download',
+        shortcut: ''
       },
       {
         id: 'separator-file-actions',
@@ -726,6 +733,63 @@ function handleCutSelected() {
   fileStore.cutItems(selectedItems)
 }
 
+async function handleDownloadAsZip() {
+  const selectedItems = fileStore.selectedItems
+  if (selectedItems.length === 0) return
+
+  try {
+    // Extract paths from selected items
+    const paths = selectedItems.map(item => item.path)
+
+    // Make API request to download as ZIP
+    const response = await fetch('/api/files/download-zip', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authStore.accessToken}`
+      },
+      body: JSON.stringify({ paths })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    // Get the filename from response headers
+    const contentDisposition = response.headers.get('Content-Disposition')
+    const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+    const filename = filenameMatch ? filenameMatch[1] : 'download.zip'
+
+    // Create blob and download
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.style.display = 'none'
+
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    // Clean up the blob URL
+    window.URL.revokeObjectURL(url)
+
+    // Show success message
+    if (window.$toast) {
+      window.$toast(`ZIP download started: ${filename}`, { type: 'success' })
+    }
+
+  } catch (error) {
+    const errorMessage = formatErrorForDisplay(error)
+    console.error('ZIP download failed:', errorMessage, error)
+    if (window.$toast) {
+      window.$toast(`Failed to download ZIP: ${errorMessage}`, { type: 'danger' })
+    }
+  }
+}
+
 async function handlePasteItems() {
   if (!fileStore.hasClipboard) return
 
@@ -796,6 +860,12 @@ function handleContextMenuClick(item) {
     case 'cut':
       if (fileStore.selectedItems.length > 0) {
         handleCutSelected()
+      }
+      break
+
+    case 'download-zip':
+      if (fileStore.selectedItems.length > 0) {
+        handleDownloadAsZip()
       }
       break
 

@@ -1,10 +1,12 @@
-import { copyFiles, createFolder, deleteFiles, getFolderFiles, moveFiles, renameItem } from '../controllers/fileController.js';
+import { copyFiles, createFolder, deleteFiles, downloadAsZip, downloadFile, getFolderFiles, moveFiles, renameItem } from '../controllers/fileController.js';
 import authenticateToken from '../middleware/authenticate.js';
 import express from 'express';
 
 const router = express.Router();
 
 router.get('/', authenticateToken, getFolderFiles);
+router.get('/download', authenticateToken, downloadFile);
+router.post('/download-zip', authenticateToken, downloadAsZip);
 router.delete('/', authenticateToken, deleteFiles);
 router.post('/move', authenticateToken, moveFiles);
 router.post('/copy', authenticateToken, copyFiles);

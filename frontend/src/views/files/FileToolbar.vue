@@ -138,6 +138,18 @@
               <span class="menu-label">Cut ({{ selectedCount }})</span>
             </div>
             <div
+              v-if="selectedCount > 0"
+              class="context-menu-item"
+              :class="{ disabled: isLoading }"
+              @click="!isLoading && $emit('downloadAsZip')"
+            >
+              <Icon
+                icon="mdi:download"
+                class="menu-icon"
+              />
+              <span class="menu-label">Download as ZIP ({{ selectedCount }})</span>
+            </div>
+            <div
               class="context-menu-item"
               :class="{ disabled: isLoading || (!clipboardHasItems && clipboardItemCount === 0) }"
               @click="!(isLoading || (!clipboardHasItems && clipboardItemCount === 0)) && $emit('pasteItems')"
@@ -301,6 +313,7 @@ const emit = defineEmits([
   'clearSelection',
   'copySelected',
   'cutSelected',
+  'downloadAsZip',
   'pasteItems',
   'search',
   'sort',
