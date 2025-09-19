@@ -28,8 +28,8 @@ export interface ConnectionConfig {
 }
 
 export interface PoolConnection {
-  query<T = any>(sql: string, values?: any[]): Promise<QueryResult<T>>;
-  execute<T = any>(sql: string, values?: any[]): Promise<QueryResult<T>>;
+  query<T = any>(_sql: string, _values?: any[]): Promise<QueryResult<T>>;
+  execute<T = any>(_sql: string, _values?: any[]): Promise<QueryResult<T>>;
   beginTransaction(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
@@ -40,10 +40,10 @@ export interface PoolConnection {
 
 export interface ConnectionPool {
   getConnection(): Promise<PoolConnection>;
-  execute<T = any>(sql: string, values?: any[]): Promise<QueryResult<T>>;
-  query<T = any>(sql: string, values?: any[]): Promise<QueryResult<T>>;
+  execute<T = any>(_sql: string, _values?: any[]): Promise<QueryResult<T>>;
+  query<T = any>(_sql: string, _values?: any[]): Promise<QueryResult<T>>;
   end(): Promise<void>;
-  on(event: string, listener: Function): void;
+  on(_event: string, _listener: Function): void;
 }
 
 // Model Base Types
@@ -101,7 +101,7 @@ export interface MigrationFile {
 }
 
 // Transaction Types
-export type TransactionCallback<T> = (connection: PoolConnection) => Promise<T>;
+export type TransactionCallback<T> = (_connection: PoolConnection) => Promise<T>;
 
 export interface TransactionOptions {
   isolationLevel?: 'READ_UNCOMMITTED' | 'READ_COMMITTED' | 'REPEATABLE_READ' | 'SERIALIZABLE';

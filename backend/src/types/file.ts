@@ -1,4 +1,4 @@
-import { Multer } from 'multer';
+import { Multer as _Multer } from 'multer';
 
 // File Upload Types
 export interface UploadedFile extends Express.Multer.File {

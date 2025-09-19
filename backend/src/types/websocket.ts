@@ -3,19 +3,19 @@ import { Server as HTTPServer } from 'http';
 
 // Local minimal copies to avoid depending on shared package here
 export enum WebSocketMessageType {
-  FILE_UPLOADED = 'file_uploaded',
-  FILE_DELETED = 'file_deleted',
-  FILE_MOVED = 'file_moved',
-  FILE_RENAMED = 'file_renamed',
-  FILE_SHARED = 'file_shared',
-  UPLOAD_PROGRESS = 'upload_progress',
-  UPLOAD_COMPLETE = 'upload_complete',
-  UPLOAD_FAILED = 'upload_failed',
-  EMAIL_RECEIVED = 'email_received',
-  EMAIL_SENT = 'email_sent',
-  USER_STATUS_CHANGED = 'user_status_changed',
-  SYSTEM_NOTIFICATION = 'system_notification',
-  CONNECTION_STATUS = 'connection_status'
+  _FILE_UPLOADED = 'file_uploaded',
+  _FILE_DELETED = 'file_deleted',
+  _FILE_MOVED = 'file_moved',
+  _FILE_RENAMED = 'file_renamed',
+  _FILE_SHARED = 'file_shared',
+  _UPLOAD_PROGRESS = 'upload_progress',
+  _UPLOAD_COMPLETE = 'upload_complete',
+  _UPLOAD_FAILED = 'upload_failed',
+  _EMAIL_RECEIVED = 'email_received',
+  _EMAIL_SENT = 'email_sent',
+  _USER_STATUS_CHANGED = 'user_status_changed',
+  _SYSTEM_NOTIFICATION = 'system_notification',
+  _CONNECTION_STATUS = 'connection_status'
 }
 
 export interface WebSocketMessage {
@@ -75,7 +75,7 @@ export interface WSRoom {
 
 // WebSocket Events
 export interface FileUploadProgressEvent {
-  type: WebSocketMessageType.UPLOAD_PROGRESS;
+  type: WebSocketMessageType._UPLOAD_PROGRESS;
   payload: {
     fileId: string;
     fileName: string;
@@ -86,7 +86,7 @@ export interface FileUploadProgressEvent {
 }
 
 export interface FileUploadCompleteEvent {
-  type: WebSocketMessageType.UPLOAD_COMPLETE;
+  type: WebSocketMessageType._UPLOAD_COMPLETE;
   payload: {
     fileId: string;
     fileName: string;
@@ -96,7 +96,7 @@ export interface FileUploadCompleteEvent {
 }
 
 export interface SystemNotificationEvent {
-  type: WebSocketMessageType.SYSTEM_NOTIFICATION;
+  type: WebSocketMessageType._SYSTEM_NOTIFICATION;
   payload: {
     title: string;
     message: string;

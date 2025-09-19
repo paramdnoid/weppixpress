@@ -1,26 +1,26 @@
 export enum ErrorCode {
   // Authentication & Authorization
-  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
-  AUTHORIZATION_ERROR = 'AUTHORIZATION_ERROR',
-  TOKEN_EXPIRED = 'TOKEN_EXPIRED',
-  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  _AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
+  _AUTHORIZATION_ERROR = 'AUTHORIZATION_ERROR',
+  _TOKEN_EXPIRED = 'TOKEN_EXPIRED',
+  _INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
 
   // Validation
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  BUSINESS_LOGIC_ERROR = 'BUSINESS_LOGIC_ERROR',
+  _VALIDATION_ERROR = 'VALIDATION_ERROR',
+  _BUSINESS_LOGIC_ERROR = 'BUSINESS_LOGIC_ERROR',
 
   // Resources
-  NOT_FOUND = 'NOT_FOUND',
-  CONFLICT = 'CONFLICT',
+  _NOT_FOUND = 'NOT_FOUND',
+  _CONFLICT = 'CONFLICT',
 
   // System
-  DATABASE_ERROR = 'DATABASE_ERROR',
-  CACHE_ERROR = 'CACHE_ERROR',
-  FILESYSTEM_ERROR = 'FILESYSTEM_ERROR',
-  EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
-  CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
-  SECURITY_ERROR = 'SECURITY_ERROR',
-  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED'
+  _DATABASE_ERROR = 'DATABASE_ERROR',
+  _CACHE_ERROR = 'CACHE_ERROR',
+  _FILESYSTEM_ERROR = 'FILESYSTEM_ERROR',
+  _EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
+  _CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
+  _SECURITY_ERROR = 'SECURITY_ERROR',
+  _RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED'
 }
 
 export interface ErrorDetail {
@@ -31,14 +31,14 @@ export interface ErrorDetail {
 }
 
 class AppError extends Error {
-  public readonly statusCode: number
-  public readonly code: ErrorCode | string
-  public readonly isOperational: boolean
-  public readonly timestamp: Date
-  public readonly requestId?: string
-  public readonly details?: ErrorDetail[]
-  public readonly shouldLog?: boolean
-  public readonly originalError?: Error
+  public statusCode: number
+  public code: ErrorCode | string
+  public isOperational: boolean
+  public timestamp: Date
+  public requestId?: string
+  public details?: ErrorDetail[]
+  public shouldLog?: boolean
+  public originalError?: Error
 
   constructor(
     message: string,

@@ -295,6 +295,7 @@ export const securityAuditLog = (
   }
 
   // Log to security audit system
+  // eslint-disable-next-line no-console
   console.log('[SECURITY AUDIT]', JSON.stringify(logData))
 }
 

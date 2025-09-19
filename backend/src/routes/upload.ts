@@ -10,9 +10,7 @@ import {
   sanitizeUploadPath,
   validateFileUpload,
   logger,
-  sendValidationError,
-  sendNotFoundError,
-  sendInternalServerError
+  sendNotFoundError
 } from '../utils/index.js';
 
 // Type definitions

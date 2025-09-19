@@ -121,6 +121,7 @@ if (isDevelopment()) {
   }
 
   if (warnings.length > 0) {
+    // eslint-disable-next-line no-console
     console.warn('\n🚨 SECURITY WARNINGS:\n' + warnings.join('\n') + '\n')
   }
 }
