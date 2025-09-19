@@ -144,29 +144,4 @@ const scrollToSection = (event: MouseEvent): void => {
     font-weight: 300;
   }
 }
-
-.hero-section {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.navbar {
-  backdrop-filter: blur(10px);
-  background-color: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  
-  &.navbar-transparent {
-    background-color: transparent;
-    backdrop-filter: none;
-    box-shadow: none;
-    
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      transition: all 0.3s ease;
-    }
-  }
-}
 </style>

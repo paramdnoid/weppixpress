@@ -3,6 +3,7 @@ import { computed, shallowRef, triggerRef } from 'vue'
 import type { FileItem, FileOperation, SelectionMode, SortDirection } from '@/types'
 import { fileApi } from '@/api/files'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { fileLogger } from '@/utils/logger'
 import { debounce } from 'lodash-es'
 
 interface ClipboardData {

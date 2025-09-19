@@ -45,6 +45,50 @@ export async function updateUserRole(userId, role) {
 }
 
 export async function getAllUsers() {
-  const res = await pool.query('SELECT id, first_name, last_name, email, role, is_verified, created_at FROM users ORDER BY created_at DESC');
+  const res = await pool.query('SELECT id, first_name, last_name, email, role, is_verified, is_suspended, created_at, last_login_at FROM users ORDER BY created_at DESC');
+  return res;
+}
+
+export async function suspendUser(userId, reason) {
+  await pool.query('UPDATE users SET is_suspended = 1, suspension_reason = ?, suspended_at = NOW() WHERE id = ?', [reason, userId]);
+}
+
+export async function reactivateUser(userId) {
+  await pool.query('UPDATE users SET is_suspended = 0, suspension_reason = NULL, suspended_at = NULL WHERE id = ?', [userId]);
+}
+
+export async function deleteUser(userId) {
+  await pool.query('DELETE FROM users WHERE id = ?', [userId]);
+}
+
+export async function updateLastLogin(userId) {
+  await pool.query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [userId]);
+}
+
+export async function getUsersWithLastActivity() {
+  const res = await pool.query(`
+    SELECT
+      id,
+      first_name,
+      last_name,
+      email,
+      role,
+      is_verified,
+      is_suspended,
+      created_at,
+      last_login_at,
+      CASE
+        WHEN last_login_at IS NULL THEN 'Never'
+        WHEN last_login_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 'Online'
+        WHEN last_login_at > DATE_SUB(NOW(), INTERVAL 1 HOUR) THEN 'Recently'
+        WHEN last_login_at > DATE_SUB(NOW(), INTERVAL 1 DAY) THEN 'Today'
+        WHEN last_login_at > DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'This week'
+        WHEN last_login_at > DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 'This month'
+        ELSE 'Long ago'
+      END as activity_status,
+      TIMESTAMPDIFF(MINUTE, last_login_at, NOW()) as minutes_since_login
+    FROM users
+    ORDER BY last_login_at DESC, created_at DESC
+  `);
   return res;
 }

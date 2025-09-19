@@ -4,8 +4,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
 import fs from 'fs/promises';
 import { authenticateToken } from '../middleware/authenticate.js';
-import { secureResolve, getUserDirectory, sanitizeUploadPath, validateFileUpload } from '../utils/pathSecurity.js';
-import logger from '../utils/logger.js';
+import {
+  secureResolve,
+  getUserDirectory,
+  sanitizeUploadPath,
+  validateFileUpload,
+  logger,
+  sendValidationError,
+  sendNotFoundError,
+  sendInternalServerError
+} from '../utils/index.js';
 
 const router = express.Router();
 
@@ -157,10 +165,7 @@ function validateSession(req: Request, res: Response, next: NextFunction) {
 
   const session = sessionManager.getSession(sessionId, userId);
   if (!session) {
-    return res.status(404).json({
-      success: false,
-      error: { message: 'Session not found', code: 'NOT_FOUND' }
-    });
+    return sendNotFoundError(res, 'Session not found');
   }
 
   req.uploadSession = session;
@@ -469,7 +474,7 @@ router.get('/sessions/:sessionId/status', validateSession, (req, res) => {
 // Performance monitoring endpoint
 router.get('/stats', (_req, res) => {
   if (process.env.NODE_ENV !== 'development') {
-    return res.status(404).json({ error: 'Not found' });
+    return sendNotFoundError(res, 'Not found');
   }
 
   const totalSessions = sessionManager.sessions.size;

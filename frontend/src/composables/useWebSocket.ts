@@ -1,5 +1,6 @@
 // frontend/src/composables/useWebSocket.ts
 import { ref, onUnmounted, onMounted } from 'vue'
+import { logger } from '@/utils/logger'
 
 export interface WebSocketOptions {
   onMessage?: (event: MessageEvent) => void
@@ -39,7 +40,7 @@ function getWebSocketUrl(path: string): string {
       const basePath = base.pathname.endsWith('/') ? base.pathname.slice(0, -1) : base.pathname
       return `${protocol}//${host}${basePath}${normalizedPath}`
     } catch (error) {
-      console.warn('Invalid VITE_WS_URL/VITE_WS_BASE, falling back to location:', error)
+      logger.warn('Invalid VITE_WS_URL/VITE_WS_BASE, falling back to location', error)
     }
   }
 
@@ -87,7 +88,7 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
 
   function connect() {
     if (isConnecting.value || (socket.value && socket.value.readyState === WebSocket.CONNECTING)) {
-      console.warn('WebSocket connection already in progress')
+      logger.warn('WebSocket connection already in progress')
       return
     }
 
@@ -121,7 +122,7 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
           JSON.parse(event.data)
           onMessage?.(event)
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error)
+          logger.error('Error parsing WebSocket message', error)
         }
       }
 
@@ -145,7 +146,7 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
             connect()
           }, delay)
         } else if (reconnectAttempts.value >= maxReconnectAttempts) {
-          console.error('Max reconnection attempts reached')
+          logger.error('Max reconnection attempts reached')
           lastError.value = 'Max reconnection attempts reached'
         }
       }
@@ -154,14 +155,13 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
         isConnecting.value = false
         lastError.value = 'WebSocket connection error'
         
-        console.error('WebSocket error:', event)
-        console.error('WebSocket URL that failed:', wsUrl)
+        logger.error('WebSocket error', { event, wsUrl })
         onError?.(event)
       }
     } catch (error) {
       isConnecting.value = false
       lastError.value = error instanceof Error ? error.message : 'Unknown connection error'
-      console.error('WebSocket connection error:', error)
+      logger.error('WebSocket connection error', error)
     }
   }
 

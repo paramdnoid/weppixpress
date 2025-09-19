@@ -37,7 +37,7 @@ export function sendErrorResponse(res, statusCode, message, details = null, req 
       method: req.method,
       ip: req.ip,
       userAgent: req.get('User-Agent'),
-      userId: req.user?.userId
+      userId: req.user?.id
     });
   }
 
@@ -196,7 +196,7 @@ export async function tryOperation(operation, res, req = null, next = null, erro
       stack: error.stack,
       url: req?.originalUrl,
       method: req?.method,
-      userId: req?.user?.userId
+      userId: req?.user?.id
     });
     
     if (next) {

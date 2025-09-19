@@ -1,11 +1,83 @@
-class AppError extends Error {
-  constructor(message, statusCode = 500, code = null) {
-    super(message);
-    this.statusCode = statusCode;
-    this.code = code;
-    this.isOperational = true;
+export enum ErrorCode {
+  // Authentication & Authorization
+  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
+  AUTHORIZATION_ERROR = 'AUTHORIZATION_ERROR',
+  TOKEN_EXPIRED = 'TOKEN_EXPIRED',
+  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
 
-    Error.captureStackTrace(this, this.constructor);
+  // Validation
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
+  BUSINESS_LOGIC_ERROR = 'BUSINESS_LOGIC_ERROR',
+
+  // Resources
+  NOT_FOUND = 'NOT_FOUND',
+  CONFLICT = 'CONFLICT',
+
+  // System
+  DATABASE_ERROR = 'DATABASE_ERROR',
+  CACHE_ERROR = 'CACHE_ERROR',
+  FILESYSTEM_ERROR = 'FILESYSTEM_ERROR',
+  EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
+  CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
+  SECURITY_ERROR = 'SECURITY_ERROR',
+  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED'
+}
+
+export interface ErrorDetail {
+  field?: string
+  message: string
+  code?: string
+  value?: unknown
+}
+
+class AppError extends Error {
+  public readonly statusCode: number
+  public readonly code: ErrorCode | string
+  public readonly isOperational: boolean
+  public readonly timestamp: Date
+  public readonly requestId?: string
+  public readonly details?: ErrorDetail[]
+  public readonly shouldLog?: boolean
+  public readonly originalError?: Error
+
+  constructor(
+    message: string,
+    statusCode: number = 500,
+    code: ErrorCode | string | null = null,
+    isOperational: boolean = true,
+    requestId?: string,
+    details?: ErrorDetail[],
+    shouldLog?: boolean,
+    originalError?: Error
+  ) {
+    super(message)
+
+    this.name = this.constructor.name
+    this.statusCode = statusCode
+    this.code = code || 'INTERNAL_ERROR'
+    this.isOperational = isOperational
+    this.timestamp = new Date()
+    this.requestId = requestId
+    this.details = details
+    this.shouldLog = shouldLog
+    this.originalError = originalError
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor)
+    }
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      code: this.code,
+      statusCode: this.statusCode,
+      timestamp: this.timestamp.toISOString(),
+      requestId: this.requestId,
+      details: this.details,
+      ...(process.env.NODE_ENV === 'development' && { stack: this.stack })
+    }
   }
 }
 

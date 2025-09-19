@@ -194,7 +194,7 @@ async function getFolderSize(folderPath, options = {}) {
  * @param {import('express').Response} res
  */
 export async function getFolderFiles(req: Request, res: Response) {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   if (validateUserId(req, res)) {
     return;
   }

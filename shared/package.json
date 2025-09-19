@@ -1,6 +1,7 @@
 {
   "name": "@weppixpress/shared",
   "version": "1.0.0",
+  "type": "module",
   "description": "Shared TypeScript definitions for weppiXPRESS",
   "main": "types/index.ts",
   "types": "types/index.ts",

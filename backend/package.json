@@ -28,6 +28,7 @@
     "deploy:permissions": "ssh root@km14307.keymachine.de 'chown -R www-data:www-data /home/users/weppi/www/dev.weppixpress.com/backend && chmod -R 755 /home/users/weppi/www/dev.weppixpress.com/backend'"
   },
   "dependencies": {
+    "@types/json2csv": "^5.0.7",
     "archiver": "^7.0.1",
     "bcrypt": "^6.0.0",
     "cheerio": "^1.1.2",
@@ -43,6 +44,7 @@
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
     "joi": "^18.0.0",
+    "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
     "mariadb": "^3.3.5",
     "morgan": "^1.10.1",

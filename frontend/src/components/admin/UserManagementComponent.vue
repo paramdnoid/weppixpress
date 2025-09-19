@@ -344,13 +344,23 @@
                     {{ formatRelativeTime(user.createdAt) }}
                   </div>
                 </td>
-                <td class="text-muted">
-                  <div>{{ user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never' }}</div>
-                  <div
-                    v-if="user.lastLoginAt"
-                    class="small"
-                  >
-                    {{ formatRelativeTime(user.lastLoginAt) }}
+                <td>
+                  <div class="d-flex align-items-center">
+                    <span
+                      class="activity-status-dot me-2"
+                      :class="getActivityStatusClass(user.activityStatus)"
+                    />
+                    <div>
+                      <div :class="getActivityTextClass(user.activityStatus)">
+                        {{ getActivityStatusText(user.activityStatus, user.lastLoginAt) }}
+                      </div>
+                      <div
+                        v-if="user.lastLoginAt && user.activityStatus !== 'Never'"
+                        class="small text-muted"
+                      >
+                        {{ formatRelativeTime(user.lastLoginAt) }}
+                      </div>
+                    </div>
                   </div>
                 </td>
                 <td>
@@ -493,10 +503,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '@/api/axios'
 import { useAuthStore } from '@/stores/auth'
+import adminWebSocketService from '@/services/adminWebSocketService'
 
 // Utility function for sanitizing text
 const sanitizeText = (text: string | undefined | null): string => {
@@ -527,8 +538,11 @@ interface User {
   email: string
   role: 'admin' | 'user'
   isVerified: boolean
+  isSuspended?: boolean
   createdAt: string
   lastLoginAt?: string
+  activityStatus?: string
+  minutesSinceLogin?: number
   phone?: string
 }
 
@@ -556,6 +570,7 @@ const searchQuery = ref(props.searchQuery)
 const isUpdating = ref(false)
 const sortBy = ref('name')
 const sortOrder = ref('asc')
+const isConnectedToWebSocket = computed(() => adminWebSocketService.isConnected.value)
 
 // Pagination
 const currentPage = ref(1)
@@ -671,6 +686,56 @@ const formatRelativeTime = (dateString: string) => {
   return `${Math.floor(diffInDays / 365)} years ago`
 }
 
+// Activity status helpers
+const getActivityStatusClass = (status?: string) => {
+  switch (status) {
+    case 'Online':
+      return 'bg-green'
+    case 'Recently':
+      return 'bg-yellow'
+    case 'Today':
+      return 'bg-blue'
+    case 'This week':
+      return 'bg-orange'
+    case 'This month':
+      return 'bg-purple'
+    case 'Never':
+      return 'bg-gray'
+    default:
+      return 'bg-gray'
+  }
+}
+
+const getActivityTextClass = (status?: string) => {
+  switch (status) {
+    case 'Online':
+      return 'text-green fw-bold'
+    case 'Recently':
+      return 'text-yellow fw-medium'
+    case 'Today':
+      return 'text-blue'
+    case 'This week':
+      return 'text-orange'
+    case 'This month':
+      return 'text-purple'
+    case 'Never':
+      return 'text-muted'
+    default:
+      return 'text-muted'
+  }
+}
+
+const getActivityStatusText = (status?: string, lastLoginAt?: string) => {
+  if (!status) return 'Unknown'
+  if (status === 'Never') return 'Never logged in'
+  if (status === 'Online') return 'Online now'
+  if (status === 'Recently') return 'Active recently'
+  if (lastLoginAt) {
+    return `${status} - ${formatDate(lastLoginAt)}`
+  }
+  return status
+}
+
 // Actions
 const refreshUsers = async () => {
   emit('loading', true)
@@ -678,7 +743,7 @@ const refreshUsers = async () => {
   try {
     const response = await api.get('/admin/users')
     users.value = response.data.users || []
-    emit('success', 'Users refreshed successfully')
+    //emit('success', 'Users refreshed successfully')
   } catch (err: any) {
     emit('error', err.response?.data?.message || 'Failed to load users')
   } finally {
@@ -697,15 +762,15 @@ const makeAdmin = async (user: User) => {
 
   try {
     const csrfToken = getCSRFToken()
-    await api.patch(
-      `/admin/users/${user.id}/role`,
-      { role: 'admin' },
+    await api.post(
+      `/admin/users/${user.id}/make-admin`,
+      {},
       {
         headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {}
       }
     )
     user.role = 'admin'
-    emit('success', `${sanitizeText(user.name)} has been promoted to administrator`)
+    // emit('success', `${sanitizeText(user.name)} has been promoted to administrator`)
   } catch (err: any) {
     emit('error', err.response?.data?.message || 'Failed to update user role')
   } finally {
@@ -724,15 +789,15 @@ const removeAdmin = async (user: User) => {
 
   try {
     const csrfToken = getCSRFToken()
-    await api.patch(
-      `/admin/users/${user.id}/role`,
-      { role: 'user' },
+    await api.post(
+      `/admin/users/${user.id}/remove-admin`,
+      {},
       {
         headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {}
       }
     )
     user.role = 'user'
-    emit('success', `${sanitizeText(user.name)}'s admin privileges have been removed`)
+    //emit('success', `${sanitizeText(user.name)}'s admin privileges have been removed`)
   } catch (err: any) {
     emit('error', err.response?.data?.message || 'Failed to update user role')
   } finally {
@@ -770,9 +835,50 @@ const exportUsers = async () => {
   }
 }
 
+// WebSocket event handlers
+const handleUserStatistics = (data: any) => {
+  // Update user counts based on WebSocket data
+  // console.log('User statistics updated:', data)
+}
+
+const handleUserAction = (data: any) => {
+  // console.log('User action received:', data)
+
+  switch (data.action) {
+    case 'admin_granted':
+    case 'admin_revoked':
+    case 'user_suspended':
+    case 'user_reactivated':
+    case 'user_deleted':
+    case 'user_login':
+      // Refresh user list when actions occur
+      refreshUsers()
+      break
+  }
+
+  //emit('success', `User action: ${data.action}`)
+}
+
 // Lifecycle
 onMounted(() => {
+  // Set up WebSocket listeners
+  adminWebSocketService.on('user_statistics_updated', handleUserStatistics)
+  adminWebSocketService.on('user_action', handleUserAction)
+
   refreshUsers()
+
+  // Connect to WebSocket if not already connected
+  if (!isConnectedToWebSocket.value) {
+    adminWebSocketService.connect().catch(error => {
+      console.warn('Failed to connect to WebSocket for user management:', error)
+    })
+  }
+})
+
+onUnmounted(() => {
+  // Remove WebSocket listeners
+  adminWebSocketService.off('user_statistics_updated', handleUserStatistics)
+  adminWebSocketService.off('user_action', handleUserAction)
 })
 
 // Expose utilities for template use
@@ -794,6 +900,43 @@ defineExpose({
   display: inline-block;
 }
 
+.activity-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.activity-status-dot.bg-green {
+  background-color: var(--tblr-green);
+  animation: pulse-green 2s infinite;
+}
+
+.activity-status-dot.bg-yellow {
+  background-color: var(--tblr-yellow);
+}
+
+.activity-status-dot.bg-blue {
+  background-color: var(--tblr-blue);
+}
+
+.activity-status-dot.bg-orange {
+  background-color: var(--tblr-orange);
+}
+
+.activity-status-dot.bg-purple {
+  background-color: var(--tblr-purple);
+}
+
+.activity-status-dot.bg-gray {
+  background-color: var(--tblr-gray-500);
+}
+
+.activity-status-dot.bg-red {
+  background-color: var(--tblr-red);
+}
+
 .status-dot-animated {
   animation: pulse 2s infinite;
 }
@@ -804,6 +947,17 @@ defineExpose({
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+@keyframes pulse-green {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(var(--tblr-green-rgb), 0.7);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 4px rgba(var(--tblr-green-rgb), 0);
   }
 }
 

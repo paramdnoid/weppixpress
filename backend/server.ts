@@ -4,6 +4,7 @@ import logger from './src/utils/logger.js';
 import { WebSocketManager } from './src/websockets/websocketService.js';
 import { gracefulShutdown } from './src/utils/gracefulShutdown.js';
 import websocketProvider from './src/services/websocketProvider.js';
+import adminWebSocketService from './src/services/adminWebSocketService.js';
 
 const PORT = typeof serverConfig.port === 'string' ? parseInt(serverConfig.port, 10) : serverConfig.port;
 const HOST = serverConfig.host;
@@ -37,6 +38,10 @@ server.on('connection', (socket) => {
 
 const wsManager = new WebSocketManager(server);
 websocketProvider.setManager(wsManager);
+
+// Initialize admin WebSocket service
+adminWebSocketService.initialize(wsManager);
+logger.info('Admin WebSocket service initialized');
 
 // Graceful shutdown handlers
 process.on('SIGTERM', () => gracefulShutdown(server, wsManager, 'SIGTERM'));

@@ -12,7 +12,7 @@ import { sendValidationError } from './httpResponses.js';
  * @returns {string|null} User ID or null if not present
  */
 export function getUserId(req) {
-  return req.user?.userId || null;
+  return req.user?.id || null;
 }
 
 /**

@@ -1,7 +1,8 @@
 import { authenticateToken, requireAdmin } from '../middleware/authenticate.js';
 import errorMetricsService from '../services/errorMetricsService.js';
 import monitoringService from '../services/monitoringService.js';
-import logger from '../utils/logger.js';
+import { logger, sendInternalServerError } from '../utils/index.js';
+import { withAdminAuth } from '../middleware/authHelpers.js';
 import express from 'express';
 
 const router = express.Router();
@@ -84,7 +85,7 @@ router.get('/overview', authenticateToken, requireAdmin, async (req, res) => {
     res.json(overview);
   } catch (error) {
     logger.error('Dashboard overview error:', error);
-    res.status(500).json({ error: 'Failed to get dashboard overview' });
+    sendInternalServerError(res, 'Failed to get dashboard overview', req);
   }
 });
 
@@ -126,7 +127,7 @@ router.get('/errors', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     logger.error('Dashboard errors error:', error);
-    res.status(500).json({ error: 'Failed to get error metrics' });
+    sendInternalServerError(res, 'Failed to get error metrics', req);
   }
 });
 
@@ -167,7 +168,7 @@ router.get('/performance', authenticateToken, requireAdmin, async (req, res) => 
     });
   } catch (error) {
     logger.error('Dashboard performance error:', error);
-    res.status(500).json({ error: 'Failed to get performance metrics' });
+    sendInternalServerError(res, 'Failed to get performance metrics', req);
   }
 });
 
@@ -189,7 +190,7 @@ router.get('/system', authenticateToken, requireAdmin, async (req, res) => {
     res.json(healthStatus);
   } catch (error) {
     logger.error('Dashboard system error:', error);
-    res.status(500).json({ error: 'Failed to get system health' });
+    sendInternalServerError(res, 'Failed to get system health', req);
   }
 });
 
@@ -215,7 +216,7 @@ router.get('/alerts', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     logger.error('Dashboard alerts error:', error);
-    res.status(500).json({ error: 'Failed to get alerts' });
+    sendInternalServerError(res, 'Failed to get alerts', req);
   }
 });
 

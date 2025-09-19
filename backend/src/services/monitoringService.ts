@@ -4,6 +4,22 @@ import databaseService from './databaseService.js';
 import os from 'os';
 import process from 'process';
 
+// Import admin WebSocket service for alerts
+let adminWebSocketService: any = null;
+
+// Lazy load to avoid circular dependencies
+const getAdminWebSocketService = async () => {
+  if (!adminWebSocketService) {
+    try {
+      const module = await import('./adminWebSocketService.js');
+      adminWebSocketService = module.default;
+    } catch (error) {
+      logger.warn('Could not load admin WebSocket service for alerts:', error);
+    }
+  }
+  return adminWebSocketService;
+};
+
 /**
  * System monitoring and health check service
  */
@@ -164,13 +180,21 @@ class MonitoringService {
   /**
    * Add alert with deduplication
    */
-  addAlert(type, message, level) {
+  async addAlert(type, message, level) {
     const now = Date.now();
     const lastAlert = this.alerts.find(a => a.type === type && a.level === level);
 
     // Don't spam alerts - only add if last alert of same type was > 5 minutes ago
     if (!lastAlert || (now - lastAlert.timestamp) > 300_000) {
-      const alert = { type, message, level, timestamp: now };
+      const alert = {
+        id: `${type}_${now}`,
+        type,
+        title: this.getAlertTitle(type, level),
+        message,
+        level,
+        timestamp: now
+      };
+
       this.alerts.push(alert);
 
       // Keep only last 50 alerts
@@ -179,9 +203,39 @@ class MonitoringService {
       }
 
       logger.warn('System alert', alert);
-      // Hook for external alerting system
-      // this.sendToExternalAlerting(alert);
+
+      // Broadcast to admin WebSocket clients
+      try {
+        const wsService = await getAdminWebSocketService();
+        if (wsService) {
+          wsService.broadcastSystemAlert(alert);
+        }
+      } catch (error) {
+        logger.warn('Failed to broadcast system alert via WebSocket:', error);
+      }
     }
+  }
+
+  /**
+   * Generate alert title based on type and level
+   */
+  getAlertTitle(type, level) {
+    const titles = {
+      memory_critical: 'Critical Memory Usage',
+      memory_warning: 'High Memory Usage',
+      cpu_critical: 'Critical CPU Usage',
+      cpu_warning: 'High CPU Usage',
+      error_rate_critical: 'Critical Error Rate',
+      error_rate_warning: 'High Error Rate',
+      response_time_critical: 'Critical Response Time',
+      response_time_warning: 'High Response Time',
+      database_error: 'Database Error',
+      cache_error: 'Cache Error',
+      disk_space_critical: 'Critical Disk Space',
+      disk_space_warning: 'Low Disk Space'
+    };
+
+    return titles[type] || `System ${level.charAt(0).toUpperCase() + level.slice(1)}`;
   }
 
   /**

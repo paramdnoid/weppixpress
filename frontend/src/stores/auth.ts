@@ -1,187 +1,352 @@
-import { defineStore } from 'pinia';
+import { defineStore } from 'pinia'
+import { ref, computed, watch } from 'vue'
+import { useLocalStorage } from '@vueuse/core'
 import api, { setAuthHandlers } from '@/api/axios'
 import SecureTokenStorage from '@/utils/tokenStorage'
+import { authLogger } from '@/utils/logger'
+import { useAsyncState } from '@/composables/useAsyncState'
 import type { User, LoginCredentials } from '@/types'
 
-
-// API configuration is handled in @/api/axios.ts
-
-interface AuthStoreState {
-  user: User | null
-  accessToken: string | null
-  pending2FA: string | null
-  verifiedEmail: boolean
-  isLoading: boolean
-  error: string | null
+interface AuthSession {
+  user: User
+  accessToken: string
+  expiresAt: number
+  lastActivity: number
 }
 
-export const useAuthStore = defineStore('auth', {
-  state: (): AuthStoreState => ({
-    user: (() => {
-      try {
-        const item = localStorage.getItem('user')
-        return item ? JSON.parse(item) : null
-      } catch {
-        return null
-      }
-    })(),
-    accessToken: SecureTokenStorage.getAccessToken() || null,
-    pending2FA: null,
-    verifiedEmail: false,
-    isLoading: false,
-    error: null,
-  }),
+export const useAuthStore = defineStore('auth', () => {
+  // Reactive state
+  const user = ref<User | null>(null)
+  const accessToken = ref<string | null>(null)
+  const pending2FA = ref<string | null>(null)
+  const verifiedEmail = ref(false)
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+  const lastActivity = ref(Date.now())
 
-  actions: {
-    async login(credentials: LoginCredentials): Promise<void> {
-      this.isLoading = true
-      this.error = null
-      
-      try {
-        const { data } = await api.post<{
-          requires2FA?: boolean
-          userId?: string
-          accessToken?: string
-          refreshToken?: string
-          user?: User
-        }>('/auth/login', credentials)
-        
-        if (data.requires2FA) {
-          this.pending2FA = data.userId || null
-          this.accessToken = null
-          this.user = null
-        } else if (data.accessToken && data.user) {
-          this.accessToken = data.accessToken
-          this.user = data.user
-          SecureTokenStorage.setAccessToken(data.accessToken)
-          localStorage.setItem('user', JSON.stringify(data.user))
-          api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`
-          this.pending2FA = null
-        }
-      } catch (err) {
-        this.error = err instanceof Error ? err.message : 'Login failed'
-        console.error('login error:', err)
-        throw err
-      } finally {
-        this.isLoading = false
-      }
-    },
+  // Persistent session storage
+  const persistedSession = useLocalStorage<AuthSession | null>('auth:session', null, {
+    syncAcrossWindows: true
+  })
 
-    async logout(): Promise<void> {
-      try {
-        await api.post('/auth/logout')
-      } catch (err) {
-        console.error('logout error:', err)
-      } finally {
-        this.user = null
-        this.accessToken = null
-        this.pending2FA = null
-        this.error = null
-        SecureTokenStorage.clearAll()
-        localStorage.removeItem('user')
-        delete api.defaults.headers.common['Authorization']
-      }
-    },
+  // Computed properties
+  const isAuthenticated = computed(() => !!user.value && !!accessToken.value)
+  const isPending2FA = computed(() => !!pending2FA.value)
+  const hasError = computed(() => !!error.value)
 
-    async fetchUser() {
-      const response = await api.get('/auth/me')
-      return response
-    },
+  // Session timeout (30 minutes of inactivity)
+  const SESSION_TIMEOUT = 30 * 60 * 1000
+  const isSessionExpired = computed(() => {
+    if (!persistedSession.value) return false
+    return Date.now() - persistedSession.value.lastActivity > SESSION_TIMEOUT
+  })
 
-    async register(first_name: string, last_name: string, email: string, password: string) {
-      try {
-        await api.post('/auth/register', { first_name, last_name, email, password });
-      } catch (err) {
-        console.error('register error:', err);
-        throw err;
-      }
-    },
+  // Initialize from persisted session
+  const initializeFromStorage = () => {
+    const storedToken = SecureTokenStorage.getAccessToken()
 
-    async verify2FA(code: string) {
-      try {
-        const { data } = await api.post('/auth/verify-2fa', {
-          userId: this.pending2FA, code
-        });
-        this.accessToken = data.accessToken;
-        this.user = data.user;
-        SecureTokenStorage.setAccessToken(data.accessToken)
-        localStorage.setItem('user', JSON.stringify(data.user))
-        api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
-        this.pending2FA = null;
-      } catch (err) {
-        console.error('verify2FA error:', err);
-        throw err;
-      }
-    },
+    if (persistedSession.value && !isSessionExpired.value && storedToken) {
+      user.value = persistedSession.value.user
+      accessToken.value = persistedSession.value.accessToken
+      lastActivity.value = persistedSession.value.lastActivity
 
-    async refresh() {
-      try {
-        const { data } = await api.post('/auth/refresh');
-        this.accessToken = data.accessToken;
-        SecureTokenStorage.setAccessToken(data.accessToken);
-        
-        // Update user if provided
-        if (data.user) {
-          this.user = data.user;
-          localStorage.setItem('user', JSON.stringify(data.user));
-        }
-        
-        // Set authorization header for future requests
-        api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
-      } catch (err) {
-        console.error('refresh error:', err);
-        // Clear invalid tokens
-        this.accessToken = null;
-        this.user = null;
-        SecureTokenStorage.clearAll();
-        localStorage.removeItem('user');
-        delete api.defaults.headers.common['Authorization'];
-        throw err;
-      }
-    },
-    async forgotPassword(email: string) {
-      try {
-        await api.post('/auth/forgot-password', { email });
-      } catch (err) {
-        console.error('forgotPassword error:', err);
-        throw err;
-      }
-    },
-    async resetPassword(token: string, password: string) {
-      try {
-        await api.post('/auth/reset-password', { token, password });
-      } catch (err) {
-        console.error('resetPassword error:', err);
-        throw err;
-      }
-    },
-    async setup2FA() {
-      try {
-        const { data } = await api.post('/auth/setup-2fa');
-        return data; // { secret, qr }
-      } catch (err) {
-        console.error('setup2FA error:', err);
-        throw err;
-      }
-    },
-    async enable2FA(secret: string, code: string) {
-      try {
-        await api.post('/auth/enable-2fa', { secret, code });
-      } catch (err) {
-        console.error('enable2FA error:', err);
-        throw err;
-      }
-    },
-    async disable2FA() {
-      try {
-        await api.post('/auth/disable-2fa');
-      } catch (err) {
-        console.error('disable2FA error:', err);
-        throw err;
+      // Set auth header
+      api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
+
+      // Validate token
+      validateSession()
+    } else {
+      clearSession()
+    }
+  }
+
+  // Update session data
+  const updateSession = (sessionData: Partial<AuthSession>) => {
+    if (!persistedSession.value) {
+      persistedSession.value = {
+        user: user.value!,
+        accessToken: accessToken.value!,
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+        lastActivity: Date.now()
       }
     }
-  },
-});
+
+    persistedSession.value = {
+      ...persistedSession.value,
+      ...sessionData,
+      lastActivity: Date.now()
+    }
+
+    lastActivity.value = Date.now()
+  }
+
+  // Clear session
+  const clearSession = () => {
+    user.value = null
+    accessToken.value = null
+    pending2FA.value = null
+    error.value = null
+    persistedSession.value = null
+    SecureTokenStorage.clearAll()
+    delete api.defaults.headers.common['Authorization']
+  }
+
+  // Session validation
+  const {
+    state: validationState,
+    isLoading: isValidating,
+    execute: validateSession
+  } = useAsyncState(
+    async () => {
+      const response = await api.get('/auth/me')
+      if (response.data.user) {
+        user.value = response.data.user
+        updateSession({ user: response.data.user })
+      }
+      return response.data
+    },
+    { immediate: false }
+  )
+
+  // Actions
+  const login = async (credentials: LoginCredentials): Promise<void> => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const { data } = await api.post<{
+        requires2FA?: boolean
+        userId?: string
+        accessToken?: string
+        refreshToken?: string
+        user?: User
+      }>('/auth/login', credentials)
+
+      if (data.requires2FA) {
+        pending2FA.value = data.userId || null
+        accessToken.value = null
+        user.value = null
+      } else if (data.accessToken && data.user) {
+        accessToken.value = data.accessToken
+        user.value = data.user
+        SecureTokenStorage.setAccessToken(data.accessToken)
+        api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`
+        pending2FA.value = null
+
+        // Update session
+        updateSession({
+          user: data.user,
+          accessToken: data.accessToken
+        })
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Login failed'
+      authLogger.error('Login failed', err)
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const logout = async (): Promise<void> => {
+    try {
+      await api.post('/auth/logout')
+    } catch (err) {
+      authLogger.error('Logout failed', err)
+    } finally {
+      clearSession()
+    }
+  }
+
+  const fetchUser = async () => {
+    const response = await api.get('/auth/me')
+    if (response.data.user) {
+      user.value = response.data.user
+      updateSession({ user: response.data.user })
+    }
+    return response
+  }
+
+  const register = async (first_name: string, last_name: string, email: string, password: string) => {
+    try {
+      await api.post('/auth/register', { first_name, last_name, email, password })
+    } catch (err) {
+      authLogger.error('Registration failed', err)
+      throw err
+    }
+  }
+
+  const verify2FA = async (code: string) => {
+    try {
+      const { data } = await api.post('/auth/verify-2fa', {
+        userId: pending2FA.value,
+        code
+      })
+
+      accessToken.value = data.accessToken
+      user.value = data.user
+      SecureTokenStorage.setAccessToken(data.accessToken)
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`
+      pending2FA.value = null
+
+      // Update session
+      updateSession({
+        user: data.user,
+        accessToken: data.accessToken
+      })
+    } catch (err) {
+      authLogger.error('2FA verification failed', err)
+      throw err
+    }
+  }
+
+  const refresh = async () => {
+    try {
+      const { data } = await api.post('/auth/refresh')
+      accessToken.value = data.accessToken
+      SecureTokenStorage.setAccessToken(data.accessToken)
+
+      // Update user if provided
+      if (data.user) {
+        user.value = data.user
+      }
+
+      // Set authorization header for future requests
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`
+
+      // Update session
+      updateSession({
+        accessToken: data.accessToken,
+        ...(data.user && { user: data.user })
+      })
+    } catch (err) {
+      authLogger.error('Token refresh failed', err)
+      clearSession()
+      throw err
+    }
+  }
+
+  const forgotPassword = async (email: string) => {
+    try {
+      await api.post('/auth/forgot-password', { email })
+    } catch (err) {
+      authLogger.error('Forgot password failed', err)
+      throw err
+    }
+  }
+
+  const resetPassword = async (token: string, password: string) => {
+    try {
+      await api.post('/auth/reset-password', { token, password })
+    } catch (err) {
+      authLogger.error('Reset password failed', err)
+      throw err
+    }
+  }
+
+  const setup2FA = async () => {
+    try {
+      const { data } = await api.post('/auth/setup-2fa')
+      return data // { secret, qr }
+    } catch (err) {
+      authLogger.error('2FA setup failed', err)
+      throw err
+    }
+  }
+
+  const enable2FA = async (secret: string, code: string) => {
+    try {
+      await api.post('/auth/enable-2fa', { secret, code })
+    } catch (err) {
+      authLogger.error('2FA enable failed', err)
+      throw err
+    }
+  }
+
+  const disable2FA = async () => {
+    try {
+      await api.post('/auth/disable-2fa')
+    } catch (err) {
+      authLogger.error('2FA disable failed', err)
+      throw err
+    }
+  }
+
+  // Activity tracking
+  const updateActivity = () => {
+    if (isAuthenticated.value) {
+      updateSession({})
+    }
+  }
+
+  // Auto-refresh token before expiration
+  const autoRefresh = ref<ReturnType<typeof setTimeout> | null>(null)
+
+  const startAutoRefresh = () => {
+    if (autoRefresh.value) {
+      clearTimeout(autoRefresh.value)
+    }
+
+    // Refresh 5 minutes before expiration
+    const refreshTime = (persistedSession.value?.expiresAt ?? 0) - Date.now() - (5 * 60 * 1000)
+
+    if (refreshTime > 0) {
+      autoRefresh.value = setTimeout(async () => {
+        try {
+          await refresh()
+          startAutoRefresh() // Schedule next refresh
+        } catch (err) {
+          authLogger.error('Auto-refresh failed', err)
+        }
+      }, refreshTime)
+    }
+  }
+
+  // Watch for session changes
+  watch([user, accessToken], () => {
+    if (isAuthenticated.value) {
+      startAutoRefresh()
+    } else if (autoRefresh.value) {
+      clearTimeout(autoRefresh.value)
+      autoRefresh.value = null
+    }
+  })
+
+  // Initialize store
+  initializeFromStorage()
+
+  return {
+    // State
+    user: computed(() => user.value),
+    accessToken: computed(() => accessToken.value),
+    pending2FA: computed(() => pending2FA.value),
+    verifiedEmail: computed(() => verifiedEmail.value),
+    isLoading: computed(() => isLoading.value),
+    error: computed(() => error.value),
+
+    // Computed
+    isAuthenticated,
+    isPending2FA,
+    hasError,
+    isSessionExpired,
+    isValidating,
+
+    // Actions
+    login,
+    logout,
+    fetchUser,
+    register,
+    verify2FA,
+    refresh,
+    forgotPassword,
+    resetPassword,
+    setup2FA,
+    enable2FA,
+    disable2FA,
+    updateActivity,
+    clearSession
+  }
+})
 
 // Initialize auth handlers for axios interceptor to avoid circular dependency
 setAuthHandlers({
@@ -207,7 +372,7 @@ if (existingToken) {
   // Validate token by making a test request
   api.get('/auth/me').catch((error) => {
     if (error.response?.status === 401) {
-      console.warn('Stored token is invalid, clearing...');
+      authLogger.warn('Stored token is invalid, clearing...');
       SecureTokenStorage.clearAll();
       localStorage.removeItem('user');
       delete api.defaults.headers.common['Authorization'];

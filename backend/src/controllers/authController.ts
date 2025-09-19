@@ -1,8 +1,15 @@
 import type { Request, Response, NextFunction } from 'express';
-import sendMail from '../utils/mail.js';
-import logger from '../utils/logger.js';
-import { sendValidationError, sendUnauthorizedError, sendNotFoundError, sendConflictError, sendInternalServerError, handleValidationErrors } from '../utils/httpResponses.js';
-import { getEmailTemplate } from '../utils/emailTemplates.js';
+import {
+  logger,
+  sendMail,
+  sendValidationError,
+  sendUnauthorizedError,
+  sendNotFoundError,
+  sendConflictError,
+  sendInternalServerError,
+  handleValidationErrors,
+  getEmailTemplate
+} from '../utils/index.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';
@@ -12,7 +19,7 @@ import speakeasy from 'speakeasy';
 import {
   findUserByEmail, createUser, setVerificationToken, verifyUserByToken,
   setResetToken, getUserByResetToken, updatePassword,
-  enable2FA, disable2FA, getUserById
+  enable2FA, disable2FA, getUserById, updateLastLogin
 } from '../models/userModel.js';
 import { 
   generateAccessToken, 
@@ -21,6 +28,7 @@ import {
   setRefreshTokenCookie,
   clearRefreshTokenCookie
 } from '../utils/jwtUtils.js';
+import adminWebSocketService from '../services/adminWebSocketService.js';
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   if (handleValidationErrors(validationResult(req), res)) {
@@ -112,16 +120,28 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     if (user.is_2fa_enabled) {
       return res.json({ requires2FA: true, userId: user.id });
     }
+
+    // Update last login timestamp
+    await updateLastLogin(user.id);
+
+    // Broadcast user activity update via WebSocket
+    adminWebSocketService.broadcastUserAction('user_login', {
+      userId: user.id,
+      userEmail: user.email,
+      userName: `${user.first_name} ${user.last_name}`.trim(),
+      timestamp: Date.now()
+    });
+
     const tokens = generateTokenPair(user);
     setRefreshTokenCookie(res, tokens.refreshToken);
-    res.json({ 
-      accessToken: tokens.accessToken, 
-      user: { 
-        id: user.id, 
-        email: user.email, 
+    res.json({
+      accessToken: tokens.accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
         name: `${user.first_name} ${user.last_name}`.trim(),
         role: user.role || 'user'
-      } 
+      }
     });
   } catch (err) {
     logger.security('login_failure', { ip: req.ip, userAgent: req.get('User-Agent') });
@@ -142,16 +162,27 @@ export async function verify2FA(req: Request, res: Response) {
   if (!verified) {
     return res.status(400).json({ message: 'Invalid 2FA code' });
   }
+  // Update last login timestamp
+  await updateLastLogin(user.id);
+
+  // Broadcast user activity update via WebSocket
+  adminWebSocketService.broadcastUserAction('user_login', {
+    userId: user.id,
+    userEmail: user.email,
+    userName: `${user.first_name} ${user.last_name}`.trim(),
+    timestamp: Date.now()
+  });
+
   const tokens = generateTokenPair(user);
   setRefreshTokenCookie(res, tokens.refreshToken);
-  res.json({ 
-    accessToken: tokens.accessToken, 
-    user: { 
-      id: user.id, 
-      email: user.email, 
+  res.json({
+    accessToken: tokens.accessToken,
+    user: {
+      id: user.id,
+      email: user.email,
       name: `${user.first_name} ${user.last_name}`.trim(),
       role: user.role || 'user'
-    } 
+    }
   });
 }
 
