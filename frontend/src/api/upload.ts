@@ -63,7 +63,7 @@ export const uploadApi = {
     return res.data as { received: number; completed: boolean; throughput?: number }
   },
 
-  async completeFile(sessionId: string, fileId: string) {
+  async completeFile(_sessionId: string, fileId: string) {
     // File completion is handled automatically by the streaming upload
     // Just return success for compatibility
     return { file: { path: fileId } }

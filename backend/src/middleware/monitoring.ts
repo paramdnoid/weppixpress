@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from 'express';
 import monitoringService from '../services/monitoringService.js';
 
 /**
@@ -5,7 +6,7 @@ import monitoringService from '../services/monitoringService.js';
  * - Captures response time and status
  * - Stores any downstream error in res.locals.error for logging
  */
-const requestMonitoring = (req, res, next) => {
+const requestMonitoring = (req: Request, res: Response, next: NextFunction) => {
   const startTime = Date.now();
   res.locals.startTime = startTime;
 

@@ -118,7 +118,7 @@ export function useWebSocket(path: string, options: WebSocketOptions = {}) {
 
       socket.value.onmessage = (event) => {
         try {
-          const _data = JSON.parse(event.data)
+          JSON.parse(event.data)
           onMessage?.(event)
         } catch (error) {
           console.error('Error parsing WebSocket message:', error)

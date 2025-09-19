@@ -13,7 +13,7 @@
           >
             <img
               :src="logo"
-              alt=""
+              alt="weppiXPRESS Logo"
               class="logo-img"
             >
             <div>
@@ -47,14 +47,17 @@
             <a
               href="#hero"
               class="nav-item nav-link"
+              @click="scrollToSection"
             >Home</a>
             <a
               href="#preise"
               class="nav-item nav-link"
+              @click="scrollToSection"
             >Preise</a>
             <a
               href="#kontakt"
               class="nav-item nav-link"
+              @click="scrollToSection"
             >Kontakt</a>
           </div>
         </div>
@@ -79,18 +82,36 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { computed, type ComputedRef } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import type { User } from '@/types/auth'
 import HeroShowcase from '@/components/base/HeroShowcase.vue'
 import logo from '@/assets/images/logo-dark.svg'
-import { computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
 
+// Store initialization
 const authStore = useAuthStore()
-const user = computed(() => authStore.user)
-const loginTarget = computed(() => user.value ? '/files' : '/login')
+
+// Computed properties with proper typing
+const user: ComputedRef<User | null> = computed(() => authStore.user)
+const loginTarget: ComputedRef<string> = computed(() => user.value ? '/files' : '/login')
+
+// Methods
+const scrollToSection = (event: MouseEvent): void => {
+  event.preventDefault()
+  const target = event.currentTarget as HTMLAnchorElement
+  const href = target.getAttribute('href')
+  
+  if (href && href.startsWith('#')) {
+    const element = document.querySelector(href)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+}
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .logo {
   letter-spacing: -0.4px;
   font-weight: 400;
@@ -121,6 +142,31 @@ const loginTarget = computed(() => user.value ? '/files' : '/login')
     color: var(--tblr-gray-500);
     margin-left: .6rem;
     font-weight: 300;
+  }
+}
+
+.hero-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.navbar {
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  &.navbar-transparent {
+    background-color: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+    
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
   }
 }
 </style>

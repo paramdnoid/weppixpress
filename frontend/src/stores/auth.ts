@@ -1,22 +1,22 @@
 import { defineStore } from 'pinia';
 import api, { setAuthHandlers } from '@/api/axios'
 import SecureTokenStorage from '@/utils/tokenStorage'
-
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  verified?: boolean;
-  has2FA?: boolean;
-}
+import type { User, LoginCredentials } from '@/types'
 
 
 // API configuration is handled in @/api/axios.ts
 
+interface AuthStoreState {
+  user: User | null
+  accessToken: string | null
+  pending2FA: string | null
+  verifiedEmail: boolean
+  isLoading: boolean
+  error: string | null
+}
+
 export const useAuthStore = defineStore('auth', {
-  state: () => ({
+  state: (): AuthStoreState => ({
     user: (() => {
       try {
         const item = localStorage.getItem('user')
@@ -28,18 +28,29 @@ export const useAuthStore = defineStore('auth', {
     accessToken: SecureTokenStorage.getAccessToken() || null,
     pending2FA: null,
     verifiedEmail: false,
+    isLoading: false,
+    error: null,
   }),
 
   actions: {
-    async login(email: string, password: string) {
+    async login(credentials: LoginCredentials): Promise<void> {
+      this.isLoading = true
+      this.error = null
+      
       try {
-        const { data } = await api.post('/auth/login', { email, password })
+        const { data } = await api.post<{
+          requires2FA?: boolean
+          userId?: string
+          accessToken?: string
+          refreshToken?: string
+          user?: User
+        }>('/auth/login', credentials)
         
         if (data.requires2FA) {
-          this.pending2FA = data.userId
+          this.pending2FA = data.userId || null
           this.accessToken = null
           this.user = null
-        } else {
+        } else if (data.accessToken && data.user) {
           this.accessToken = data.accessToken
           this.user = data.user
           SecureTokenStorage.setAccessToken(data.accessToken)
@@ -48,12 +59,15 @@ export const useAuthStore = defineStore('auth', {
           this.pending2FA = null
         }
       } catch (err) {
+        this.error = err instanceof Error ? err.message : 'Login failed'
         console.error('login error:', err)
         throw err
+      } finally {
+        this.isLoading = false
       }
     },
 
-    async logout() {
+    async logout(): Promise<void> {
       try {
         await api.post('/auth/logout')
       } catch (err) {
@@ -62,6 +76,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = null
         this.accessToken = null
         this.pending2FA = null
+        this.error = null
         SecureTokenStorage.clearAll()
         localStorage.removeItem('user')
         delete api.defaults.headers.common['Authorization']

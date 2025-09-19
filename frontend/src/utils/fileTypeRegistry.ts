@@ -122,7 +122,10 @@ Object.entries(FILE_TYPE_REGISTRY).forEach(([typeName, config]) => {
 export function getFileTypeByExtension(extension: string): FileTypeConfig {
   const normalizedExt = extension.toLowerCase().replace(/^\./, '')
   const typeName = extensionToTypeMap.get(normalizedExt)
-  return typeName ? FILE_TYPE_REGISTRY[typeName] : FILE_TYPE_REGISTRY.default
+  if (typeName && FILE_TYPE_REGISTRY[typeName]) {
+    return FILE_TYPE_REGISTRY[typeName]!
+  }
+  return FILE_TYPE_REGISTRY.default!
 }
 
 /**
@@ -139,7 +142,8 @@ export function getFileTypeByName(filename: string): FileTypeConfig {
 export function isFileType(filename: string, typeName: keyof typeof FILE_TYPE_REGISTRY): boolean {
   const extension = filename.split('.').pop() || ''
   const normalizedExt = extension.toLowerCase()
-  return FILE_TYPE_REGISTRY[typeName].extensions.includes(normalizedExt)
+  const typeConfig = FILE_TYPE_REGISTRY[typeName]
+  return typeConfig ? typeConfig.extensions.includes(normalizedExt) : false
 }
 
 /**
@@ -156,7 +160,7 @@ export function getExtensionsForType(typeName: keyof typeof FILE_TYPE_REGISTRY):
 // For useFileIcons.ts compatibility
 export function getFileIcon(item: { name?: string; type?: string }): string {
   if (item.type === 'folder') {
-    return FILE_TYPE_REGISTRY.folder.icon
+    return FILE_TYPE_REGISTRY.folder?.icon || 'bx:folder'
   }
   const config = getFileTypeByName(item.name || '')
   return config.icon
@@ -164,22 +168,22 @@ export function getFileIcon(item: { name?: string; type?: string }): string {
 
 export function getFileColor(item: { name?: string; type?: string }): string {
   if (item.type === 'folder') {
-    return FILE_TYPE_REGISTRY.folder.color
+    return FILE_TYPE_REGISTRY.folder?.color || 'warning'
   }
   const config = getFileTypeByName(item.name || '')
   return config.color
 }
 
 // For fileUtilsService.ts compatibility
-export const imageExtensions = new Set(FILE_TYPE_REGISTRY.image.extensions)
-export const videoExtensions = new Set(FILE_TYPE_REGISTRY.video.extensions)
-export const audioExtensions = new Set(FILE_TYPE_REGISTRY.audio.extensions)
-export const codeExtensions = new Set(FILE_TYPE_REGISTRY.code.extensions)
-export const archiveExtensions = new Set(FILE_TYPE_REGISTRY.archive.extensions)
-export const documentExtensions = new Set(FILE_TYPE_REGISTRY.document.extensions)
-export const textExtensions = new Set(FILE_TYPE_REGISTRY.text.extensions)
-export const spreadsheetExtensions = new Set(FILE_TYPE_REGISTRY.spreadsheet.extensions)
-export const presentationExtensions = new Set(FILE_TYPE_REGISTRY.presentation.extensions)
+export const imageExtensions = new Set(FILE_TYPE_REGISTRY.image?.extensions || [])
+export const videoExtensions = new Set(FILE_TYPE_REGISTRY.video?.extensions || [])
+export const audioExtensions = new Set(FILE_TYPE_REGISTRY.audio?.extensions || [])
+export const codeExtensions = new Set(FILE_TYPE_REGISTRY.code?.extensions || [])
+export const archiveExtensions = new Set(FILE_TYPE_REGISTRY.archive?.extensions || [])
+export const documentExtensions = new Set(FILE_TYPE_REGISTRY.document?.extensions || [])
+export const textExtensions = new Set(FILE_TYPE_REGISTRY.text?.extensions || [])
+export const spreadsheetExtensions = new Set(FILE_TYPE_REGISTRY.spreadsheet?.extensions || [])
+export const presentationExtensions = new Set(FILE_TYPE_REGISTRY.presentation?.extensions || [])
 
 /**
  * Check if extension belongs to category

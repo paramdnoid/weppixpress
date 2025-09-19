@@ -1,10 +1,11 @@
+import type { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
 
 /**
  * Request context middleware for tracking and logging
  */
-function requestContext(req, res, next) {
+function requestContext(req: Request, res: Response, next: NextFunction) {
   // Generate a stable request id
   const requestId = req.get('X-Request-ID') || crypto.randomUUID();
 
@@ -129,7 +130,7 @@ function requestTimeout(timeout = 30000) {
 /**
  * CORS preflight handler with caching
  */
-function corsPreflightHandler(req, res, next) {
+function corsPreflightHandler(req: Request, res: Response, next: NextFunction) {
   if (req.method === 'OPTIONS') {
     // Cache preflight response for 24 hours
     res.setHeader('Access-Control-Max-Age', '86400');
@@ -151,7 +152,7 @@ function corsPreflightHandler(req, res, next) {
 /**
  * API versioning middleware
  */
-function apiVersioning(req, res, next) {
+function apiVersioning(req: Request, res: Response, next: NextFunction) {
   // Extract version from URL path or header
   const urlVersion = req.url.match(/^\/api\/v(\d+)\//)?.[1];
   const headerVersion = req.get('API-Version');

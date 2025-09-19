@@ -3,7 +3,7 @@
  * Provides consistent validation patterns across all forms
  */
 
-import { ref, computed, reactive } from 'vue'
+import { computed, reactive } from 'vue'
 
 export interface ValidationRule {
   required?: boolean
@@ -165,7 +165,7 @@ export function useFormValidation(
   // Initialize validation state for each field
   Object.keys(validationRules).forEach(fieldName => {
     fields[fieldName] = {
-      rules: validationRules[fieldName],
+      rules: validationRules[fieldName] || [],
       error: '',
       touched: false,
       valid: true
@@ -269,9 +269,11 @@ export function useFormValidation(
 
     // Reset validation state
     Object.keys(fields).forEach(fieldName => {
-      fields[fieldName].error = ''
-      fields[fieldName].touched = false
-      fields[fieldName].valid = true
+      if (fields[fieldName]) {
+        fields[fieldName].error = ''
+        fields[fieldName].touched = false
+        fields[fieldName].valid = true
+      }
     })
   }
 

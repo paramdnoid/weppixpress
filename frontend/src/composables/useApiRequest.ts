@@ -283,12 +283,14 @@ export function usePaginatedApiRequest<T = any>(
     if (hasNextPage.value) {
       return await goToPage(currentPage.value + 1)
     }
+    return Promise.resolve()
   }
 
   async function prevPage() {
     if (hasPrevPage.value) {
       return await goToPage(currentPage.value - 1)
     }
+    return Promise.resolve()
   }
 
   return {

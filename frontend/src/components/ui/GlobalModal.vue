@@ -156,7 +156,6 @@ function sanitizeHtml(html: string): string {
   temp.textContent = html // This prevents script execution
 
   // For basic HTML formatting, allow only safe tags
-  const allowedTags = ['p', 'br', 'strong', 'em', 'i', 'b', 'span', 'div']
   const safeHtml = temp.innerHTML
 
   // Strip out any script tags and dangerous attributes

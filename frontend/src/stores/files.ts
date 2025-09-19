@@ -364,7 +364,7 @@ export const useFileStore = defineStore('files', () => {
     // Cache the total size calculation
     let totalSize = 0
     for (let i = 0; i < items.length; i++) {
-      totalSize += items[i].size || 0
+      totalSize += items[i]?.size || 0
     }
 
     return {
@@ -383,7 +383,7 @@ export const useFileStore = defineStore('files', () => {
 
     // Use early return and optimized path checking
     for (let i = 0; i < items.length; i++) {
-      const itemPath = items[i].path
+      const itemPath = items[i]?.path
       if (itemPath === currentPath || currentPath.startsWith(itemPath + '/')) {
         return false
       }
@@ -395,7 +395,7 @@ export const useFileStore = defineStore('files', () => {
   const hasActiveOperations = computed(() => {
     const operations = state.value.operations
     for (let i = 0; i < operations.length; i++) {
-      const status = operations[i].status
+      const status = operations[i]?.status
       if (status === 'pending' || status === 'processing') {
         return true
       }
@@ -686,7 +686,7 @@ export const useFileStore = defineStore('files', () => {
       const s = size.trim()
       const m = /^([0-9]+(?:\.[0-9]+)?)\s*(B|KB|MB|GB|TB)?$/i.exec(s)
       if (m) {
-        const n = parseFloat(m[1])
+        const n = parseFloat(m[1]!)
         const unit = (m[2] || 'B').toUpperCase()
         const mult: Record<string, number> = { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 }
         return n * (mult[unit] || 1)
@@ -711,7 +711,7 @@ export const useFileStore = defineStore('files', () => {
     if (state.value.navigationHistory.length > 1) {
       state.value.navigationHistory.pop()
       const previousPath = state.value.navigationHistory[state.value.navigationHistory.length - 1]
-      return navigateToPath(previousPath)
+      return navigateToPath(previousPath!)
     }
   }
 
@@ -800,7 +800,10 @@ export const useFileStore = defineStore('files', () => {
     const [start, end] = fromIndex < toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex]
 
     for (let i = start; i <= end; i++) {
-      state.value.selectedIds.add(items[i].path)
+      const path = items[i]?.path
+      if (path) {
+        state.value.selectedIds.add(path)
+      }
     }
   }
 

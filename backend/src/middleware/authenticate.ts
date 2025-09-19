@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger.js';
 import jwt from 'jsonwebtoken';
 
@@ -23,7 +24,7 @@ function getTokenFromRequest(req) {
   return null;
 }
 
-function authenticateToken(req, res, next) {
+function authenticateToken(req: Request, res: Response, next: NextFunction) {
   try {
     const token = getTokenFromRequest(req);
     if (!token || token.length < 10) {
@@ -82,7 +83,7 @@ function authenticateToken(req, res, next) {
   }
 }
 
-function requireAdmin(req, res, next) {
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
   try {
     // Must be authenticated first
     if (!req.user) {

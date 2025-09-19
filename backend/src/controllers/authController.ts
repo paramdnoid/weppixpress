@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from 'express';
 import sendMail from '../utils/mail.js';
 import logger from '../utils/logger.js';
 import { sendValidationError, sendUnauthorizedError, sendNotFoundError, sendConflictError, sendInternalServerError, handleValidationErrors } from '../utils/httpResponses.js';
@@ -21,7 +22,7 @@ import {
   clearRefreshTokenCookie
 } from '../utils/jwtUtils.js';
 
-export async function register(req, res, next) {
+export async function register(req: Request, res: Response, next: NextFunction) {
   if (handleValidationErrors(validationResult(req), res)) {
     return;
   }
@@ -79,7 +80,7 @@ export async function register(req, res, next) {
   }
 }
 
-export async function verifyEmail(req, res, next) {
+export async function verifyEmail(req: Request, res: Response, next: NextFunction) {
   try {
     const { token } = req.query;
     if (!token) {
@@ -95,7 +96,7 @@ export async function verifyEmail(req, res, next) {
   }
 }
 
-export async function login(req, res, next) {
+export async function login(req: Request, res: Response, next: NextFunction) {
   if (handleValidationErrors(validationResult(req), res)) {
     return;
   }
@@ -128,7 +129,7 @@ export async function login(req, res, next) {
   }
 }
 
-export async function verify2FA(req, res) {
+export async function verify2FA(req: Request, res: Response) {
   if (handleValidationErrors(validationResult(req), res)) {
     return;
   }
@@ -154,7 +155,7 @@ export async function verify2FA(req, res) {
   });
 }
 
-export async function setup2FA(req, res) {
+export async function setup2FA(req: Request, res: Response) {
   const user = await getUserById(req.user.userId);
   if (!user) {
     return sendNotFoundError(res, 'User not found');
@@ -163,7 +164,7 @@ export async function setup2FA(req, res) {
   const qr = await QRCode.toDataURL(secret.otpauth_url);
   res.json({ secret: secret.base32, qr });
 }
-export async function enable2FAController(req, res) {
+export async function enable2FAController(req: Request, res: Response) {
   if (handleValidationErrors(validationResult(req), res)) {
     return;
   }
@@ -182,12 +183,12 @@ export async function enable2FAController(req, res) {
   await enable2FA(req.user.userId, secret);
   res.json({ message: '2FA has been enabled successfully' });
 }
-export async function disable2FAController(req, res) {
+export async function disable2FAController(req: Request, res: Response) {
   await disable2FA(req.user.userId);
   res.json({ message: '2FA has been disabled successfully' });
 }
 
-export async function forgotPassword(req, res, next) {
+export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
   if (handleValidationErrors(validationResult(req), res)) {
     return;
   }
@@ -245,7 +246,7 @@ export async function forgotPassword(req, res, next) {
     next(err);
   }
 }
-export async function resetPassword(req, res, next) {
+export async function resetPassword(req: Request, res: Response, next: NextFunction) {
   if (handleValidationErrors(validationResult(req), res)) {
     return;
   }
@@ -264,7 +265,7 @@ export async function resetPassword(req, res, next) {
   }
 }
 
-export async function refreshToken(req, res) {
+export async function refreshToken(req: Request, res: Response) {
   const { refreshToken: refreshTokenCookie } = req.cookies;
   if (!refreshTokenCookie) {
     return res.status(401).json({ message: 'No refresh token provided' });
@@ -300,7 +301,7 @@ export function logout(_req, res, next) {
   }
 }
 
-export async function getProfile(req, res) {
+export async function getProfile(req: Request, res: Response) {
   try {
     const user = await getUserById(req.user.userId);
     if (!user) {

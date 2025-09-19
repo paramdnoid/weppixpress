@@ -75,7 +75,9 @@ export function useVirtualScroll<T>(
     } else {
       // Dynamic heights - calculate with caching
       for (let i = 0; i < itemsValue.length; i++) {
-        height += getItemHeight(itemsValue[i], i)
+        if (itemsValue[i] !== undefined) {
+          height += getItemHeight(itemsValue[i]!, i)
+        }
       }
     }
     
@@ -97,7 +99,9 @@ export function useVirtualScroll<T>(
       // Dynamic heights
       for (let i = 0; i < index; i++) {
         if (i < itemsValue.length) {
-          offset += getItemHeight(itemsValue[i], i)
+          if (itemsValue[i] !== undefined) {
+            offset += getItemHeight(itemsValue[i]!, i)
+          }
         }
       }
     }
@@ -145,7 +149,9 @@ export function useVirtualScroll<T>(
     // Find end index by accumulating heights until container is filled
     while (end < itemsValue.length && height < containerHeight + tolerance) {
       if (end < itemsValue.length) {
-        height += getItemHeight(itemsValue[end], end)
+        if (itemsValue[end] !== undefined) {
+          height += getItemHeight(itemsValue[end]!, end)
+        }
       }
       end++
     }
@@ -162,15 +168,17 @@ export function useVirtualScroll<T>(
 
     for (let i = start; i <= end && i < itemsValue.length; i++) {
       const item = itemsValue[i]
-      const height = getItemHeight(item, i)
-      const offsetY = getItemOffset(i)
-      
-      result.push({
-        item,
-        index: i,
-        offsetY,
-        height
-      })
+      if (item !== undefined) {
+        const height = getItemHeight(item, i)
+        const offsetY = getItemOffset(i)
+
+        result.push({
+          item,
+          index: i,
+          offsetY,
+          height
+        })
+      }
     }
 
     return result

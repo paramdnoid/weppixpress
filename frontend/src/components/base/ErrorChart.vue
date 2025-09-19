@@ -71,7 +71,6 @@ const chartType = ref(props.type)
 const isLoading = ref(false)
 const error = ref('')
 
-let _chart: any = null
 
 // Simple chart implementation without external dependencies
 const drawChart = () => {

@@ -1,25 +1,30 @@
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
-import { WebSocketServer } from 'ws';
-
-// backend/websocketHandler.js
+import { WebSocketServer, WebSocket } from 'ws';
+import { Server as HTTPServer } from 'http';
+import { WSClient } from '../types/websocket.js';
 
 class WebSocketManager {
-  constructor(server) {
-    this.wss = new WebSocketServer({ 
-      server, 
+  public wss: WebSocketServer;
+  public clients: Map<string, WSClient>;
+  public pathSubscriptions: Map<string, Set<WebSocket>>;
+  public pingInterval?: NodeJS.Timeout;
+
+  constructor(server: HTTPServer) {
+    this.wss = new WebSocketServer({
+      server,
       path: '/ws',
       verifyClient: this.verifyClient.bind(this)
     });
-    
-    this.clients = new Map(); // Map<WebSocket, ClientInfo>
-    this.pathSubscriptions = new Map(); // Map<path, Set<WebSocket>>
+
+    this.clients = new Map<string, WSClient>();
+    this.pathSubscriptions = new Map<string, Set<WebSocket>>();
     
     this.setupWebSocketServer();
     logger.info('WebSocket server initialized on /ws');
   }
 
-  verifyClient(_info) {
+  verifyClient(_info: any): boolean {
     // Optional: Add authentication verification here
     // const token = _info.req.headers.authorization;
     // return this.validateToken(token);

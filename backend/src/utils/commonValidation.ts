@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import { sendValidationError } from './httpResponses.js';
 
@@ -20,7 +21,7 @@ export function getUserId(req) {
  * @param {import('express').Response} res - Express response
  * @returns {boolean} True if user ID is missing (error response sent)
  */
-export function validateUserId(req, res) {
+export function validateUserId(req: Request, res: Response) {
   if (!getUserId(req)) {
     sendValidationError(res, 'Unauthorized: Missing user ID');
     return true;
@@ -34,7 +35,7 @@ export function validateUserId(req, res) {
  * @param {import('express').Response} res - Express response
  * @returns {boolean} True if validation errors exist (error response sent)
  */
-export function handleValidationResult(req, res) {
+export function handleValidationResult(req: Request, res: Response) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     sendValidationError(res, 'Validation failed', errors.array());
@@ -181,7 +182,7 @@ export function validateRole(role, allowedRoles = ['user', 'admin']) {
  * @param {import('express').Response} res - Express response
  * @returns {boolean} True if any validation failed (error response sent)
  */
-export function validateUserIdAndParams(req, res) {
+export function validateUserIdAndParams(req: Request, res: Response) {
   return handleValidationResult(req, res) || validateUserId(req, res);
 }
 

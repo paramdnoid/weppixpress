@@ -93,7 +93,7 @@ function sanitizeHtml(content: string, options: SecureContentOptions = {}): stri
       sanitized = sanitized.replace(/<\/?a[^>]*>/gi, '')
     } else {
       // Sanitize href attributes in allowed links
-      sanitized = sanitized.replace(/<a\s+[^>]*href\s*=\s*["']?([^"'>\s]+)["']?[^>]*>/gi, (match, href) => {
+      sanitized = sanitized.replace(/<a\s+[^>]*href\s*=\s*["']?([^"'>\s]+)["']?[^>]*>/gi, (_match, href) => {
         // Only allow http, https, and relative URLs
         if (href.match(/^(https?:\/\/|\/|\.\/|#)/i)) {
           return `<a href="${href}" target="_blank" rel="noopener noreferrer">`

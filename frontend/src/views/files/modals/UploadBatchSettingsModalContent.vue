@@ -449,10 +449,10 @@ interface Props {
   modalId?: string
 }
 
-const _props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   modalId: ''
 })
-const _emit = defineEmits<{
+defineEmits<{
   close: []
   confirm: []
 }>()

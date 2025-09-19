@@ -133,7 +133,10 @@ const { handleSubmit: handle2FASubmit } = useAuthForm({
 
 async function onLogin() {
   await handleSubmit(async () => {
-    await auth.login(email.value, password.value);
+    await auth.login({
+      email: email.value,
+      password: password.value
+    });
   });
 }
 

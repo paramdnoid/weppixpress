@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from 'express';
 import errorMetricsService from '../services/errorMetricsService.js';
 import { AppError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
@@ -57,7 +58,7 @@ function errorHandler(err, req, res, _next) {
   res.status(statusCode).json(payload);
 }
 
-function notFound(req, res, next) {
+function notFound(req: Request, res: Response, next: NextFunction) {
   const error = new AppError(`Not found - ${req.originalUrl}`, 404);
   next(error);
 }

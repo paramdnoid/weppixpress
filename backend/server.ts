@@ -5,14 +5,14 @@ import { WebSocketManager } from './src/websockets/websocketService.js';
 import { gracefulShutdown } from './src/utils/gracefulShutdown.js';
 import websocketProvider from './src/services/websocketProvider.js';
 
-const PORT = serverConfig.port;
+const PORT = typeof serverConfig.port === 'string' ? parseInt(serverConfig.port, 10) : serverConfig.port;
 const HOST = serverConfig.host;
 
 const server = app.listen(PORT, HOST, () => {
   logger.info(`🚀 Backend + WS running on http://${HOST}:${PORT}`);
   logger.info(`📚 API Docs available at http://${HOST}:${PORT}/api-docs`);
 }).on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
+  if ('code' in err && err.code === 'EADDRINUSE') {
     logger.error(`Port ${PORT} is already in use. Please try a different port or stop the existing process.`);
     logger.info('To find processes using this port, run: lsof -ti:' + PORT);
     logger.info('To kill processes using this port, run: kill $(lsof -ti:' + PORT + ')');
@@ -43,8 +43,8 @@ process.on('SIGTERM', () => gracefulShutdown(server, wsManager, 'SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown(server, wsManager, 'SIGINT'));
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Promise Rejection:', {
-    reason: reason.message || reason,
-    stack: reason.stack,
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
     promise: promise.toString()
   });
 

@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from 'express';
 import { getAllUsers, getUserById, updateUserRole } from '../models/userModel.js';
 import logger from '../utils/logger.js';
 import { sendValidationError, sendNotFoundError, handleValidationErrors } from '../utils/httpResponses.js';
@@ -7,7 +8,7 @@ import { validationResult } from 'express-validator';
 /**
  * Get all users (admin only)
  */
-export async function getUsers(req, res, next) {
+export async function getUsers(req: Request, res: Response, next: NextFunction) {
   try {
     const users = await getAllUsers();
     res.json({
@@ -29,7 +30,7 @@ export async function getUsers(req, res, next) {
 /**
  * Update user role (admin only)
  */
-export async function updateUserRoleController(req, res, next) {
+export async function updateUserRoleController(req: Request, res: Response, next: NextFunction) {
   if (handleValidationErrors(validationResult(req), res)) {
     return;
   }
@@ -84,7 +85,7 @@ export async function updateUserRoleController(req, res, next) {
 /**
  * Make user admin (convenience endpoint)
  */
-export async function makeAdmin(req, res, next) {
+export async function makeAdmin(req: Request, res: Response, next: NextFunction) {
   try {
     const { userId } = req.params;
 
@@ -125,7 +126,7 @@ export async function makeAdmin(req, res, next) {
 /**
  * Remove admin privileges (convenience endpoint)  
  */
-export async function removeAdmin(req, res, next) {
+export async function removeAdmin(req: Request, res: Response, next: NextFunction) {
   try {
     const { userId } = req.params;
 

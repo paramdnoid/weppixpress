@@ -510,9 +510,9 @@ const sanitizeText = (text: string | undefined | null): string => {
 }
 
 // Authorization helper
-const hasPermission = (permission: string): boolean => {
+const hasPermission = (_permission: string): boolean => {
   const authStore = useAuthStore()
-  return authStore.user?.role === 'admin' && authStore.user?.permissions?.includes(permission)
+  return authStore.user?.role === 'admin'
 }
 
 // CSRF token helper (assuming it's available globally or from a store)

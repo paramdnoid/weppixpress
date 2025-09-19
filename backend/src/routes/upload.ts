@@ -151,7 +151,7 @@ const MAX_FILES_PER_SESSION = parseInt(process.env.UPLOAD_MAX_FILES_PER_SESSION)
 const MAX_CONCURRENT_STREAMS = parseInt(process.env.UPLOAD_MAX_CONCURRENT_STREAMS) || 20; // Increase concurrent streams
 
 // Optimized session validation middleware
-function validateSession(req, res, next) {
+function validateSession(req: Request, res: Response, next: NextFunction) {
   const { sessionId } = req.params;
   const userId = req.user.id;
 

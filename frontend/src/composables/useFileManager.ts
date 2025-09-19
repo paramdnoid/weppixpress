@@ -255,7 +255,7 @@ export function useFileManager() {
     
     const count = selectedItems.length
     const message = count === 1 
-      ? `Delete "${selectedItems[0].name}"?`
+      ? `Delete "${selectedItems[0]?.name}"?`
       : `Delete ${count} items?`
     
     if (confirm(message)) {

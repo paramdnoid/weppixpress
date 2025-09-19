@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from 'express';
 import { FileCache } from '../utils/fileCache.js';
 import logger from '../utils/logger.js';
 import { getUserDirectory, sanitizeUploadPath, secureResolve } from '../utils/pathSecurity.js';
@@ -192,7 +193,7 @@ async function getFolderSize(folderPath, options = {}) {
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
-export async function getFolderFiles(req, res) {
+export async function getFolderFiles(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (validateUserId(req, res)) {
     return;
@@ -294,7 +295,7 @@ export async function ensureUserUploadDir(userId) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function deleteFiles(req, res, next) {
+export async function deleteFiles(req: Request, res: Response, next: NextFunction) {
   try {
     if (validateUserId(req, res)) {
       return;
@@ -396,7 +397,7 @@ export async function deleteFiles(req, res, next) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function moveFiles(req, res, next) {
+export async function moveFiles(req: Request, res: Response, next: NextFunction) {
   try {
     const { paths, destination } = req.body;
     const userId = req.user.userId;
@@ -503,7 +504,7 @@ export async function moveFiles(req, res, next) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function createFolder(req, res, next) {
+export async function createFolder(req: Request, res: Response, next: NextFunction) {
   try {
     const { name, path = '' } = req.body;
     const userId = req.user.userId;
@@ -563,7 +564,7 @@ export async function createFolder(req, res, next) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function renameItem(req, res, next) {
+export async function renameItem(req: Request, res: Response, next: NextFunction) {
   try {
     if (validateUserId(req, res)) {
       return;
@@ -631,7 +632,7 @@ export async function renameItem(req, res, next) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function copyFiles(req, res, next) {
+export async function copyFiles(req: Request, res: Response, next: NextFunction) {
   try {
     const { paths, destination } = req.body;
     const userId = req.user.userId;
@@ -872,7 +873,7 @@ async function copyDirectoryRecursive(source, destination, options = {}) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function downloadFile(req, res, next) {
+export async function downloadFile(req: Request, res: Response, next: NextFunction) {
   try {
     if (validateUserId(req, res)) {
       return;
@@ -937,7 +938,7 @@ export async function downloadFile(req, res, next) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function downloadAsZip(req, res, next) {
+export async function downloadAsZip(req: Request, res: Response, next: NextFunction) {
   try {
     if (validateUserId(req, res)) {
       return;
