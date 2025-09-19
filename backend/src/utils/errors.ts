@@ -31,14 +31,14 @@ export interface ErrorDetail {
 }
 
 class AppError extends Error {
-  public statusCode: number
-  public code: ErrorCode | string
-  public isOperational: boolean
-  public timestamp: Date
-  public requestId?: string
-  public details?: ErrorDetail[]
-  public shouldLog?: boolean
-  public originalError?: Error
+  public readonly statusCode: number
+  public readonly code: ErrorCode | string
+  public readonly isOperational: boolean
+  public readonly timestamp: Date
+  public readonly requestId?: string
+  public readonly details?: ErrorDetail[]
+  public readonly shouldLog?: boolean
+  public readonly originalError?: Error
 
   constructor(
     message: string,

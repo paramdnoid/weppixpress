@@ -1,12 +1,4 @@
 import type { Request, Response, NextFunction } from 'express';
-
-// Extended Request interface for authenticated routes
-interface AuthenticatedRequest extends Request {
-  user?: {
-    userId: string;
-    [key: string]: any;
-  };
-}
 import {
   logger,
   sendMail,
@@ -18,8 +10,16 @@ import {
   handleValidationErrors,
   getEmailTemplate
 } from '../utils/index.js';
-import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+
+// Extended Request interface for authenticated routes
+interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+    [key: string]: any;
+  };
+}
 import { validationResult } from 'express-validator';
 import * as QRCode from 'qrcode';
 import * as speakeasy from 'speakeasy';

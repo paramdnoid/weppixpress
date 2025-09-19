@@ -2,6 +2,7 @@ import { authenticateToken, requireAdmin } from '../middleware/authenticate.js';
 import errorMetricsService from '../services/errorMetricsService.js';
 import monitoringService from '../services/monitoringService.js';
 import { logger, sendInternalServerError } from '../utils/index.js';
+import { withAdminAuth } from '../middleware/authHelpers.js';
 import express, { Router, Request, Response } from 'express';
 
 const router: Router = express.Router();
