@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { sendValidationError } from './httpResponses.js';
 
@@ -11,8 +11,8 @@ import { sendValidationError } from './httpResponses.js';
  * @param {import('express').Request} req - Express request
  * @returns {string|null} User ID or null if not present
  */
-export function getUserId(req) {
-  return req.user?.userId || null;
+export function getUserId(req: Request): string | null {
+  return (req as any).user?.id || null;
 }
 
 /**
@@ -21,7 +21,7 @@ export function getUserId(req) {
  * @param {import('express').Response} res - Express response
  * @returns {boolean} True if user ID is missing (error response sent)
  */
-export function validateUserId(req: Request, res: Response) {
+export function validateUserId(req: Request, res: Response): boolean {
   if (!getUserId(req)) {
     sendValidationError(res, 'Unauthorized: Missing user ID');
     return true;
@@ -35,7 +35,7 @@ export function validateUserId(req: Request, res: Response) {
  * @param {import('express').Response} res - Express response
  * @returns {boolean} True if validation errors exist (error response sent)
  */
-export function handleValidationResult(req: Request, res: Response) {
+export function handleValidationResult(req: Request, res: Response): boolean {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     sendValidationError(res, 'Validation failed', errors.array());
@@ -50,7 +50,10 @@ export function handleValidationResult(req: Request, res: Response) {
  * @param {string} paramName - Parameter name for error message
  * @returns {Object} Validation result with isValid and error
  */
-export function validateArrayParam(value, paramName = 'parameter') {
+export function validateArrayParam(
+  value: unknown,
+  paramName: string = 'parameter'
+): { isValid: boolean; error?: string } {
   if (!Array.isArray(value)) {
     return {
       isValid: false,
@@ -66,7 +69,10 @@ export function validateArrayParam(value, paramName = 'parameter') {
  * @param {string} paramName - Parameter name for error message
  * @returns {Object} Validation result with isValid and error
  */
-export function validateRequiredString(value, paramName = 'parameter') {
+export function validateRequiredString(
+  value: unknown,
+  paramName: string = 'parameter'
+): { isValid: boolean; error?: string } {
   if (!value || typeof value !== 'string' || !value.trim()) {
     return {
       isValid: false,
@@ -83,8 +89,12 @@ export function validateRequiredString(value, paramName = 'parameter') {
  * @param {Object} options - Validation options (min, max)
  * @returns {Object} Validation result with isValid, error, and parsed value
  */
-export function validateNumericParam(value, paramName = 'parameter', options = {}) {
-  const numValue = Number(value);
+export function validateNumericParam(
+  value: unknown,
+  paramName: string = 'parameter',
+  options: { min?: number; max?: number } = {}
+): { isValid: boolean; error?: string; value?: number } {
+  const numValue = Number(value as any);
   
   if (isNaN(numValue) || !isFinite(numValue)) {
     return {
@@ -93,14 +103,14 @@ export function validateNumericParam(value, paramName = 'parameter', options = {
     };
   }
   
-  if (options.min !== undefined && numValue < options.min) {
+  if (options.min !== undefined && numValue < (options.min as number)) {
     return {
       isValid: false,
       error: `${paramName} must be at least ${options.min}`
     };
   }
   
-  if (options.max !== undefined && numValue > options.max) {
+  if (options.max !== undefined && numValue > (options.max as number)) {
     return {
       isValid: false,
       error: `${paramName} must be at most ${options.max}`
@@ -119,7 +129,10 @@ export function validateNumericParam(value, paramName = 'parameter', options = {
  * @param {number} maxSize - Maximum allowed size in bytes
  * @returns {Object} Validation result
  */
-export function validateFileSize(fileSize, maxSize) {
+export function validateFileSize(
+  fileSize: number,
+  maxSize: number
+): { isValid: boolean; error?: string } {
   if (fileSize > maxSize) {
     const maxSizeGB = Math.round(maxSize / (1024 * 1024 * 1024));
     return {
@@ -135,7 +148,7 @@ export function validateFileSize(fileSize, maxSize) {
  * @param {string} email - Email to validate
  * @returns {Object} Validation result
  */
-export function validateEmail(email) {
+export function validateEmail(email: string): { isValid: boolean; error?: string } {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   
   if (!email || typeof email !== 'string') {
@@ -161,7 +174,10 @@ export function validateEmail(email) {
  * @param {string[]} allowedRoles - Array of allowed roles
  * @returns {Object} Validation result
  */
-export function validateRole(role, allowedRoles = ['user', 'admin']) {
+export function validateRole(
+  role: string,
+  allowedRoles: string[] = ['user', 'admin']
+): { isValid: boolean; error?: string } {
   if (!allowedRoles.includes(role)) {
     return {
       isValid: false,
@@ -182,7 +198,7 @@ export function validateRole(role, allowedRoles = ['user', 'admin']) {
  * @param {import('express').Response} res - Express response
  * @returns {boolean} True if any validation failed (error response sent)
  */
-export function validateUserIdAndParams(req: Request, res: Response) {
+export function validateUserIdAndParams(req: Request, res: Response): boolean {
   return handleValidationResult(req, res) || validateUserId(req, res);
 }
 
@@ -192,11 +208,15 @@ export function validateUserIdAndParams(req: Request, res: Response) {
  * @param {string[]} requiredFields - Array of required field names
  * @returns {Object} Validation result with missing fields
  */
-export function validateRequiredFields(body, requiredFields) {
-  const missing = [];
+export function validateRequiredFields(
+  body: Record<string, unknown>,
+  requiredFields: string[]
+): { isValid: boolean; error?: string } {
+  const missing: string[] = [];
   
   for (const field of requiredFields) {
-    if (!body[field] || (typeof body[field] === 'string' && !body[field].trim())) {
+    const val = body[field];
+    if (val === undefined || val === null || (typeof val === 'string' && !val.trim())) {
       missing.push(field);
     }
   }

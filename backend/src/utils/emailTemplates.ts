@@ -5,14 +5,24 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export async function getEmailTemplate(templateName, variables = {}) {
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export async function getEmailTemplate(
+  templateName: string,
+  variables: Record<string, unknown> = {}
+): Promise<string> {
   try {
-    const templatePath = path.join(__dirname, '../templates/emails', `${templateName}.html`);
+    const templatePath = path.resolve(__dirname, '../templates/emails', `${templateName}.html`);
     let template = await fs.readFile(templatePath, 'utf-8');
 
-    for (const [key, value] of Object.entries(variables)) {
+    for (const [key, rawValue] of Object.entries(variables)) {
       const placeholder = `{{${key}}}`;
-      template = template.replace(new RegExp(placeholder, 'g'), value);
+      // Use a safe global replacement that respects literal braces
+      const pattern = new RegExp(escapeRegExp(placeholder), 'g');
+      const value = String(rawValue ?? '');
+      template = template.replace(pattern, value);
     }
 
     return template;

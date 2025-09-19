@@ -2,10 +2,17 @@ import type { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
 
+// Extended Request interface for request context
+interface RequestWithContext extends Request {
+  requestId?: string;
+  correlationId?: string;
+  apiVersion?: string;
+}
+
 /**
  * Request context middleware for tracking and logging
  */
-function requestContext(req: Request, res: Response, next: NextFunction) {
+function requestContext(req: RequestWithContext, res: Response, next: NextFunction) {
   // Generate a stable request id
   const requestId = req.get('X-Request-ID') || crypto.randomUUID();
 
@@ -39,8 +46,8 @@ function requestContext(req: Request, res: Response, next: NextFunction) {
   });
 
   // Override res.end to log request completion
-  const originalEnd = res.end;
-  res.end = function (chunk, encoding, cb) {
+  const originalEnd = res.end.bind(res);
+  res.end = function (chunk?: any, encoding?: any, cb?: any) {
     const duration = Date.now() - startTime;
 
     try {
@@ -58,7 +65,7 @@ function requestContext(req: Request, res: Response, next: NextFunction) {
       // logging should never break response
     }
 
-    return originalEnd.call(this, chunk, encoding, cb);
+    return originalEnd(chunk, encoding, cb);
   };
 
   next();
@@ -68,7 +75,7 @@ function requestContext(req: Request, res: Response, next: NextFunction) {
  * Request size limiter middleware
  */
 function requestSizeLimiter(maxSize = '50mb') {
-  return (req, res, next) => {
+  return (req: any, res: any, next: any) => {
 
     const contentLength = parseInt(req.get('Content-Length') || '0', 10);
     const maxSizeBytes = parseSize(maxSize);
@@ -97,7 +104,7 @@ function requestSizeLimiter(maxSize = '50mb') {
  * Request timeout middleware
  */
 function requestTimeout(timeout = 30000) {
-  return (req, res, next) => {
+  return (req: any, res: any, next: any) => {
     const timer = setTimeout(() => {
       if (!res.headersSent) {
         logger.warn('Request timeout', {
@@ -120,7 +127,7 @@ function requestTimeout(timeout = 30000) {
     const originalEnd = res.end;
     res.end = function (chunk, encoding, cb) {
       clearTimeout(timer);
-      return originalEnd.call(this, chunk, encoding, cb);
+      return originalEnd(chunk, encoding, cb);
     };
 
     next();
@@ -152,7 +159,7 @@ function corsPreflightHandler(req: Request, res: Response, next: NextFunction) {
 /**
  * API versioning middleware
  */
-function apiVersioning(req: Request, res: Response, next: NextFunction) {
+function apiVersioning(req: RequestWithContext, res: Response, next: NextFunction) {
   // Extract version from URL path or header
   const urlVersion = req.url.match(/^\/api\/v(\d+)\//)?.[1];
   const headerVersion = req.get('API-Version');

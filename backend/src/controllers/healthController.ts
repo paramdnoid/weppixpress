@@ -2,8 +2,8 @@ import pool from '../services/dbConnection.js';
 import { createClient } from 'redis';
 import logger from '../utils/logger.js';
 
-export async function healthCheck(_req, res) {
-  const health = {
+export async function healthCheck(_req: any, res: any) {
+  const health: any = {
     status: 'ok',
     timestamp: new Date().toISOString(),
     services: {}

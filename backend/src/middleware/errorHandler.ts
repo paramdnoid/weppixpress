@@ -3,14 +3,22 @@ import errorMetricsService from '../services/errorMetricsService.js';
 import { AppError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
 
-function errorHandler(err, req, res, _next) {
+// Extended Request interface for authenticated routes
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    [key: string]: any;
+  };
+}
+
+function errorHandler(err: any, req: AuthenticatedRequest, res: Response, _next: NextFunction) {
   // Ensure we always have a status code
   const statusCode = typeof err.statusCode === 'number' ? err.statusCode : 500;
   const isAppError = err instanceof AppError || err.isOperational === true;
   const env = process.env.NODE_ENV || 'development';
 
   // Build a safe payload
-  const payload = {
+  const payload: any = {
     success: false,
     error: {
       message: isAppError ? err.message : (env === 'development' ? err.message : 'Internal Server Error'),

@@ -1,63 +1,163 @@
-export class PerformanceMonitor {
-  private metrics: Map<string, number[]> = new Map()
+/**
+ * Performance Optimization Utilities
+ * Best practices: Debouncing, throttling, memoization, lazy loading
+ */
 
-  measure<T>(name: string, fn: () => T): T {
-    const start = performance.now()
-    const result = fn()
-    const duration = performance.now() - start
+// Debounce function with type safety
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  delay: number,
+  immediate: boolean = false
+): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-    if (!this.metrics.has(name)) {
-      this.metrics.set(name, [])
-    }
-    
-    const measurements = this.metrics.get(name)!
-    measurements.push(duration)
-    
-    // Keep only last 100 measurements
-    if (measurements.length > 100) {
-      measurements.shift()
-    }
+  return (...args: Parameters<T>) => {
+    const callNow = immediate && !timeoutId
 
-    return result
-  }
-
-  async measureAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
-    const start = performance.now()
-    const result = await fn()
-    const duration = performance.now() - start
-
-    if (!this.metrics.has(name)) {
-      this.metrics.set(name, [])
-    }
-    
-    const measurements = this.metrics.get(name)!
-    measurements.push(duration)
-    
-    if (measurements.length > 100) {
-      measurements.shift()
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId)
     }
 
-    return result
-  }
+    timeoutId = setTimeout(() => {
+      timeoutId = null
+      if (!immediate) func(...args)
+    }, delay)
 
-  getStats(name: string) {
-    const measurements = this.metrics.get(name) || []
-    if (measurements.length === 0) return null
-
-    const avg = measurements.reduce((a, b) => a + b, 0) / measurements.length
-    const min = Math.min(...measurements)
-    const max = Math.max(...measurements)
-
-    return { avg, min, max, count: measurements.length }
-  }
-
-  getAllStats() {
-    const stats: Record<string, any> = {}
-    for (const [name] of this.metrics) {
-      stats[name] = this.getStats(name)
-    }
-    return stats
+    if (callNow) func(...args)
   }
 }
 
-export const performanceMonitor = new PerformanceMonitor()
+// Throttle function with type safety
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  delay: number,
+  options: { leading?: boolean; trailing?: boolean } = {}
+): (...args: Parameters<T>) => void {
+  const { leading = true, trailing = true } = options
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  let lastExecTime = 0
+  let lastArgs: Parameters<T> | null = null
+
+  return (...args: Parameters<T>) => {
+    const now = Date.now()
+    lastArgs = args
+
+    const execute = () => {
+      lastExecTime = Date.now()
+      func(...args)
+    }
+
+    const timeSinceLastExec = now - lastExecTime
+
+    if (leading && timeSinceLastExec >= delay) {
+      execute()
+    } else if (trailing) {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
+
+      timeoutId = setTimeout(() => {
+        if (lastArgs) {
+          execute()
+        }
+        timeoutId = null
+      }, delay - timeSinceLastExec)
+    }
+  }
+}
+
+// Memoization with LRU cache
+export function memoize<T extends (...args: any[]) => any>(
+  func: T,
+  maxSize: number = 100,
+  keyGenerator?: (...args: Parameters<T>) => string
+): T & { clear: () => void; size: () => number } {
+  const cache = new Map<string, ReturnType<T>>()
+
+  const getKey = keyGenerator || ((...args: Parameters<T>) => JSON.stringify(args))
+
+  const memoized = (...args: Parameters<T>): ReturnType<T> => {
+    const key = getKey(...args)
+
+    if (cache.has(key)) {
+      // Move to end (LRU)
+      const value = cache.get(key)!
+      cache.delete(key)
+      cache.set(key, value)
+      return value
+    }
+
+    // Remove oldest if cache is full
+    if (cache.size >= maxSize) {
+      const firstKey = cache.keys().next().value
+      cache.delete(firstKey)
+    }
+
+    const result = func(...args)
+    cache.set(key, result)
+    return result
+  }
+
+  memoized.clear = () => cache.clear()
+  memoized.size = () => cache.size
+
+  return memoized as T & { clear: () => void; size: () => number }
+}
+
+// Performance timing utilities
+export class PerformanceTimer {
+  private markers = new Map<string, number>()
+
+  mark(label: string) {
+    this.markers.set(label, performance.now())
+  }
+
+  measure(startLabel: string, endLabel?: string): number {
+    const startTime = this.markers.get(startLabel)
+    if (startTime === undefined) {
+      throw new Error(`Start marker "${startLabel}" not found`)
+    }
+
+    const endTime = endLabel
+      ? this.markers.get(endLabel)
+      : performance.now()
+
+    if (endTime === undefined) {
+      throw new Error(`End marker "${endLabel}" not found`)
+    }
+
+    return endTime - startTime
+  }
+
+  clear(label?: string) {
+    if (label) {
+      this.markers.delete(label)
+    } else {
+      this.markers.clear()
+    }
+  }
+}
+
+export const timer = new PerformanceTimer()
+
+// Auto-cleanup utilities for better memory management
+export function createAutoCleanup() {
+  const cleanupTasks: (() => void)[] = []
+
+  const add = (task: () => void) => {
+    cleanupTasks.push(task)
+  }
+
+  const cleanup = () => {
+    cleanupTasks.forEach(task => {
+      try {
+        task()
+      } catch (error) {
+        console.error('Cleanup task failed:', error)
+      }
+    })
+    cleanupTasks.length = 0
+  }
+
+  return { add, cleanup }
+}

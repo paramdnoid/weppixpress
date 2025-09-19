@@ -136,7 +136,7 @@ function getSeverity(category) {
  * @param {string} input - Input string
  * @param {Object} options - Sanitization options
  */
-function sanitizeString(input, options = {}) {
+function sanitizeString(input: any, options: any = {}) {
   if (!input || typeof input !== 'string') {
     return input;
   }
@@ -210,7 +210,7 @@ function _sanitizeUrl(url) {
 /**
  * Recursive object sanitization
  */
-function sanitizeObject(obj, options = {}) {
+function sanitizeObject(obj: any, options: any = {}) {
   if (!obj || typeof obj !== 'object') {
     return obj;
   }
@@ -259,7 +259,7 @@ function sanitizeObject(obj, options = {}) {
 /**
  * Express Middleware for enhanced input sanitization
  */
-const enhancedSanitization =  (options = {}) => {
+const enhancedSanitization = (options: any = {}) => {
   const config = {
     strict: options.strict || false,
     logThreats: options.logThreats !== false,
@@ -268,7 +268,7 @@ const enhancedSanitization =  (options = {}) => {
     ...options
   };
 
-  return (req, res, next) => {
+  return (req: any, res: any, next: any) => {
     try {
       // Request Body sanitization
       if (req.body && typeof req.body === 'object') {

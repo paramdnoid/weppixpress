@@ -5,14 +5,14 @@ import fileRoutes from './files.js';
 import healthRoutes from './health.js';
 import uploadRoutes from './upload.js';
 import websiteInfoRoutes from './websiteInfo.js';
-import express from 'express';
+import express, { Application, Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function setupRoutes(app) {
+export function setupRoutes(app: Application): void {
   // API Routes
   app.use('/api/health', healthRoutes);
   app.use('/api/auth', authRoutes);
@@ -27,15 +27,15 @@ export function setupRoutes(app) {
     maxAge: process.env.NODE_ENV === 'production' ? '1d' : '0',
     etag: true,
     lastModified: true,
-    setHeaders: (res, path) => {
-      if (path.endsWith('.html')) {
+    setHeaders: (res: Response, filePath: string) => {
+      if (filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache');
       }
     }
   }));
 
   // Dashboard route
-  app.get('/dashboard', (_req, res) => {
+  app.get('/dashboard', (_req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../../public/dashboard/index.html'));
   });
 }

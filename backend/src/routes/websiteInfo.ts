@@ -1,10 +1,36 @@
 import { authenticateToken } from '../middleware/authenticate.js';
 import { getWebsiteInfo, probe } from '../services/websiteInfoService.js';
 import logger from '../utils/logger.js';
-import express from 'express';
+import express, { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 
-const router = express.Router();
+// Extended Request interface for authenticated routes (local to avoid tsconfig include issues)
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    [key: string]: any;
+  };
+}
+
+// Narrowed types for website info service responses
+type WebsiteInfoSuccess = {
+  ok: true;
+  status: number;
+  url: string;
+  title?: string;
+  metrics?: { wordCount?: number };
+  images?: Array<unknown>;
+  links?: Array<unknown>;
+};
+
+type WebsiteInfoBase = { ok: boolean; status?: number; url?: string } & Record<string, any>;
+type WebsiteInfoResponse = WebsiteInfoBase;
+
+function isWebsiteInfoSuccess(info: WebsiteInfoResponse): info is WebsiteInfoSuccess {
+  return info.ok === true;
+}
+
+const router: Router = express.Router();
 
 // Rate limit to prevent abuse - 30 requests per minute
 const websiteInfoLimiter = rateLimit({
@@ -140,7 +166,7 @@ router.use(websiteInfoLimiter);
  *       500:
  *         description: Server error during website analysis
  */
-router.get('/analyze', async (req, res) => {
+router.get('/analyze', async (req: AuthenticatedRequest, res: Response) => {
   const { url, timeout } = req.query;
   
   if (!url) {
@@ -166,7 +192,7 @@ router.get('/analyze', async (req, res) => {
     // Parse timeout with validation
     let timeoutMs = 12000; // Default 12 seconds
     if (timeout) {
-      const parsedTimeout = parseInt(timeout);
+      const parsedTimeout = parseInt(String(timeout));
       if (!isNaN(parsedTimeout) && parsedTimeout >= 1000 && parsedTimeout <= 30000) {
         timeoutMs = parsedTimeout;
       }
@@ -179,10 +205,10 @@ router.get('/analyze', async (req, res) => {
       userAgent: req.get('User-Agent')
     });
 
-    const info = await getWebsiteInfo(urlStr, { timeoutMs });
+    const info: WebsiteInfoResponse = await getWebsiteInfo(urlStr, { timeoutMs });
     
     // Log successful analysis
-    if (info.ok) {
+    if (isWebsiteInfoSuccess(info)) {
       logger.info('Website info analysis successful', {
         userId: req.user?.id,
         url: info.url,
@@ -203,12 +229,13 @@ router.get('/analyze', async (req, res) => {
     const responseStatus = info.ok ? 200 : (info.status >= 400 ? info.status : 502);
     res.status(responseStatus).json(info);
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
     logger.error('Website info service error', {
       userId: req.user?.id,
       url: urlStr,
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     });
 
     res.status(500).json({
@@ -216,7 +243,7 @@ router.get('/analyze', async (req, res) => {
       error: {
         message: 'Failed to analyze website',
         code: 'WEBSITE_ANALYSIS_ERROR',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined
       }
     });
   }
@@ -264,7 +291,7 @@ router.get('/analyze', async (req, res) => {
  *       429:
  *         description: Rate limit exceeded
  */
-router.get('/probe', async (req, res) => {
+router.get('/probe', async (req: AuthenticatedRequest, res: Response) => {
   const { url } = req.query;
   
   if (!url) {
@@ -303,12 +330,13 @@ router.get('/probe', async (req, res) => {
 
     res.json(result);
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
     logger.error('Website probe error', {
       userId: req.user?.id,
       url: urlStr,
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     });
 
     res.status(500).json({
@@ -316,7 +344,7 @@ router.get('/probe', async (req, res) => {
       error: {
         message: 'Failed to probe website',
         code: 'WEBSITE_PROBE_ERROR',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined
       }
     });
   }

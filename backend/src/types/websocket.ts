@@ -1,6 +1,29 @@
 import { Server } from 'ws';
 import { Server as HTTPServer } from 'http';
-import { WebSocketMessage, WebSocketMessageType } from '@shared/types';
+
+// Local minimal copies to avoid depending on shared package here
+export enum WebSocketMessageType {
+  FILE_UPLOADED = 'file_uploaded',
+  FILE_DELETED = 'file_deleted',
+  FILE_MOVED = 'file_moved',
+  FILE_RENAMED = 'file_renamed',
+  FILE_SHARED = 'file_shared',
+  UPLOAD_PROGRESS = 'upload_progress',
+  UPLOAD_COMPLETE = 'upload_complete',
+  UPLOAD_FAILED = 'upload_failed',
+  EMAIL_RECEIVED = 'email_received',
+  EMAIL_SENT = 'email_sent',
+  USER_STATUS_CHANGED = 'user_status_changed',
+  SYSTEM_NOTIFICATION = 'system_notification',
+  CONNECTION_STATUS = 'connection_status'
+}
+
+export interface WebSocketMessage {
+  type: WebSocketMessageType | string;
+  payload: unknown;
+  timestamp: Date;
+  id: string;
+}
 
 // WebSocket Connection
 export interface WSClient {
@@ -11,6 +34,9 @@ export interface WSClient {
   lastPing: Date;
   subscriptions: Set<string>;
   metadata: Record<string, any>;
+  messageCount: number;
+  lastMessageReset: number;
+  connectedAt: number;
 }
 
 // WebSocket Manager

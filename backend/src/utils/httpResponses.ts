@@ -14,8 +14,8 @@ import logger from './logger.js';
  * @param {import('express').Request} req - Express request object (optional, for logging)
  * @returns {import('express').Response} Express response
  */
-export function sendErrorResponse(res, statusCode, message, details = null, req = null) {
-  const errorResponse = { error: message };
+export function sendErrorResponse(res: any, statusCode: any, message: any, details: any = null, req: any = null) {
+  const errorResponse: any = { error: message };
   
   if (details) {
     if (typeof details === 'string') {
@@ -37,7 +37,7 @@ export function sendErrorResponse(res, statusCode, message, details = null, req 
       method: req.method,
       ip: req.ip,
       userAgent: req.get('User-Agent'),
-      userId: req.user?.userId
+      userId: req.user?.id
     });
   }
 
@@ -51,8 +51,8 @@ export function sendErrorResponse(res, statusCode, message, details = null, req 
  * @param {Array|Object} validationErrors - Validation errors from express-validator or custom
  * @returns {import('express').Response} Express response
  */
-export function sendValidationError(res, message = 'Validation failed', validationErrors = null) {
-  const errorResponse = { error: message };
+export function sendValidationError(res: any, message: any = 'Validation failed', validationErrors: any = null) {
+  const errorResponse: any = { error: message };
   
   if (validationErrors) {
     if (Array.isArray(validationErrors)) {
@@ -124,8 +124,8 @@ export function sendInternalServerError(res, message = 'Internal server error', 
  * @param {number} statusCode - Status code (defaults to 200)
  * @returns {import('express').Response} Express response
  */
-export function sendSuccessResponse(res, data, message = null, statusCode = 200) {
-  const response = { success: true };
+export function sendSuccessResponse(res: any, data: any, message: any = null, statusCode: any = 200) {
+  const response: any = { success: true };
   
   if (data !== undefined) {
     response.data = data;
@@ -196,7 +196,7 @@ export async function tryOperation(operation, res, req = null, next = null, erro
       stack: error.stack,
       url: req?.originalUrl,
       method: req?.method,
-      userId: req?.user?.userId
+      userId: req?.user?.id
     });
     
     if (next) {

@@ -22,6 +22,23 @@
 
     <!-- Right Side Actions -->
     <nav class="d-flex align-items-center gap-1">
+      <!-- WebSocket Connection Status -->
+      <div class="d-flex align-items-center me-2">
+        <span
+          class="connection-indicator"
+          :class="connectionStatusClass"
+          :title="connectionStatusText"
+        >
+          <Icon
+            :icon="connectionIcon"
+            size="14"
+          />
+        </span>
+        <span class="d-none d-sm-inline text-muted small ms-1">
+          {{ connectionStatusText }}
+        </span>
+      </div>
+
       <!-- Refresh Button -->
       <button
         type="button"
@@ -40,7 +57,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
+import adminWebSocketService from '@/services/adminWebSocketService'
 
 interface Notification {
   id: number
@@ -73,6 +92,49 @@ const emit = defineEmits<{
   adminAction: [action: string]
   quickAction: [action: string]
 }>()
+
+// WebSocket connection status
+const connectionStatus = computed(() => adminWebSocketService.connectionStatus.value)
+const isConnected = computed(() => adminWebSocketService.isConnected.value)
+
+const connectionStatusClass = computed(() => {
+  switch (connectionStatus.value) {
+    case 'connected':
+      return 'connection-connected'
+    case 'connecting':
+      return 'connection-connecting'
+    case 'error':
+      return 'connection-error'
+    default:
+      return 'connection-disconnected'
+  }
+})
+
+const connectionIcon = computed(() => {
+  switch (connectionStatus.value) {
+    case 'connected':
+      return 'tabler:wifi'
+    case 'connecting':
+      return 'tabler:loader-2'
+    case 'error':
+      return 'tabler:wifi-off'
+    default:
+      return 'tabler:wifi-off'
+  }
+})
+
+const connectionStatusText = computed(() => {
+  switch (connectionStatus.value) {
+    case 'connected':
+      return 'Real-time'
+    case 'connecting':
+      return 'Connecting...'
+    case 'error':
+      return 'Connection Error'
+    default:
+      return 'Offline'
+  }
+})
 
 </script>
 
@@ -200,5 +262,50 @@ const emit = defineEmits<{
 
 .spinner-border-sm {
   animation: spin 1s linear infinite;
+}
+
+/* WebSocket Connection Status */
+.connection-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.connection-connected {
+  color: var(--tblr-green);
+  background-color: var(--tblr-green-lt);
+}
+
+.connection-connecting {
+  color: var(--tblr-yellow);
+  background-color: var(--tblr-yellow-lt);
+  animation: pulse 2s infinite;
+}
+
+.connection-connecting svg {
+  animation: spin 1s linear infinite;
+}
+
+.connection-error {
+  color: var(--tblr-red);
+  background-color: var(--tblr-red-lt);
+}
+
+.connection-disconnected {
+  color: var(--tblr-gray-600);
+  background-color: var(--tblr-gray-100);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 </style>

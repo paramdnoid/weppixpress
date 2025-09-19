@@ -5,6 +5,8 @@ import logger from '../utils/logger.js';
  * Enhanced database service with connection pooling, transactions, and monitoring
  */
 class DatabaseService {
+  pool: any;
+
   constructor() {
     this.pool = pool;
     if (!this.pool) {
@@ -136,7 +138,7 @@ class DatabaseService {
    * @param {Array<object>} records - Array of record objects
    * @param {Object} options - Insert options
    */
-  async batchInsert(tableName, records, options = {}) {
+  async batchInsert(tableName: any, records: any, options: any = {}) {
     if (!records || records.length === 0) {
       return { affectedRows: 0, insertId: null };
     }

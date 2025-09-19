@@ -1,13 +1,20 @@
 import logger from '../utils/logger.js';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server as HTTPServer } from 'http';
 import { WSClient } from '../types/websocket.js';
 
+// Extend WebSocket interface with custom properties
+interface ExtendedWebSocket extends WebSocket {
+  isAlive?: boolean;
+  messageCount?: number;
+  lastMessageReset?: number;
+}
+
 class WebSocketManager {
   public wss: WebSocketServer;
   public clients: Map<string, WSClient>;
-  public pathSubscriptions: Map<string, Set<WebSocket>>;
+  public pathSubscriptions: Map<string, Set<ExtendedWebSocket>>;
   public pingInterval?: NodeJS.Timeout;
 
   constructor(server: HTTPServer) {
@@ -36,16 +43,24 @@ class WebSocketManager {
       const clientId = this.generateClientId();
       const clientInfo = {
         id: clientId,
+        userId: '', // Will be set after authentication
+        ws: ws,
+        isAlive: true,
+        lastPing: new Date(),
         connectedAt: Date.now(),
         subscriptions: new Set(),
-        ip: request.socket.remoteAddress,
-        userAgent: request.headers['user-agent']
+        metadata: {
+          ip: request.socket.remoteAddress,
+          userAgent: request.headers['user-agent']
+        },
+        messageCount: 0,
+        lastMessageReset: Date.now()
       };
       
-      this.clients.set(ws, clientInfo);
+      this.clients.set(clientId, clientInfo as any);
       logger.info(`WebSocket client connected: ${clientId}`, {
         clientsCount: this.clients.size,
-        ip: clientInfo.ip
+        ip: clientInfo.metadata.ip
       });
 
       // Send welcome message
@@ -71,20 +86,21 @@ class WebSocketManager {
       });
 
       // Set up ping/pong for connection health
-      ws.isAlive = true;
+      (ws as ExtendedWebSocket).isAlive = true;
       ws.on('pong', () => {
-        ws.isAlive = true;
+        (ws as ExtendedWebSocket).isAlive = true;
       });
     });
 
     // Set up ping interval for connection health check
     this.pingInterval = setInterval(() => {
       this.wss.clients.forEach((ws) => {
-        if (ws.isAlive === false) {
+        const extWs = ws as ExtendedWebSocket;
+        if (extWs.isAlive === false) {
           logger.info('Terminating dead WebSocket connection');
           return ws.terminate();
         }
-        ws.isAlive = false;
+        extWs.isAlive = false;
         ws.ping();
       });
     }, 30000); // 30 seconds
@@ -94,8 +110,15 @@ class WebSocketManager {
     return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  handleClientMessage(ws, data) {
-    const clientInfo = this.clients.get(ws);
+  handleClientMessage(ws: any, data: any) {
+    // Find client by WebSocket instance
+    let clientInfo: WSClient | undefined;
+    for (const client of this.clients.values()) {
+      if (client.ws === ws) {
+        clientInfo = client;
+        break;
+      }
+    }
     if (!clientInfo) return;
 
     // Rate limiting: Track messages per client
@@ -198,8 +221,15 @@ class WebSocketManager {
     }
   }
 
-  handleSubscription(ws, path) {
-    const clientInfo = this.clients.get(ws);
+  handleSubscription(ws: any, path: any) {
+    // Find client by WebSocket instance
+    let clientInfo: WSClient | undefined;
+    for (const client of this.clients.values()) {
+      if (client.ws === ws) {
+        clientInfo = client;
+        break;
+      }
+    }
     if (!clientInfo) return;
 
     const normalizedPath = this.normalizePath(path);
@@ -222,8 +252,15 @@ class WebSocketManager {
     });
   }
 
-  handleUnsubscription(ws, path) {
-    const clientInfo = this.clients.get(ws);
+  handleUnsubscription(ws: any, path: any) {
+    // Find client by WebSocket instance
+    let clientInfo: WSClient | undefined;
+    for (const client of this.clients.values()) {
+      if (client.ws === ws) {
+        clientInfo = client;
+        break;
+      }
+    }
     if (!clientInfo) return;
 
     const normalizedPath = this.normalizePath(path);
@@ -249,8 +286,15 @@ class WebSocketManager {
     });
   }
 
-  handleClientDisconnect(ws, code, reason) {
-    const clientInfo = this.clients.get(ws);
+  handleClientDisconnect(ws: any, code: any, reason: any) {
+    // Find client by WebSocket instance
+    let clientInfo: WSClient | undefined;
+    for (const client of this.clients.values()) {
+      if (client.ws === ws) {
+        clientInfo = client;
+        break;
+      }
+    }
     if (!clientInfo) return;
 
     logger.info(`Client ${clientInfo.id} disconnected`, {
@@ -270,11 +314,11 @@ class WebSocketManager {
       }
     });
 
-    // Remove client
-    this.clients.delete(ws);
+    // Remove client from the Map
+    this.clients.delete(clientInfo.id);
   }
 
-  sendToClient(ws, message) {
+  sendToClient(ws: any, message: any) {
     if (ws.readyState === ws.OPEN) {
       try {
         ws.send(JSON.stringify(message));
@@ -285,7 +329,7 @@ class WebSocketManager {
   }
 
   // Optimized broadcasting with batching and filtering
-  broadcastToPath(path, message, options = {}) {
+  broadcastToPath(path: any, message: any, options: any = {}) {
     const normalizedPath = this.normalizePath(path);
     const subscribers = this.pathSubscriptions.get(normalizedPath);
     
@@ -333,7 +377,7 @@ class WebSocketManager {
   }
 
   // Optimized file event broadcasting
-  broadcastFileCreated(file, options = {}) {
+  broadcastFileCreated(file: any, options: any = {}) {
     const parentPath = this.getParentPath(file.path);
     const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
     
@@ -355,7 +399,7 @@ class WebSocketManager {
     }
   }
 
-  broadcastFileUpdated(file, options = {}) {
+  broadcastFileUpdated(file: any, options: any = {}) {
     const parentPath = this.getParentPath(file.path);
     const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
     
@@ -366,7 +410,7 @@ class WebSocketManager {
     }, { batchId });
   }
 
-  broadcastFileDeleted(filePath, options = {}) {
+  broadcastFileDeleted(filePath: any, options: any = {}) {
     const parentPath = this.getParentPath(filePath);
     const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
     
@@ -387,7 +431,7 @@ class WebSocketManager {
     }
   }
 
-  broadcastFolderChanged(folderPath, options = {}) {
+  broadcastFolderChanged(folderPath: any, options: any = {}) {
     const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
     
     this.broadcastToPath(folderPath, {
@@ -398,7 +442,7 @@ class WebSocketManager {
   }
 
   // Batch multiple file operations
-  broadcastBatchFileOperations(operations) {
+  broadcastBatchFileOperations(operations: any) {
     const batchId = crypto.randomUUID().substring(0, 8);
     
     logger.info(`Broadcasting batch operation with ${operations.length} items`, { batchId });
@@ -422,13 +466,13 @@ class WebSocketManager {
   }
 
   // Utility methods
-  normalizePath(path) {
+  normalizePath(path: any) {
     if (!path || path === '/') return '/';
     const normalized = path.replace(/\/+$/, '');
     return normalized.startsWith('/') ? normalized : '/' + normalized;
   }
 
-  getParentPath(filePath) {
+  getParentPath(filePath: any) {
     const parts = filePath.split('/');
     parts.pop(); // Remove filename
     return parts.join('/') || '/';

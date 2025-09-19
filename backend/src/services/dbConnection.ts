@@ -10,11 +10,9 @@ const pool = mariadb.createPool({
   database: process.env.DB_NAME,
   connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 20,
   acquireTimeout: 60000,
-  timeout: 60000,
   minimumIdle: 5,
   idleTimeout: 300000, // 5 minutes
   leakDetectionTimeout: 60000,
-  reconnectOnServerTimeout: true,
   queryTimeout: 30000,
   compress: true,
   bigIntAsNumber: true,

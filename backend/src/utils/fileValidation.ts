@@ -14,7 +14,7 @@ const ALLOWED_EXTENSIONS = [];
  * @param {Function} callback - Multer callback (error, boolean)
  * @param {Object} options - Validation options
  */
-function validateFile(file, callback, options = {}) {
+function validateFile(file: any, callback: any, options: any = {}) {
   const {
     useWhitelist = true, // Default to whitelist for security
     allowedTypes = ALLOWED_EXTENSIONS,
@@ -105,7 +105,7 @@ function validateFile(file, callback, options = {}) {
     // Magic byte validation for common file types
     if (file.buffer && file.buffer.length >= 4) {
       const magicBytes = Array.from(file.buffer.slice(0, 4))
-        .map(byte => byte.toString(16).padStart(2, '0'))
+        .map((byte: any) => byte.toString(16).padStart(2, '0'))
         .join('');
       
       // Check for executable signatures

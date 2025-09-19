@@ -1,11 +1,20 @@
 import type { Request, Response, NextFunction } from 'express';
+
+// Extended Request interface for authenticated routes
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    userId: string;
+    [key: string]: any;
+  };
+}
 import { FileCache } from '../utils/fileCache.js';
 import logger from '../utils/logger.js';
 import { getUserDirectory, sanitizeUploadPath, secureResolve } from '../utils/pathSecurity.js';
 import { getUniquePath, ensureDirectory } from '../utils/fileOperations.js';
 import { sendErrorResponse, sendInternalServerError } from '../utils/httpResponses.js';
 import { validateUserId } from '../utils/commonValidation.js';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 import { filesize } from 'filesize';
 import { promises as fsp } from 'fs';
 import { resolve as _resolve, basename, dirname, join, relative } from 'path';
@@ -98,7 +107,7 @@ async function readItem(item, targetPath, baseDirUser) {
  * @param {Object} options - Calculation options
  * @returns {Promise<Object>} Size calculation result
  */
-async function getFolderSize(folderPath, options = {}) {
+async function getFolderSize(folderPath: any, options: any = {}) {
   const config = {
     maxDepth: options.maxDepth || 50,
     maxFiles: options.maxFiles || 10000,
@@ -193,8 +202,8 @@ async function getFolderSize(folderPath, options = {}) {
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
-export async function getFolderFiles(req: Request, res: Response) {
-  const userId = req.user?.userId;
+export async function getFolderFiles(req: AuthenticatedRequest, res: Response) {
+  const userId = req.user?.id;
   if (validateUserId(req, res)) {
     return;
   }
@@ -295,7 +304,7 @@ export async function ensureUserUploadDir(userId) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function deleteFiles(req: Request, res: Response, next: NextFunction) {
+export async function deleteFiles(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     if (validateUserId(req, res)) {
       return;
@@ -397,7 +406,7 @@ export async function deleteFiles(req: Request, res: Response, next: NextFunctio
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function moveFiles(req: Request, res: Response, next: NextFunction) {
+export async function moveFiles(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { paths, destination } = req.body;
     const userId = req.user.userId;
@@ -504,7 +513,7 @@ export async function moveFiles(req: Request, res: Response, next: NextFunction)
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function createFolder(req: Request, res: Response, next: NextFunction) {
+export async function createFolder(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { name, path = '' } = req.body;
     const userId = req.user.userId;
@@ -564,7 +573,7 @@ export async function createFolder(req: Request, res: Response, next: NextFuncti
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function renameItem(req: Request, res: Response, next: NextFunction) {
+export async function renameItem(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     if (validateUserId(req, res)) {
       return;
@@ -632,7 +641,7 @@ export async function renameItem(req: Request, res: Response, next: NextFunction
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function copyFiles(req: Request, res: Response, next: NextFunction) {
+export async function copyFiles(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { paths, destination } = req.body;
     const userId = req.user.userId;
@@ -766,7 +775,7 @@ export async function copyFiles(req: Request, res: Response, next: NextFunction)
   }
 }
 
-async function copyDirectoryRecursive(source, destination, options = {}) {
+async function copyDirectoryRecursive(source: any, destination: any, options: any = {}) {
   const config = {
     maxDepth: options.maxDepth || 50,
     maxFiles: options.maxFiles || 5000,
@@ -873,7 +882,7 @@ async function copyDirectoryRecursive(source, destination, options = {}) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function downloadFile(req: Request, res: Response, next: NextFunction) {
+export async function downloadFile(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     if (validateUserId(req, res)) {
       return;
@@ -938,7 +947,7 @@ export async function downloadFile(req: Request, res: Response, next: NextFuncti
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export async function downloadAsZip(req: Request, res: Response, next: NextFunction) {
+export async function downloadAsZip(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     if (validateUserId(req, res)) {
       return;

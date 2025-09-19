@@ -352,6 +352,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '@/api/axios'
+import adminWebSocketService from '@/services/adminWebSocketService'
 
 // Utility function for sanitizing text
 const sanitizeText = (text: string | undefined | null): string => {
@@ -436,6 +437,7 @@ const emit = defineEmits<{
 
 const overview = ref<SystemOverview | null>(null)
 const isLoading = ref(false)
+const isConnectedToWebSocket = computed(() => adminWebSocketService.isConnected.value)
 
 // Computed properties
 const systemStatusBadgeClass = computed(() => {
@@ -525,7 +527,7 @@ const refreshData = async () => {
   try {
     const response = await api.get('/dashboard/overview')
     overview.value = response.data
-    emit('success', 'Dashboard data refreshed successfully')
+    //emit('success', 'Dashboard data refreshed successfully')
   } catch (err: any) {
     emit('error', err.response?.data?.message || 'Failed to load dashboard data')
     console.error('Dashboard error:', err)
@@ -533,6 +535,18 @@ const refreshData = async () => {
     isLoading.value = false
     emit('loading', false)
   }
+}
+
+// WebSocket event handlers
+const handleWebSocketData = (data: any) => {
+  if (data) {
+    overview.value = data
+    //emit('success', 'Dashboard data updated via WebSocket')
+  }
+}
+
+const handleWebSocketDisconnection = () => {
+  emit('error', 'Real-time connection lost. Falling back to manual refresh.')
 }
 
 // Store interval ID for cleanup
@@ -549,16 +563,54 @@ watch(() => props.autoRefresh, (enabled) => {
     refreshInterval = null
   }
 
-  if (enabled) {
+  // Only use polling if WebSocket is not connected
+  if (enabled && !isConnectedToWebSocket.value) {
     refreshInterval = setInterval(refreshData, REFRESH_INTERVAL_MS)
   }
 })
 
-onMounted(() => {
-  refreshData()
+// Watch WebSocket connection status
+watch(isConnectedToWebSocket, (connected) => {
+  if (connected) {
+    // WebSocket connected, stop polling
+    if (refreshInterval) {
+      clearInterval(refreshInterval)
+      refreshInterval = null
+    }
+    emit('success', 'Real-time connection established')
+  } else {
+    // WebSocket disconnected, start polling if auto-refresh is enabled
+    if (props.autoRefresh && !refreshInterval) {
+      refreshInterval = setInterval(refreshData, REFRESH_INTERVAL_MS)
+    }
+  }
+})
 
-  if (props.autoRefresh) {
+onMounted(() => {
+  // Set up WebSocket listeners
+  adminWebSocketService.on('dashboard_updated', handleWebSocketData)
+  adminWebSocketService.on('disconnected', handleWebSocketDisconnection)
+
+  // Use WebSocket data if available, otherwise fetch from API
+  if (adminWebSocketService.dashboardData.overview) {
+    overview.value = adminWebSocketService.dashboardData.overview
+  } else {
+    refreshData()
+  }
+
+  // Only set up polling if WebSocket is not connected or auto-refresh is disabled
+  if (props.autoRefresh && !isConnectedToWebSocket.value) {
     refreshInterval = setInterval(refreshData, REFRESH_INTERVAL_MS)
+  }
+
+  // Connect to WebSocket if not already connected
+  if (!isConnectedToWebSocket.value) {
+    adminWebSocketService.connect().catch(error => {
+      console.warn('Failed to connect to WebSocket, using polling instead:', error)
+      if (props.autoRefresh) {
+        refreshInterval = setInterval(refreshData, REFRESH_INTERVAL_MS)
+      }
+    })
   }
 })
 
@@ -567,6 +619,10 @@ onUnmounted(() => {
     clearInterval(refreshInterval)
     refreshInterval = null
   }
+
+  // Remove WebSocket listeners
+  adminWebSocketService.off('dashboard_updated', handleWebSocketData)
+  adminWebSocketService.off('disconnected', handleWebSocketDisconnection)
 })
 
 // Expose sanitizeText for template use

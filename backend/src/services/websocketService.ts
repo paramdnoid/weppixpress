@@ -1,17 +1,27 @@
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
+
+// Extend WebSocket interface with custom properties
+interface ExtendedWebSocket extends WebSocket {
+  isAlive?: boolean;
+}
 
 // backend/websocketHandler.js
 
 class WebSocketManager {
-  constructor(server) {
-    this.wss = new WebSocketServer({ 
-      server, 
+  wss: WebSocketServer;
+  clients: Map<any, any>;
+  pathSubscriptions: Map<string, Set<any>>;
+  pingInterval?: NodeJS.Timeout;
+
+  constructor(server: any) {
+    this.wss = new WebSocketServer({
+      server,
       path: '/ws',
       verifyClient: this.verifyClient.bind(this)
     });
-    
+
     this.clients = new Map(); // Map<WebSocket, ClientInfo>
     this.pathSubscriptions = new Map(); // Map<path, Set<WebSocket>>
     
@@ -66,20 +76,21 @@ class WebSocketManager {
       });
 
       // Set up ping/pong for connection health
-      ws.isAlive = true;
+      (ws as ExtendedWebSocket).isAlive = true;
       ws.on('pong', () => {
-        ws.isAlive = true;
+        (ws as ExtendedWebSocket).isAlive = true;
       });
     });
 
     // Set up ping interval for connection health check
     this.pingInterval = setInterval(() => {
       this.wss.clients.forEach((ws) => {
-        if (ws.isAlive === false) {
+        const extWs = ws as ExtendedWebSocket;
+        if (extWs.isAlive === false) {
           logger.info('Terminating dead WebSocket connection');
           return ws.terminate();
         }
-        ws.isAlive = false;
+        extWs.isAlive = false;
         ws.ping();
       });
     }, 30000); // 30 seconds
@@ -280,7 +291,7 @@ class WebSocketManager {
   }
 
   // Optimized broadcasting with batching and filtering
-  broadcastToPath(path, message, options = {}) {
+  broadcastToPath(path: any, message: any, options: any = {}) {
     const normalizedPath = this.normalizePath(path);
     const subscribers = this.pathSubscriptions.get(normalizedPath);
     
@@ -328,7 +339,7 @@ class WebSocketManager {
   }
 
   // Optimized file event broadcasting
-  broadcastFileCreated(file, options = {}) {
+  broadcastFileCreated(file: any, options: any = {}) {
     const parentPath = this.getParentPath(file.path);
     const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
     
@@ -350,7 +361,7 @@ class WebSocketManager {
     }
   }
 
-  broadcastFileUpdated(file, options = {}) {
+  broadcastFileUpdated(file: any, options: any = {}) {
     const parentPath = this.getParentPath(file.path);
     const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
     
@@ -361,7 +372,7 @@ class WebSocketManager {
     }, { batchId });
   }
 
-  broadcastFileDeleted(filePath, options = {}) {
+  broadcastFileDeleted(filePath: any, options: any = {}) {
     const parentPath = this.getParentPath(filePath);
     const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
     
@@ -382,7 +393,7 @@ class WebSocketManager {
     }
   }
 
-  broadcastFolderChanged(folderPath, options = {}) {
+  broadcastFolderChanged(folderPath: any, options: any = {}) {
     const batchId = options.batchId || crypto.randomUUID().substring(0, 8);
     
     this.broadcastToPath(folderPath, {

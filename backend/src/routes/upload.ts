@@ -1,21 +1,72 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { createWriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
 import fs from 'fs/promises';
 import { authenticateToken } from '../middleware/authenticate.js';
-import { secureResolve, getUserDirectory, sanitizeUploadPath, validateFileUpload } from '../utils/pathSecurity.js';
-import logger from '../utils/logger.js';
+import {
+  secureResolve,
+  getUserDirectory,
+  sanitizeUploadPath,
+  validateFileUpload,
+  logger,
+  sendValidationError,
+  sendNotFoundError,
+  sendInternalServerError
+} from '../utils/index.js';
+
+// Type definitions
+interface UploadSession {
+  id: string;
+  userId: string;
+  targetPath: string;
+  targetRelative: string;
+  createdAt: number;
+  status: 'active' | 'completed' | 'error';
+  files: Map<string, UploadFile>;
+  bytesTransferred: number;
+  totalBytes: number;
+}
+
+interface UploadFile {
+  id: string;
+  sessionId: string;
+  path: string;
+  size: number;
+  received: number;
+  status: 'pending' | 'uploading' | 'completed' | 'error';
+  createdAt: number;
+  checksum: string | null;
+}
+
+interface ActiveStream {
+  fileId: string;
+  sessionId: string;
+  startTime: number;
+}
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: string;
+    [key: string]: any;
+  };
+  uploadSession?: UploadSession;
+}
 
 const router = express.Router();
 
 // Redis-based session storage for production
 class OptimizedSessionManager {
+  private sessions: Map<string, UploadSession>;
+  public files: Map<string, UploadFile>;
+  public activeStreams: Map<string, ActiveStream>;
+  private cleanupInterval: NodeJS.Timeout;
+
   constructor() {
     // In-memory for now, easily replaceable with Redis
-    this.sessions = new Map();
-    this.files = new Map();
-    this.activeStreams = new Map(); // Track active upload streams
+    this.sessions = new Map<string, UploadSession>();
+    this.files = new Map<string, UploadFile>();
+    this.activeStreams = new Map<string, ActiveStream>(); // Track active upload streams
 
     // Start cleanup interval for production
     this.cleanupInterval = setInterval(() => this.cleanupStale(), 5 * 60 * 1000); // Every 5 minutes
@@ -25,7 +76,7 @@ class OptimizedSessionManager {
   }
 
   // Cleanup stale sessions and streams
-  cleanupStale() {
+  cleanupStale(): void {
     const now = Date.now();
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
     const streamTimeout = 10 * 60 * 1000; // 10 minutes for streams
@@ -79,13 +130,13 @@ class OptimizedSessionManager {
     }
   }
 
-  destroy() {
+  destroy(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }
   }
 
-  createSession(userId, targetPath) {
+  createSession(userId: string, targetPath: string): UploadSession {
     const sessionId = uuidv4();
     const session = {
       id: sessionId,
@@ -93,7 +144,7 @@ class OptimizedSessionManager {
       targetPath,
       targetRelative: sanitizeUploadPath(targetPath),
       createdAt: Date.now(),
-      status: 'active',
+      status: 'active' as const,
       files: new Map(),
       bytesTransferred: 0,
       totalBytes: 0
@@ -103,7 +154,7 @@ class OptimizedSessionManager {
     return session;
   }
 
-  getSession(sessionId, userId) {
+  getSession(sessionId: string, userId: string): UploadSession | null {
     const session = this.sessions.get(sessionId);
     if (!session || session.userId !== userId) {
       return null;
@@ -111,7 +162,7 @@ class OptimizedSessionManager {
     return session;
   }
 
-  registerFile(sessionId, fileInfo) {
+  registerFile(sessionId: string, fileInfo: any): UploadFile | null {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
@@ -122,7 +173,7 @@ class OptimizedSessionManager {
       path: fileInfo.path,
       size: fileInfo.size || 0,
       received: 0,
-      status: 'pending',
+      status: 'pending' as const,
       createdAt: Date.now(),
       checksum: fileInfo.checksum || null
     };
@@ -132,6 +183,10 @@ class OptimizedSessionManager {
     session.totalBytes += file.size;
 
     return file;
+  }
+
+  get sessionsSize(): number {
+    return this.sessions.size;
   }
 }
 
@@ -151,16 +206,13 @@ const MAX_FILES_PER_SESSION = parseInt(process.env.UPLOAD_MAX_FILES_PER_SESSION)
 const MAX_CONCURRENT_STREAMS = parseInt(process.env.UPLOAD_MAX_CONCURRENT_STREAMS) || 20; // Increase concurrent streams
 
 // Optimized session validation middleware
-function validateSession(req: Request, res: Response, next: NextFunction) {
+function validateSession(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const { sessionId } = req.params;
   const userId = req.user.id;
 
   const session = sessionManager.getSession(sessionId, userId);
   if (!session) {
-    return res.status(404).json({
-      success: false,
-      error: { message: 'Session not found', code: 'NOT_FOUND' }
-    });
+    return sendNotFoundError(res, 'Session not found');
   }
 
   req.uploadSession = session;
@@ -168,7 +220,7 @@ function validateSession(req: Request, res: Response, next: NextFunction) {
 }
 
 // Create optimized upload session
-router.post('/sessions', async (req, res) => {
+router.post('/sessions', async (req: AuthenticatedRequest, res: Response) => {
   try {
     logger.info('Creating upload session - rate limiting DISABLED', { userId: req.user.id });
     const { targetPath } = req.body;
@@ -213,7 +265,7 @@ router.post('/sessions', async (req, res) => {
 });
 
 // Register files in session (batch registration)
-router.post('/sessions/:sessionId/files', validateSession, async (req, res) => {
+router.post('/sessions/:sessionId/files', validateSession, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { files: fileList } = req.body;
     const session = req.uploadSession;
@@ -277,7 +329,7 @@ router.post('/sessions/:sessionId/files', validateSession, async (req, res) => {
 });
 
 // OPTIMIZED: Streaming upload endpoint
-router.put('/sessions/:sessionId/files/:fileId/stream', validateSession, async (req, res) => {
+router.put('/sessions/:sessionId/files/:fileId/stream', validateSession, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { fileId } = req.params;
     const { offset } = req.query;
@@ -292,7 +344,7 @@ router.put('/sessions/:sessionId/files/:fileId/stream', validateSession, async (
       });
     }
 
-    const chunkOffset = parseInt(offset) || 0;
+    const chunkOffset = parseInt(String(offset)) || 0;
     if (chunkOffset !== file.received) {
       return res.status(409).json({
         success: false,
@@ -325,7 +377,7 @@ router.put('/sessions/:sessionId/files/:fileId/stream', validateSession, async (
     const sanitizedTarget = sanitizeUploadPath(session.targetRelative);
     const targetDir = sanitizedTarget ? secureResolve(baseDir, sanitizedTarget) : baseDir;
 
-    let filePath;
+    let filePath: string;
     if (file.path.includes('/')) {
       const pathParts = file.path.split('/');
       const fileName = pathParts.pop();
@@ -441,10 +493,10 @@ router.put('/sessions/:sessionId/files/:fileId/stream', validateSession, async (
 });
 
 // Get session and files status (optimized response)
-router.get('/sessions/:sessionId/status', validateSession, (req, res) => {
+router.get('/sessions/:sessionId/status', validateSession, (req: AuthenticatedRequest, res: Response) => {
   const session = req.uploadSession;
 
-  const fileStatuses = Array.from(session.files.values()).map(f => ({
+  const fileStatuses = Array.from(session!.files.values()).map((f: UploadFile) => ({
     id: f.id,
     path: f.path,
     size: f.size,
@@ -469,10 +521,10 @@ router.get('/sessions/:sessionId/status', validateSession, (req, res) => {
 // Performance monitoring endpoint
 router.get('/stats', (_req, res) => {
   if (process.env.NODE_ENV !== 'development') {
-    return res.status(404).json({ error: 'Not found' });
+    return sendNotFoundError(res, 'Not found');
   }
 
-  const totalSessions = sessionManager.sessions.size;
+  const totalSessions = sessionManager.sessionsSize;
   const totalFiles = sessionManager.files.size;
   const activeStreams = sessionManager.activeStreams.size;
 

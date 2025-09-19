@@ -1,4 +1,11 @@
-import { createLogger, format, transports } from 'winston';
+import { createLogger, format, transports, Logger } from 'winston';
+
+// Extended logger interface for custom methods
+interface ExtendedLogger extends Logger {
+  security: (event: string, details?: any) => void;
+  performance: (metric: string, details?: any) => void;
+  userActivity: (action: string, userId?: string, details?: any) => void;
+}
 
 // Sensitive fields that should never be logged
 const SENSITIVE_FIELDS = new Set([
@@ -134,8 +141,10 @@ if (process.env.NODE_ENV === 'production') {
   }));
 }
 
-// Enhanced logger methods
-logger.security = function(event, details = {}) {
+// Cast logger to extended type and add custom methods
+const extendedLogger = logger as ExtendedLogger;
+
+extendedLogger.security = function(event: string, details: any = {}) {
   this.warn(`SECURITY: ${event}`, {
     ...details,
     securityEvent: true,
@@ -144,7 +153,7 @@ logger.security = function(event, details = {}) {
   });
 };
 
-logger.performance = function(metric, details = {}) {
+extendedLogger.performance = function(metric: string, details: any = {}) {
   this.info(`PERFORMANCE: ${metric}`, {
     ...details,
     performanceMetric: true,
@@ -153,7 +162,7 @@ logger.performance = function(metric, details = {}) {
   });
 };
 
-logger.userActivity = function(action, userId, details = {}) {
+extendedLogger.userActivity = function(action: string, userId?: string, details: any = {}) {
   this.info(`User action: ${action}`, {
     user: userId ? 'user_' + String(userId).slice(-4) : 'anonymous',
     action,
@@ -161,4 +170,4 @@ logger.userActivity = function(action, userId, details = {}) {
   });
 };
 
-export default logger;
+export default extendedLogger;

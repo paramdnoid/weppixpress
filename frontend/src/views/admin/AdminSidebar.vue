@@ -45,6 +45,13 @@
             />
             <span class="nav-title">Error Analytics</span>
             <span class="nav-subtitle">Error monitoring & analysis</span>
+            <span
+              v-if="errorCount > 0"
+              class="badge ms-auto"
+              :class="errorCount > 10 ? 'bg-red' : 'bg-yellow'"
+            >
+              {{ formatNumber(errorCount) }}
+            </span>
           </a>
 
           <!-- User Management -->
@@ -60,6 +67,12 @@
             />
             <span class="nav-title">User Management</span>
             <span class="nav-subtitle">Manage users & permissions</span>
+            <span
+              v-if="totalUsers > 0"
+              class="badge bg-blue ms-auto"
+            >
+              {{ formatNumber(totalUsers) }}
+            </span>
           </a>
         </div>
 
@@ -76,40 +89,72 @@
           <div class="nav-item-status">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <div class="status-dot bg-green me-2" />
+                <div
+                  class="status-dot me-2"
+                  :class="getHealthDotClass(systemHealth)"
+                />
                 <span class="small">System Health</span>
               </div>
-              <span class="badge bg-green-lt text-green">Healthy</span>
+              <span
+                class="badge"
+                :class="getHealthBadgeClass(systemHealth)"
+              >
+                {{ systemHealth.charAt(0).toUpperCase() + systemHealth.slice(1) }}
+              </span>
             </div>
           </div>
 
           <div class="nav-item-status">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <div class="status-dot bg-yellow me-2" />
+                <div
+                  class="status-dot me-2"
+                  :class="getUsageDotClass(cpuUsage)"
+                />
                 <span class="small">CPU Usage</span>
               </div>
-              <span class="badge bg-yellow-lt text-yellow">75%</span>
+              <span
+                class="badge"
+                :class="getUsageBadgeClass(cpuUsage)"
+              >
+                {{ cpuUsage.toFixed(1) }}%
+              </span>
             </div>
           </div>
 
           <div class="nav-item-status">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <div class="status-dot bg-blue me-2" />
+                <div
+                  class="status-dot me-2"
+                  :class="getUsageDotClass(memoryUsage)"
+                />
                 <span class="small">Memory</span>
               </div>
-              <span class="badge bg-blue-lt text-blue">60%</span>
+              <span
+                class="badge"
+                :class="getUsageBadgeClass(memoryUsage)"
+              >
+                {{ memoryUsage.toFixed(1) }}%
+              </span>
             </div>
           </div>
 
           <div class="nav-item-status">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <div class="status-dot bg-red me-2" />
+                <div
+                  class="status-dot me-2"
+                  :class="errorCount > 10 ? 'bg-red' : errorCount > 0 ? 'bg-yellow' : 'bg-green'"
+                />
                 <span class="small">Errors (24h)</span>
               </div>
-              <span class="badge bg-red-lt text-red">12</span>
+              <span
+                class="badge"
+                :class="errorCount > 10 ? 'bg-red-lt text-red' : errorCount > 0 ? 'bg-yellow-lt text-yellow' : 'bg-green-lt text-green'"
+              >
+                {{ formatNumber(errorCount) }}
+              </span>
             </div>
           </div>
         </div>
@@ -127,7 +172,7 @@
           <div class="stats-grid">
             <div class="stat-item">
               <div class="stat-value">
-                247
+                {{ formatNumber(totalUsers) }}
               </div>
               <div class="stat-label">
                 Total Users
@@ -135,7 +180,7 @@
             </div>
             <div class="stat-item">
               <div class="stat-value">
-                15
+                {{ totalAdmins }}
               </div>
               <div class="stat-label">
                 Admins
@@ -143,7 +188,7 @@
             </div>
             <div class="stat-item">
               <div class="stat-value">
-                1.2k
+                {{ formatNumber(requestsPerMinute) }}
               </div>
               <div class="stat-label">
                 Req/Min
@@ -151,7 +196,7 @@
             </div>
             <div class="stat-item">
               <div class="stat-value">
-                99.8%
+                {{ uptime }}
               </div>
               <div class="stat-label">
                 Uptime
@@ -229,8 +274,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
+import adminWebSocketService from '@/services/adminWebSocketService'
 
 interface Props {
   isCollapsed: boolean
@@ -249,6 +295,98 @@ const sidebarStyle = computed(() => {
     return { width: '0px', minWidth: '0px' }
   }
   return { width: `${props.width}px`, minWidth: `${props.width}px` }
+})
+
+// Live data from WebSocket
+const systemMetrics = computed(() => adminWebSocketService.systemMetrics.data)
+const userStats = computed(() => adminWebSocketService.userStatistics.data)
+const errorStats = computed(() => adminWebSocketService.errorMetrics.data)
+const dashboardData = computed(() => adminWebSocketService.dashboardData.overview)
+
+// Computed values for dynamic data
+const systemHealth = computed(() => {
+  const status = systemMetrics.value?.status || dashboardData.value?.system?.status
+  return status || 'unknown'
+})
+
+const cpuUsage = computed(() => {
+  const cpu = systemMetrics.value?.cpu || dashboardData.value?.system?.cpu
+  return cpu ? parseFloat(cpu.usage_percent) || 0 : 0
+})
+
+const memoryUsage = computed(() => {
+  const memory = systemMetrics.value?.memory || dashboardData.value?.system?.memory
+  return memory ? parseFloat(memory.usage_percent) || 0 : 0
+})
+
+const errorCount = computed(() => {
+  return errorStats.value?.summary?.totalErrors || dashboardData.value?.errors?.total || 0
+})
+
+const totalUsers = computed(() => {
+  return userStats.value?.total || dashboardData.value?.users?.total || 0
+})
+
+const totalAdmins = computed(() => {
+  return userStats.value?.admins || dashboardData.value?.users?.admins || 0
+})
+
+const requestsPerMinute = computed(() => {
+  const requests = systemMetrics.value?.requests || dashboardData.value?.requests
+  return requests ? parseFloat(requests.requests_per_minute) || 0 : 0
+})
+
+const uptime = computed(() => {
+  const system = systemMetrics.value || dashboardData.value?.system
+  if (system?.uptime) {
+    const hours = Math.floor(system.uptime / 3600)
+    const days = Math.floor(hours / 24)
+    return days > 0 ? `${days}d` : `${hours}h`
+  }
+  return '0h'
+})
+
+// Helper functions
+const getHealthBadgeClass = (status: string) => {
+  switch (status) {
+    case 'healthy': return 'bg-green-lt text-green'
+    case 'warning': return 'bg-yellow-lt text-yellow'
+    case 'critical': return 'bg-red-lt text-red'
+    default: return 'bg-gray-lt text-gray'
+  }
+}
+
+const getHealthDotClass = (status: string) => {
+  switch (status) {
+    case 'healthy': return 'bg-green'
+    case 'warning': return 'bg-yellow'
+    case 'critical': return 'bg-red'
+    default: return 'bg-gray'
+  }
+}
+
+const getUsageDotClass = (percentage: number) => {
+  if (percentage > 90) return 'bg-red'
+  if (percentage > 75) return 'bg-yellow'
+  return 'bg-green'
+}
+
+const getUsageBadgeClass = (percentage: number) => {
+  if (percentage > 90) return 'bg-red-lt text-red'
+  if (percentage > 75) return 'bg-yellow-lt text-yellow'
+  return 'bg-green-lt text-green'
+}
+
+const formatNumber = (num: number) => {
+  if (num > 1000) return `${(num / 1000).toFixed(1)}k`
+  return num.toString()
+}
+
+// Setup WebSocket connection
+onMounted(() => {
+  if (!adminWebSocketService.isConnected.value) {
+    adminWebSocketService.connect().catch(console.warn)
+  }
 })
 </script>
 

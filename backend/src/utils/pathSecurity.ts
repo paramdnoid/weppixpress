@@ -94,7 +94,7 @@ function isSafeFilename(filename) {
 
   // Prüfe auf gefährliche Extensions (nur wirklich gefährliche für File Manager)
   const dangerousExtensions = [
-    '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs'
+    '.exe', '.bat', '.cmd'
   ];
 
   const lowerName = filename.toLowerCase();

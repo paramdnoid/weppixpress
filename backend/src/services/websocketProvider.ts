@@ -3,6 +3,8 @@
  * Provides access to WebSocket manager without using global variables
  */
 class WebSocketProvider {
+  wsManager: any;
+
   constructor() {
     this.wsManager = null;
   }
@@ -11,7 +13,7 @@ class WebSocketProvider {
    * Set the WebSocket manager instance
    * @param {Object} wsManager - WebSocket manager instance
    */
-  setManager(wsManager) {
+  setManager(wsManager: any) {
     this.wsManager = wsManager;
   }
 

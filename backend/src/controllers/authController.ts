@@ -1,18 +1,33 @@
 import type { Request, Response, NextFunction } from 'express';
-import sendMail from '../utils/mail.js';
-import logger from '../utils/logger.js';
-import { sendValidationError, sendUnauthorizedError, sendNotFoundError, sendConflictError, sendInternalServerError, handleValidationErrors } from '../utils/httpResponses.js';
-import { getEmailTemplate } from '../utils/emailTemplates.js';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
+
+// Extended Request interface for authenticated routes
+interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+    [key: string]: any;
+  };
+}
+import {
+  logger,
+  sendMail,
+  sendValidationError,
+  sendUnauthorizedError,
+  sendNotFoundError,
+  sendConflictError,
+  sendInternalServerError,
+  handleValidationErrors,
+  getEmailTemplate
+} from '../utils/index.js';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { validationResult } from 'express-validator';
-import QRCode from 'qrcode';
-import speakeasy from 'speakeasy';
+import * as QRCode from 'qrcode';
+import * as speakeasy from 'speakeasy';
 
 import {
   findUserByEmail, createUser, setVerificationToken, verifyUserByToken,
   setResetToken, getUserByResetToken, updatePassword,
-  enable2FA, disable2FA, getUserById
+  enable2FA, disable2FA, getUserById, updateLastLogin
 } from '../models/userModel.js';
 import { 
   generateAccessToken, 
@@ -21,6 +36,7 @@ import {
   setRefreshTokenCookie,
   clearRefreshTokenCookie
 } from '../utils/jwtUtils.js';
+import adminWebSocketService from '../services/adminWebSocketService.js';
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   if (handleValidationErrors(validationResult(req), res)) {
@@ -112,16 +128,28 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     if (user.is_2fa_enabled) {
       return res.json({ requires2FA: true, userId: user.id });
     }
+
+    // Update last login timestamp
+    await updateLastLogin(user.id);
+
+    // Broadcast user activity update via WebSocket
+    adminWebSocketService.broadcastUserAction('user_login', {
+      userId: user.id,
+      userEmail: user.email,
+      userName: `${user.first_name} ${user.last_name}`.trim(),
+      timestamp: Date.now()
+    });
+
     const tokens = generateTokenPair(user);
     setRefreshTokenCookie(res, tokens.refreshToken);
-    res.json({ 
-      accessToken: tokens.accessToken, 
-      user: { 
-        id: user.id, 
-        email: user.email, 
+    res.json({
+      accessToken: tokens.accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
         name: `${user.first_name} ${user.last_name}`.trim(),
         role: user.role || 'user'
-      } 
+      }
     });
   } catch (err) {
     logger.security('login_failure', { ip: req.ip, userAgent: req.get('User-Agent') });
@@ -142,20 +170,31 @@ export async function verify2FA(req: Request, res: Response) {
   if (!verified) {
     return res.status(400).json({ message: 'Invalid 2FA code' });
   }
+  // Update last login timestamp
+  await updateLastLogin(user.id);
+
+  // Broadcast user activity update via WebSocket
+  adminWebSocketService.broadcastUserAction('user_login', {
+    userId: user.id,
+    userEmail: user.email,
+    userName: `${user.first_name} ${user.last_name}`.trim(),
+    timestamp: Date.now()
+  });
+
   const tokens = generateTokenPair(user);
   setRefreshTokenCookie(res, tokens.refreshToken);
-  res.json({ 
-    accessToken: tokens.accessToken, 
-    user: { 
-      id: user.id, 
-      email: user.email, 
+  res.json({
+    accessToken: tokens.accessToken,
+    user: {
+      id: user.id,
+      email: user.email,
       name: `${user.first_name} ${user.last_name}`.trim(),
       role: user.role || 'user'
-    } 
+    }
   });
 }
 
-export async function setup2FA(req: Request, res: Response) {
+export async function setup2FA(req: AuthenticatedRequest, res: Response) {
   const user = await getUserById(req.user.userId);
   if (!user) {
     return sendNotFoundError(res, 'User not found');
@@ -164,7 +203,7 @@ export async function setup2FA(req: Request, res: Response) {
   const qr = await QRCode.toDataURL(secret.otpauth_url);
   res.json({ secret: secret.base32, qr });
 }
-export async function enable2FAController(req: Request, res: Response) {
+export async function enable2FAController(req: AuthenticatedRequest, res: Response) {
   if (handleValidationErrors(validationResult(req), res)) {
     return;
   }
@@ -183,7 +222,7 @@ export async function enable2FAController(req: Request, res: Response) {
   await enable2FA(req.user.userId, secret);
   res.json({ message: '2FA has been enabled successfully' });
 }
-export async function disable2FAController(req: Request, res: Response) {
+export async function disable2FAController(req: AuthenticatedRequest, res: Response) {
   await disable2FA(req.user.userId);
   res.json({ message: '2FA has been disabled successfully' });
 }
@@ -273,7 +312,10 @@ export async function refreshToken(req: Request, res: Response) {
   
   try {
     const payload = verifyRefreshToken(refreshTokenCookie);
-    const user = await getUserById(payload.userId);
+    if (typeof payload === 'string') {
+      return res.status(401).json({ message: 'Invalid refresh token format' });
+    }
+    const user = await getUserById((payload as any).userId);
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
     }
@@ -292,7 +334,7 @@ export async function refreshToken(req: Request, res: Response) {
     res.status(401).json({ message: 'Invalid refresh token: ' + error.message });
   }
 }
-export function logout(_req, res, next) {
+export function logout(_req: Request, res: Response, next: NextFunction) {
   try {
     clearRefreshTokenCookie(res);
     res.json({ message: 'Logged out' });
@@ -301,7 +343,7 @@ export function logout(_req, res, next) {
   }
 }
 
-export async function getProfile(req: Request, res: Response) {
+export async function getProfile(req: AuthenticatedRequest, res: Response) {
   try {
     const user = await getUserById(req.user.userId);
     if (!user) {

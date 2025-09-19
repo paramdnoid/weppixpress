@@ -5,8 +5,13 @@ import { createClient } from 'redis';
  * Enhanced caching service with Redis support, compression, and monitoring
  */
 class CacheService {
+  client: any;
+  isConnected: boolean;
+  reconnectAttempts: number;
+  maxReconnectAttempts: number;
+  stats: any;
+
   constructor() {
-    /** @type {import('redis').RedisClientType | null} */
     this.client = null;
     this.isConnected = false;
     this.reconnectAttempts = 0;

@@ -1,14 +1,14 @@
-import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
+import * as dotenv from 'dotenv';
+import * as nodemailer from 'nodemailer';
 import logger from './logger.js';
 
 dotenv.config();
 
-const sendMail =  async ({ to, subject, html }) => {
+const sendMail = async ({ to, subject, html }: { to: string; subject: string; html: string }) => {
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
+      port: Number(process.env.SMTP_PORT) || 587,
       secure: false,
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
       tls: {

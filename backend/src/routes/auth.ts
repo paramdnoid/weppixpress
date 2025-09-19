@@ -1,6 +1,6 @@
 import authenticateToken from '../middleware/authenticate.js';
 import validateRequest from '../validators/validateRequest.js';
-import express from 'express';
+import express, { Router } from 'express';
 
 import {
   register,
@@ -26,7 +26,7 @@ import {
   enable2FASchema
 } from '../validators/schemas/authSchemas.js';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 router.post('/register', validateRequest(registerSchema), register);
 router.post('/login', validateRequest(loginSchema), login);

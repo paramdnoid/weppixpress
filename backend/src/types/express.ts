@@ -1,5 +1,11 @@
-import { Request, Response, NextFunction } from 'express';
-import { ValidationError } from '@shared/types';
+import type { Request, Response, NextFunction } from 'express';
+// Minimal user shape to avoid cross-package import issues here
+type UserLike = {
+  id: string;
+  email?: string;
+  role?: string;
+  [key: string]: any;
+};
 
 // Express Types
 export type AsyncHandler = (
@@ -14,71 +20,29 @@ export type MiddlewareHandler = (
   next: NextFunction
 ) => void | Promise<void>;
 
+// Convenience request type that includes our auth augmentation
+export type AuthedRequest = Request & {
+  user?: UserLike;
+  token?: string;
+  requestId?: string;
+  startTime?: number;
+};
+
 // Error Types
-export class AppError extends Error {
-  public readonly statusCode: number;
-  public readonly isOperational: boolean;
-  public readonly code?: string;
-  public readonly details?: unknown;
-
-  constructor(
-    message: string,
-    statusCode: number,
-    code?: string,
-    isOperational = true,
-    details?: unknown
-  ) {
-    super(message);
-    this.statusCode = statusCode;
-    this.isOperational = isOperational;
-    this.code = code;
-    this.details = details;
-    
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
-
-export class ValidationAppError extends AppError {
-  public readonly errors: ValidationError[];
-
-  constructor(errors: ValidationError[]) {
-    super('Validation failed', 400, 'VALIDATION_ERROR');
-    this.errors = errors;
-  }
-}
-
-export class AuthenticationError extends AppError {
-  constructor(message = 'Authentication failed') {
-    super(message, 401, 'AUTHENTICATION_ERROR');
-  }
-}
-
-export class AuthorizationError extends AppError {
-  constructor(message = 'Insufficient permissions') {
-    super(message, 403, 'AUTHORIZATION_ERROR');
-  }
-}
-
-export class NotFoundError extends AppError {
-  constructor(resource = 'Resource') {
-    super(`${resource} not found`, 404, 'NOT_FOUND');
-  }
-}
-
-export class ConflictError extends AppError {
-  constructor(message = 'Resource conflict') {
-    super(message, 409, 'CONFLICT_ERROR');
-  }
-}
-
-export class RateLimitError extends AppError {
-  constructor(message = 'Too many requests') {
-    super(message, 429, 'RATE_LIMIT_ERROR');
-  }
-}
-
-export class ServerError extends AppError {
-  constructor(message = 'Internal server error', details?: unknown) {
-    super(message, 500, 'SERVER_ERROR', false, details);
-  }
-}
+// Re-export canonical error classes from utils to avoid duplication here
+export {
+  AppError,
+  ValidationError as AppValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  RateLimitError,
+  DatabaseError,
+  CacheError,
+  FileSystemError,
+  ExternalServiceError,
+  ConfigurationError,
+  SecurityError,
+  BusinessLogicError
+} from '../utils/errors.js';

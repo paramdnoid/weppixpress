@@ -1,8 +1,8 @@
 import { copyFiles, createFolder, deleteFiles, downloadAsZip, downloadFile, getFolderFiles, moveFiles, renameItem } from '../controllers/fileController.js';
 import authenticateToken from '../middleware/authenticate.js';
-import express from 'express';
+import express, { Router } from 'express';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 router.get('/', authenticateToken, getFolderFiles);
 router.get('/download', authenticateToken, downloadFile);

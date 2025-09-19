@@ -11,8 +11,8 @@ const requestMonitoring = (req: Request, res: Response, next: NextFunction) => {
   res.locals.startTime = startTime;
 
   // Override res.end to capture response metrics
-  const originalEnd = res.end;
-  res.end = function (chunk, encoding, cb) {
+  const originalEnd = res.end.bind(res);
+  res.end = function (chunk?: any, encoding?: any, cb?: any) {
     const responseTime = Date.now() - startTime;
 
     // Record request metrics
@@ -28,7 +28,7 @@ const requestMonitoring = (req: Request, res: Response, next: NextFunction) => {
       // best-effort monitoring; never break the response
     }
 
-    return originalEnd.call(this, chunk, encoding, cb);
+    return originalEnd(chunk, encoding, cb);
   };
 
   next();
@@ -39,7 +39,7 @@ const requestMonitoring = (req: Request, res: Response, next: NextFunction) => {
  * - Saves error on res.locals for the request logger above
  * - Emits a request record flagged with the error
  */
-const errorMonitoring = (err, req, res, next) => {
+const errorMonitoring = (err: any, req: Request, res: Response, next: NextFunction) => {
   // Store error for monitoring
   res.locals.error = err;
 

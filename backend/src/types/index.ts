@@ -1,25 +1,14 @@
-// Export shared types (excluding config types that we override)
-export {
-  User,
-  UserRole,
-  UserSettings,
-  FileItem,
-  Email,
-  LoginCredentials,
-  ApiResponse,
-  ValidationError,
-  ValidationResult
-} from '@shared/types';
+// Note: Shared types are not re-exported here to avoid cross-package coupling
 
-// Export backend-specific types
-export * from './auth.js';
-export * from './express.js';
-export * from './database.js';
-export * from './websocket.js';
-export * from './file.js';
-export * from './services.js';
-export * from './config.js';
-export {
+// Export backend-specific types (use explicit type re-exports to satisfy isolatedModules)
+export type * from './auth.js';
+export type * from './express.js';
+export type * from './database.js';
+export type * from './websocket.js';
+export type * from './file.js';
+export type * from './services.js';
+export type * from './config.js';
+export type {
   ValidationResult as BackendValidationResult,
   ValidationError as BackendValidationError,
   ValidationSchema,

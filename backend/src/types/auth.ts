@@ -1,9 +1,16 @@
 import { Request } from 'express';
-import { User } from '@shared/types';
+
+// Minimal user shape used by backend auth
+export interface AuthUser {
+  id: string;
+  email?: string;
+  role?: string;
+  [key: string]: any;
+}
 
 // Extend Express Request with custom properties
 export interface AuthRequest extends Request {
-  user?: User;
+  user?: AuthUser;
   userId?: string;
   token?: string;
   sessionId?: string;

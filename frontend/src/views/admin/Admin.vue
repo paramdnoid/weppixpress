@@ -55,11 +55,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import AdminToolbar from './AdminToolbar.vue'
 import AdminSidebar from './AdminSidebar.vue'
 import AdminContent from './AdminContent.vue'
+import adminWebSocketService from '@/services/adminWebSocketService'
 
 // Reactive state
 const currentView = ref('dashboard')
@@ -75,31 +76,15 @@ const isCollapsed = ref(false)
 const sidebarWidth = ref(280)
 const isDragging = ref(false)
 
-// Notifications
-const notificationCount = ref(3)
-const notifications = ref([
-  {
-    id: 1,
-    type: 'error',
-    title: 'System Error',
-    message: 'Database connection timeout detected',
-    timestamp: Date.now() - 300000
-  },
-  {
-    id: 2,
-    type: 'warning',
-    title: 'High CPU Usage',
-    message: 'CPU usage above 80% for 5 minutes',
-    timestamp: Date.now() - 600000
-  },
-  {
-    id: 3,
-    type: 'info',
-    title: 'Backup Complete',
-    message: 'Daily backup completed successfully',
-    timestamp: Date.now() - 3600000
-  }
-])
+// Notifications - Dynamic via WebSocket
+const notificationCount = ref(0)
+const notifications = ref<Array<{
+  id: number
+  type: string
+  title: string
+  message: string
+  timestamp: number
+}>>([])
 
 // Sidebar controls
 const toggleSidebar = () => {
@@ -207,6 +192,84 @@ const handleQuickAction = (action: string) => {
       break
   }
 }
+
+// WebSocket event handlers for notifications
+const handleSystemAlert = (alert: any) => {
+  const notification = {
+    id: Date.now(),
+    type: alert.type || 'info',
+    title: alert.title || 'System Alert',
+    message: alert.message || 'System notification',
+    timestamp: alert.timestamp || Date.now()
+  }
+
+  notifications.value.unshift(notification)
+  notificationCount.value = notifications.value.length
+
+  // Keep only last 10 notifications
+  if (notifications.value.length > 10) {
+    notifications.value = notifications.value.slice(0, 10)
+  }
+}
+
+const handleUserAction = (actionData: any) => {
+  const notification = {
+    id: Date.now(),
+    type: 'info',
+    title: 'User Action',
+    message: `${actionData.action}: ${actionData.userEmail || 'Unknown user'}`,
+    timestamp: actionData.timestamp || Date.now()
+  }
+
+  notifications.value.unshift(notification)
+  notificationCount.value = notifications.value.length
+
+  // Keep only last 10 notifications
+  if (notifications.value.length > 10) {
+    notifications.value = notifications.value.slice(0, 10)
+  }
+}
+
+const loadInitialNotifications = () => {
+  // Load initial dashboard data to populate alerts
+  if (adminWebSocketService.dashboardData.overview?.alerts) {
+    const alerts = adminWebSocketService.dashboardData.overview.alerts
+    notifications.value = alerts.map((alert: any, index: number) => ({
+      id: Date.now() + index,
+      type: alert.type || 'info',
+      title: alert.title || 'System Alert',
+      message: alert.message || alert.description || 'System notification',
+      timestamp: alert.timestamp || Date.now()
+    }))
+    notificationCount.value = notifications.value.length
+  }
+}
+
+// Lifecycle hooks
+onMounted(() => {
+  // Set up WebSocket listeners
+  adminWebSocketService.on('system_alert', handleSystemAlert)
+  adminWebSocketService.on('user_action', handleUserAction)
+  adminWebSocketService.on('dashboard_updated', loadInitialNotifications)
+
+  // Connect to WebSocket if not already connected
+  if (!adminWebSocketService.isConnected.value) {
+    adminWebSocketService.connect().then(() => {
+      loadInitialNotifications()
+    }).catch(error => {
+      console.warn('Failed to connect to WebSocket for admin notifications:', error)
+    })
+  } else {
+    loadInitialNotifications()
+  }
+})
+
+onUnmounted(() => {
+  // Remove WebSocket listeners
+  adminWebSocketService.off('system_alert', handleSystemAlert)
+  adminWebSocketService.off('user_action', handleUserAction)
+  adminWebSocketService.off('dashboard_updated', loadInitialNotifications)
+})
 
 // Watch for view changes
 watch(currentView, (newView) => {

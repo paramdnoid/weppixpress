@@ -1,5 +1,5 @@
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
+import * as jwt from 'jsonwebtoken';
 import logger from './logger.js';
 
 /**
@@ -10,7 +10,7 @@ import logger from './logger.js';
 const ACCESS_TOKEN_EXPIRES = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_TOKEN_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 // JWT Secret validation with detailed error handling
-let JWT_SECRET, JWT_REFRESH_SECRET;
+let JWT_SECRET: string, JWT_REFRESH_SECRET: string;
 
 try {
   JWT_SECRET = process.env.JWT_SECRET;
@@ -58,8 +58,8 @@ try {
  * @param {Object} options - Additional token options
  * @returns {string} JWT Access Token
  */
-function generateAccessToken(user, options = {}) {
-  const payload = {
+function generateAccessToken(user: any, options: any = {}) {
+  const payload: any = {
     userId: user.id,
     type: 'access',
     iat: Math.floor(Date.now() / 1000),
@@ -85,7 +85,7 @@ function generateAccessToken(user, options = {}) {
  * @param {Object} options - Additional token options
  * @returns {string} JWT Refresh Token
  */
-function generateRefreshToken(user, options = {}) {
+function generateRefreshToken(user: any, options: any = {}) {
   const payload = {
     userId: user.id,
     type: 'refresh',
@@ -107,7 +107,7 @@ function generateRefreshToken(user, options = {}) {
  * @param {Object} options - Token options
  * @returns {Object} Token pair
  */
-function generateTokenPair(user, options = {}) {
+function generateTokenPair(user: any, options: any = {}) {
   return {
     accessToken: generateAccessToken(user, options.access || {}),
     refreshToken: generateRefreshToken(user, options.refresh || {}),
@@ -121,14 +121,14 @@ function generateTokenPair(user, options = {}) {
  * @param {string} token - JWT Token
  * @returns {Object} Decoded payload
  */
-function verifyAccessToken(token) {
+function verifyAccessToken(token: any) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: process.env.JWT_ISSUER || 'weppixpress',
       audience: process.env.JWT_AUDIENCE || 'weppixpress-api'
     });
 
-    if (decoded.type !== 'access') {
+    if (typeof decoded === 'object' && decoded && (decoded as any).type !== 'access') {
       throw new Error('Invalid token type');
     }
 
@@ -143,14 +143,14 @@ function verifyAccessToken(token) {
  * @param {string} token - JWT Refresh Token
  * @returns {Object} Decoded payload
  */
-function verifyRefreshToken(token) {
+function verifyRefreshToken(token: any) {
   try {
     const decoded = jwt.verify(token, JWT_REFRESH_SECRET, {
       issuer: process.env.JWT_ISSUER || 'weppixpress',
       audience: process.env.JWT_AUDIENCE || 'weppixpress-api'
     });
 
-    if (decoded.type !== 'refresh') {
+    if (typeof decoded === 'object' && decoded && (decoded as any).type !== 'refresh') {
       throw new Error('Invalid token type');
     }
 
@@ -165,7 +165,7 @@ function verifyRefreshToken(token) {
  * @param {string} token - JWT Token
  * @returns {Object} Decoded payload
  */
-function decodeToken(token) {
+function decodeToken(token: any) {
   try {
     return jwt.decode(token);
   } catch {
@@ -178,11 +178,11 @@ function decodeToken(token) {
  * @param {string} token - JWT Token
  * @returns {boolean} True if expired
  */
-function isTokenExpired(token) {
+function isTokenExpired(token: any) {
   try {
     const decoded = decodeToken(token);
-    if (!decoded || !decoded.exp) return true;
-    return Date.now() >= decoded.exp * 1000;
+    if (!decoded || typeof decoded !== 'object' || !(decoded as any).exp) return true;
+    return Date.now() >= (decoded as any).exp * 1000;
   } catch {
     return true;
   }
@@ -204,7 +204,7 @@ const REFRESH_TOKEN_COOKIE_CONFIG =  {
  * @param {Object} res - Express response
  * @param {string} refreshToken - Refresh token
  */
-function setRefreshTokenCookie(res, refreshToken) {
+function setRefreshTokenCookie(res: any, refreshToken: any) {
   res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_CONFIG);
 }
 
@@ -212,7 +212,7 @@ function setRefreshTokenCookie(res, refreshToken) {
  * Clear Refresh Token Cookie
  * @param {Object} res - Express response
  */
-function clearRefreshTokenCookie(res) {
+function clearRefreshTokenCookie(res: any) {
   res.clearCookie('refreshToken', {
     ...REFRESH_TOKEN_COOKIE_CONFIG,
     maxAge: 0

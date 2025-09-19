@@ -4,6 +4,13 @@ import logger from '../utils/logger.js';
  * Service for tracking, analyzing, and alerting on application errors
  */
 class ErrorMetricsService {
+  errorHistory: any[];
+  errorCounts: Map<string, number>;
+  requestCount: number;
+  maxHistorySize: number;
+  alertThresholds: any;
+  cleanupInterval: NodeJS.Timeout;
+
   constructor() {
     // Rolling history of recent errors
     this.errorHistory = [];
@@ -33,7 +40,7 @@ class ErrorMetricsService {
    * @param {Error} error - The error that occurred
    * @param {Object} context - Additional context about the error
    */
-  recordError(error, context = {}) {
+  recordError(error: any, context: any = {}) {
     const errorMetric = {
       timestamp: Date.now(),
       type: error?.constructor?.name || 'Error',
@@ -79,7 +86,7 @@ class ErrorMetricsService {
   /**
    * Check if error conditions warrant an alert
    */
-  checkAlertConditions(_errorMetric) {
+  checkAlertConditions(_errorMetric: any) {
     const now = Date.now();
     const timeWindow = this.alertThresholds.timeWindow;
 
@@ -122,7 +129,7 @@ class ErrorMetricsService {
   /**
    * Trigger an alert for critical error conditions
    */
-  triggerAlert(alertType, details) {
+  triggerAlert(alertType: any, details: any) {
     const alert = {
       type: alertType,
       timestamp: Date.now(),
@@ -139,7 +146,7 @@ class ErrorMetricsService {
   /**
    * Get alert severity level
    */
-  getAlertSeverity(alertType) {
+  getAlertSeverity(alertType: any) {
     switch (alertType) {
       case 'CRITICAL_ERRORS':
         return 'CRITICAL';
@@ -155,7 +162,7 @@ class ErrorMetricsService {
   /**
    * Send alert to configured channels (stub)
    */
-  async sendAlert(alert) {
+  async sendAlert(alert: any) {
     // Placeholder for alert integrations
     if (process.env.NODE_ENV === 'development') {
       logger.warn('🚨 ERROR ALERT:', alert);
@@ -169,7 +176,7 @@ class ErrorMetricsService {
   /**
    * Get error metrics summary
    */
-  getMetrics(timeWindow = 3_600_000) { // Default 1 hour
+  getMetrics(timeWindow: any = 3_600_000) { // Default 1 hour
     const now = Date.now();
     const recentErrors = this.errorHistory.filter(e => now - e.timestamp < timeWindow);
 
@@ -210,10 +217,10 @@ class ErrorMetricsService {
   /**
    * Get most frequent errors
    */
-  getTopErrors(errors, limit = 10) {
+  getTopErrors(errors: any, limit: any = 10) {
     const errorGroups = {};
 
-    errors.forEach(error => {
+    errors.forEach((error: any) => {
       const key = `${error.type}:${error.code}:${error.message}`;
       if (!errorGroups[key]) {
         errorGroups[key] = {
@@ -229,20 +236,20 @@ class ErrorMetricsService {
     });
 
     return Object.values(errorGroups)
-      .sort((a, b) => b.count - a.count)
+      .sort((a: any, b: any) => b.count - a.count)
       .slice(0, limit);
   }
 
   /**
    * Calculate error trends
    */
-  calculateTrends(errors) {
+  calculateTrends(errors: any) {
     const now = Date.now();
     const hourAgo = now - 3_600_000;
     const dayAgo = now - 86_400_000;
 
-    const lastHour = errors.filter(e => e.timestamp > hourAgo).length;
-    const lastDay = errors.filter(e => e.timestamp > dayAgo).length;
+    const lastHour = errors.filter((e: any) => e.timestamp > hourAgo).length;
+    const lastDay = errors.filter((e: any) => e.timestamp > dayAgo).length;
 
     return {
       lastHour,
@@ -255,7 +262,7 @@ class ErrorMetricsService {
   /**
    * Update request count for error rate calculation
    */
-  updateRequestCount(count) {
+  updateRequestCount(count: any) {
     const n = Number(count);
     if (Number.isFinite(n) && n >= 0) {
       this.requestCount = n;

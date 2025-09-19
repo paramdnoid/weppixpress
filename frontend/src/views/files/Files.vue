@@ -328,11 +328,14 @@ function openFileLocal(item) {
     const { isImageFile, isVideoFile, isCodeFile } = useFileManager()
 
     if (isImageFile(item)) {
-      // TODO: Open in image viewer modal
+      // Open image in new tab for now - can be enhanced with modal later
+      window.open(item.downloadUrl, '_blank')
     } else if (isVideoFile(item)) {
-      // TODO: Open in video player modal
+      // Open video in new tab for now - can be enhanced with modal later
+      window.open(item.downloadUrl, '_blank')
     } else if (isCodeFile(item)) {
-      // TODO: Open in code editor modal
+      // Download code files for now - can be enhanced with editor later
+      downloadFileLocal(item)
     } else {
       // Default to download
       downloadFileLocal(item)

@@ -1,10 +1,10 @@
 import { authenticateToken, requireAdmin } from '../middleware/authenticate.js';
 import errorMetricsService from '../services/errorMetricsService.js';
 import monitoringService from '../services/monitoringService.js';
-import logger from '../utils/logger.js';
-import express from 'express';
+import { logger, sendInternalServerError } from '../utils/index.js';
+import express, { Router, Request, Response } from 'express';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 /**
  * @swagger
@@ -38,7 +38,7 @@ const router = express.Router();
  *                 requests:
  *                   type: object
  */
-router.get('/overview', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/overview', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   try {
     const [healthStatus, errorMetrics, performanceReport] = await Promise.all([
       monitoringService.getHealthStatus(),
@@ -84,7 +84,7 @@ router.get('/overview', authenticateToken, requireAdmin, async (req, res) => {
     res.json(overview);
   } catch (error) {
     logger.error('Dashboard overview error:', error);
-    res.status(500).json({ error: 'Failed to get dashboard overview' });
+    sendInternalServerError(res, 'Failed to get dashboard overview', req);
   }
 });
 
@@ -107,10 +107,10 @@ router.get('/overview', authenticateToken, requireAdmin, async (req, res) => {
  *       200:
  *         description: Detailed error metrics
  */
-router.get('/errors', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/errors', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const timeRange = req.query.timeRange || 'last_hour';
-    const timeWindows = {
+    const timeRange = (req.query.timeRange as string) || 'last_hour';
+    const timeWindows: { [key: string]: number } = {
       last_minute: 60000,
       last_hour: 3600000,
       last_day: 86400000
@@ -126,7 +126,7 @@ router.get('/errors', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     logger.error('Dashboard errors error:', error);
-    res.status(500).json({ error: 'Failed to get error metrics' });
+    sendInternalServerError(res, 'Failed to get error metrics', req);
   }
 });
 
@@ -149,9 +149,9 @@ router.get('/errors', authenticateToken, requireAdmin, async (req, res) => {
  *       200:
  *         description: Performance metrics
  */
-router.get('/performance', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/performance', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const timeRange = req.query.timeRange || 'last_hour';
+    const timeRange = (req.query.timeRange as string) || 'last_hour';
     const performanceReport = monitoringService.getPerformanceReport(timeRange);
 
     // Get current system metrics
@@ -167,7 +167,7 @@ router.get('/performance', authenticateToken, requireAdmin, async (req, res) => 
     });
   } catch (error) {
     logger.error('Dashboard performance error:', error);
-    res.status(500).json({ error: 'Failed to get performance metrics' });
+    sendInternalServerError(res, 'Failed to get performance metrics', req);
   }
 });
 
@@ -183,13 +183,13 @@ router.get('/performance', authenticateToken, requireAdmin, async (req, res) => 
  *       200:
  *         description: System health status
  */
-router.get('/system', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/system', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   try {
     const healthStatus = await monitoringService.getHealthStatus();
     res.json(healthStatus);
   } catch (error) {
     logger.error('Dashboard system error:', error);
-    res.status(500).json({ error: 'Failed to get system health' });
+    sendInternalServerError(res, 'Failed to get system health', req);
   }
 });
 
@@ -205,7 +205,7 @@ router.get('/system', authenticateToken, requireAdmin, async (req, res) => {
  *       200:
  *         description: System alerts
  */
-router.get('/alerts', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/alerts', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   try {
     const healthStatus = await monitoringService.getHealthStatus();
     res.json({
@@ -215,7 +215,7 @@ router.get('/alerts', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     logger.error('Dashboard alerts error:', error);
-    res.status(500).json({ error: 'Failed to get alerts' });
+    sendInternalServerError(res, 'Failed to get alerts', req);
   }
 });
 
