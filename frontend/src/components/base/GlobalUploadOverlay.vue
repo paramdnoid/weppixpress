@@ -415,6 +415,12 @@ onUnmounted(() => {
   overflow-y: auto;
 }
 
+.batch-list {
+  margin-top: 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--tblr-gray-200));
+}
+
 .batch-item {
   padding: 0.5rem;
   background: var(--tblr-bg-surface-secondary);
@@ -423,7 +429,7 @@ onUnmounted(() => {
 }
 
 .batch-title {
-  font-size: 0.875rem;
+  font-size: 0.775rem;
   font-weight: 500;
 }
 
@@ -433,6 +439,7 @@ onUnmounted(() => {
 }
 
 .completed-batch {
+  display: none;
   background-color: rgba(var(--tblr-success-rgb), 0.1) !important;
   border-color: var(--tblr-success) !important;
   animation: fadeIn 0.5s ease-in;

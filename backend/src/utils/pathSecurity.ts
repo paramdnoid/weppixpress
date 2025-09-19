@@ -80,7 +80,7 @@ function isSafeFilename(filename) {
   const dangerousPatterns = [
     /[<>:"|?*\x00-\x1F\x7F]/,  // Windows-gefährliche Zeichen inkl. DEL
     /\.$/,                      // Endender Punkt
-    /\.{2,}/,                   // Directory Traversal (2 oder mehr Punkte)
+    /(^|\/)\.\.($|\/)/,         // Directory Traversal (nur echte .. patterns)
     /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i, // Windows reserved names mit Extension
     /^\s|\s$/,                  // Leading/trailing whitespace
     /[\uFEFF\u200B-\u200D\uFEFF]/,  // Unicode Steuerzeichen
@@ -94,7 +94,6 @@ function isSafeFilename(filename) {
 
   // Prüfe auf gefährliche Extensions (nur wirklich gefährliche für File Manager)
   const dangerousExtensions = [
-    '.exe', '.bat', '.cmd'
   ];
 
   const lowerName = filename.toLowerCase();

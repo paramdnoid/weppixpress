@@ -1,5 +1,5 @@
-import * as crypto from 'crypto';
-import * as jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import logger from './logger.js';
 
 /**
