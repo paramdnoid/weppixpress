@@ -1,42 +1,6 @@
 <template>
   <div class="admin-content flex-fill">
     <!-- Page Header -->
-    <div class="page-header d-print-none m-0">
-      <div class="container-fluid">
-        <div class="row align-items-center">
-          <div class="col">
-            <div class="page-pretitle">
-              Administration
-            </div>
-            <h2 class="page-title">
-              <Icon
-                :icon="getCurrentViewIcon()"
-                class="me-2"
-              />
-              {{ getCurrentViewTitle() }}
-            </h2>
-            <div class="text-muted mt-1">
-              {{ getCurrentViewDescription() }}
-            </div>
-          </div>
-          <div class="col-auto d-print-none">
-            <div class="btn-list">
-              <span
-                v-if="isLoading"
-                class="badge bg-blue"
-              >
-                <Icon
-                  icon="tabler:loader-2"
-                  class="spinner me-1"
-                />
-                Loading...
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
 
     <!-- Dynamic Content Area -->
     <div class="page-body">
@@ -91,7 +55,6 @@
 </template>
 
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
 import DashboardComponent from '@/components/admin/DashboardComponent.vue'
 import ErrorAnalyticsComponent from '@/components/admin/ErrorAnalyticsComponent.vue'
 import UserManagementComponent from '@/components/admin/UserManagementComponent.vue'
@@ -104,7 +67,7 @@ interface Props {
   isLoading: boolean
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 const emit = defineEmits<{
   error: [message: string]
@@ -113,36 +76,6 @@ const emit = defineEmits<{
 }>()
 
 // View configuration
-const viewConfig = {
-  dashboard: {
-    icon: 'tabler:dashboard',
-    title: 'Dashboard',
-    description: 'Comprehensive system monitoring and analytics overview'
-  },
-  analytics: {
-    icon: 'tabler:chart-line',
-    title: 'Error Analytics',
-    description: 'Real-time error monitoring, analysis and trending insights'
-  },
-  users: {
-    icon: 'tabler:users',
-    title: 'User Management',
-    description: 'Manage users, roles, and permissions across your organization'
-  }
-}
-
-// Helper functions
-const getCurrentViewIcon = () => {
-  return viewConfig[props.currentView as keyof typeof viewConfig]?.icon || 'tabler:dashboard'
-}
-
-const getCurrentViewTitle = () => {
-  return viewConfig[props.currentView as keyof typeof viewConfig]?.title || 'Dashboard'
-}
-
-const getCurrentViewDescription = () => {
-  return viewConfig[props.currentView as keyof typeof viewConfig]?.description || ''
-}
 
 // Event handlers
 const handleError = (message: string) => {

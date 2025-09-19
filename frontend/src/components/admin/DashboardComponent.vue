@@ -47,12 +47,12 @@
     <!-- System Status Cards -->
     <div class="row mb-4">
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
                 <span class="bg-blue text-white avatar">
-                  <Icon icon="tabler:server" />
+                  <Icon icon="tabler:device-imac-cog" />
                 </span>
               </div>
               <div class="col">
@@ -66,7 +66,7 @@
                 <div class="progress progress-sm mt-2">
                   <div
                     class="progress-bar"
-                    :class="systemStatusBadgeClass"
+                    :class="getSystemStatusProgressClass()"
                     style="width: 100%"
                     role="progressbar"
                     aria-label="System status indicator"
@@ -80,41 +80,9 @@
           </div>
         </div>
       </div>
+
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
-          <div class="card-body">
-            <div class="row align-items-center">
-              <div class="col-auto">
-                <span class="bg-green text-white avatar">
-                  <Icon icon="tabler:memory" />
-                </span>
-              </div>
-              <div class="col">
-                <div
-                  class="font-weight-medium"
-                  v-text="sanitizeText(overview?.system?.memory?.usage_percent) || '0%'"
-                />
-                <div class="text-muted">
-                  Memory Usage
-                </div>
-                <div class="progress progress-sm mt-2">
-                  <div
-                    class="progress-bar bg-green"
-                    :style="{ width: overview?.system?.memory?.usage_percent || '0%' }"
-                    role="progressbar"
-                    aria-label="Memory usage indicator"
-                    :aria-valuenow="parseInt(overview?.system?.memory?.usage_percent || '0')"
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -147,7 +115,40 @@
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-green text-white avatar">
+                  <Icon icon="tabler:server" />
+                </span>
+              </div>
+              <div class="col">
+                <div
+                  class="font-weight-medium"
+                  v-text="sanitizeText(overview?.system?.memory?.usage_percent) || '0%'"
+                />
+                <div class="text-muted">
+                  Memory Usage
+                </div>
+                <div class="progress progress-sm mt-2">
+                  <div
+                    class="progress-bar bg-green"
+                    :style="{ width: overview?.system?.memory?.usage_percent || '0%' }"
+                    role="progressbar"
+                    aria-label="Memory usage indicator"
+                    :aria-valuenow="parseInt(overview?.system?.memory?.usage_percent || '0')"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>      
+      <div class="col-sm-6 col-lg-3">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -194,15 +195,11 @@
             </h3>
           </div>
           <div class="card-body">
-            <div class="chart-placeholder">
-              <div class="text-center py-4 text-muted">
-                <Icon
-                  icon="tabler:chart-line"
-                  size="48"
-                  class="mb-2"
-                />
-                <div>Performance charts will be displayed here</div>
-              </div>
+            <div class="chart-container" style="height: 300px;">
+              <Line
+                :data="performanceData"
+                :options="chartOptions"
+              />
             </div>
           </div>
         </div>
@@ -212,53 +209,37 @@
           <div class="card-header">
             <h3 class="card-title">
               <Icon
-                icon="tabler:activity"
+                icon="tabler:chart-donut"
                 class="me-2"
               />
-              System Activity
+              System Health
             </h3>
           </div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-6">
-                <div class="text-center">
-                  <div class="h3 text-blue">
-                    {{ overview?.requests?.total || 0 }}
-                  </div>
-                  <div class="text-muted small">
-                    Total Requests
-                  </div>
-                </div>
-              </div>
-              <div class="col-6">
-                <div class="text-center">
-                  <div class="h3 text-green">
-                    {{ overview?.requests?.requests_per_minute || 0 }}
-                  </div>
-                  <div class="text-muted small">
-                    Req/Min
-                  </div>
-                </div>
-              </div>
+          <div class="card-body text-center">
+            <div class="chart-container" style="height: 200px;">
+              <Doughnut
+                :data="systemHealthData"
+                :options="donutChartOptions"
+              />
             </div>
             <div class="row mt-3">
               <div class="col-6">
                 <div class="text-center">
-                  <div class="h3 text-yellow">
-                    {{ overview?.requests?.avg_response_time || 0 }}ms
+                  <div class="h4 mb-1" :class="getSystemHealthPercentageClass()">
+                    {{ getSystemHealthPercentage() }}%
                   </div>
                   <div class="text-muted small">
-                    Avg Response
+                    System Health
                   </div>
                 </div>
               </div>
               <div class="col-6">
                 <div class="text-center">
-                  <div class="h3 text-red">
-                    {{ overview?.requests?.error_rate || 0 }}%
+                  <div class="h4 text-blue mb-1">
+                    {{ overview?.requests?.total || 0 }}
                   </div>
                   <div class="text-muted small">
-                    Error Rate
+                    Total Requests
                   </div>
                 </div>
               </div>
@@ -353,6 +334,31 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '@/api/axios'
 import adminWebSocketService from '@/services/adminWebSocketService'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js'
+import { Line, Doughnut } from 'vue-chartjs'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+)
 
 // Utility function for sanitizing text
 const sanitizeText = (text: string | undefined | null): string => {
@@ -439,17 +445,244 @@ const overview = ref<SystemOverview | null>(null)
 const isLoading = ref(false)
 const isConnectedToWebSocket = computed(() => adminWebSocketService.isConnected.value)
 
-// Computed properties
-const systemStatusBadgeClass = computed(() => {
+// Performance chart data with beautiful gradients
+const performanceData = ref({
+  labels: [] as string[],
+  datasets: [
+    {
+      label: 'CPU Usage (%)',
+      data: [] as number[],
+      borderColor: '#ff6b6b',
+      backgroundColor: 'rgba(255, 107, 107, 0.15)',
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: '#ff6b6b',
+      pointBorderColor: '#ffffff',
+      pointHoverBackgroundColor: '#ffffff',
+      pointHoverBorderColor: '#ff6b6b',
+      pointBorderWidth: 2,
+      pointHoverBorderWidth: 3,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      borderWidth: 3
+    },
+    {
+      label: 'Memory Usage (%)',
+      data: [] as number[],
+      borderColor: '#4ecdc4',
+      backgroundColor: 'rgba(78, 205, 196, 0.15)',
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: '#4ecdc4',
+      pointBorderColor: '#ffffff',
+      pointHoverBackgroundColor: '#ffffff',
+      pointHoverBorderColor: '#4ecdc4',
+      pointBorderWidth: 2,
+      pointHoverBorderWidth: 3,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      borderWidth: 3
+    }
+  ]
+})
+
+// System Health Donut Chart Data
+const systemHealthData = computed(() => {
   const status = overview.value?.system?.status
+  const errorCount = overview.value?.errors?.total || 0
+
+  let healthyPercentage = 85
+  let warningPercentage = 10
+  let criticalPercentage = 5
+
+  if (status === 'critical' || errorCount > 50) {
+    criticalPercentage = 60
+    warningPercentage = 25
+    healthyPercentage = 15
+  } else if (status === 'warning' || errorCount > 10) {
+    warningPercentage = 40
+    criticalPercentage = 15
+    healthyPercentage = 45
+  } else {
+    healthyPercentage = 85
+    warningPercentage = 10
+    criticalPercentage = 5
+  }
+
   return {
-    'bg-green': status === 'healthy',
-    'bg-yellow': status === 'warning',
-    'bg-red': status === 'critical'
+    labels: ['Healthy', 'Warning', 'Critical'],
+    datasets: [
+      {
+        data: [healthyPercentage, warningPercentage, criticalPercentage],
+        backgroundColor: [
+          '#4ecdc4',
+          '#ffd93d',
+          '#ff6b6b'
+        ],
+        borderColor: [
+          '#ffffff',
+          '#ffffff',
+          '#ffffff'
+        ],
+        borderWidth: 3,
+        hoverBorderWidth: 4,
+        hoverBackgroundColor: [
+          '#45b7aa',
+          '#f5c842',
+          '#e85a5a'
+        ],
+        cutout: '70%'
+      }
+    ]
   }
 })
 
+const donutChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'bottom' as const,
+      labels: {
+        usePointStyle: true,
+        pointStyle: 'circle',
+        padding: 15,
+        font: {
+          size: 12,
+          weight: 'normal' as const
+        },
+        color: '#6c757d'
+      }
+    },
+    tooltip: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: '#ffffff',
+      bodyColor: '#ffffff',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+      borderWidth: 1,
+      cornerRadius: 8,
+      callbacks: {
+        label: function(context: any) {
+          const value = context.parsed
+          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
+          const percentage = ((value / total) * 100).toFixed(1)
+          return ` ${context.label}: ${percentage}%`
+        }
+      }
+    }
+  },
+  animation: {
+    animateRotate: true,
+    animateScale: true,
+    duration: 1200,
+    easing: 'easeInOutQuart' as const
+  },
+  elements: {
+    arc: {
+      borderJoinStyle: 'round' as const
+    }
+  }
+}
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: {
+    duration: 1000,
+    easing: 'easeInOutQuart' as const
+  },
+  plugins: {
+    legend: {
+      position: 'top' as const,
+      labels: {
+        usePointStyle: true,
+        pointStyle: 'circle',
+        padding: 20,
+        font: {
+          size: 12,
+          weight: 'normal' as const
+        },
+        color: '#6c757d'
+      }
+    },
+    title: {
+      display: false
+    },
+    tooltip: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: '#ffffff',
+      bodyColor: '#ffffff',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+      borderWidth: 1,
+      cornerRadius: 8,
+      displayColors: true,
+      callbacks: {
+        label: function(context: any) {
+          return ` ${context.dataset.label}: ${context.parsed.y}%`
+        }
+      }
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      max: 100,
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)',
+        drawBorder: false
+      },
+      ticks: {
+        callback: function(value: any) {
+          return value + '%'
+        },
+        color: '#6c757d',
+        font: {
+          size: 11
+        },
+        padding: 10
+      }
+    },
+    x: {
+      grid: {
+        display: false,
+        drawBorder: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        },
+        maxTicksLimit: 8,
+        padding: 10
+      }
+    }
+  },
+  interaction: {
+    intersect: false,
+    mode: 'index' as const
+  },
+  elements: {
+    point: {
+      radius: 4,
+      hoverRadius: 6,
+      borderWidth: 2,
+      hoverBorderWidth: 3
+    },
+    line: {
+      borderWidth: 3,
+      tension: 0.4
+    }
+  }
+}
+
 // Helper functions
+const getSystemStatusProgressClass = () => {
+  const status = overview.value?.system?.status
+  if (status === 'healthy') return 'bg-green'
+  if (status === 'warning') return 'bg-yellow'
+  return 'bg-red'
+}
+
 const getSystemHealthClass = () => {
   const status = overview.value?.system?.status
   if (status === 'healthy') return 'bg-green-lt'
@@ -517,6 +750,106 @@ const getAlertLevelBadgeClass = (level: string) => {
   }
 }
 
+const getSystemHealthPercentage = () => {
+  const status = overview.value?.system?.status
+  const errorCount = overview.value?.errors?.total || 0
+
+  if (status === 'critical' || errorCount > 50) {
+    return 15
+  } else if (status === 'warning' || errorCount > 10) {
+    return 45
+  } else {
+    return 85
+  }
+}
+
+const getSystemHealthPercentageClass = () => {
+  const status = overview.value?.system?.status
+  const errorCount = overview.value?.errors?.total || 0
+
+  if (status === 'critical' || errorCount > 50) {
+    return 'text-red'
+  } else if (status === 'warning' || errorCount > 10) {
+    return 'text-yellow'
+  } else {
+    return 'text-green'
+  }
+}
+
+// Chart data management
+const updateChartData = () => {
+  if (!overview.value?.system) return
+
+  const now = new Date().toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+  const cpuUsage = parseInt(overview.value.system.cpu?.usage_percent || '0')
+  const memoryUsage = parseInt(overview.value.system.memory?.usage_percent || '0')
+
+  // Keep only last 20 data points
+  const maxPoints = 20
+
+  // Create new arrays to trigger reactivity
+  const newLabels = [...performanceData.value.labels, now]
+  const cpuDataset = performanceData.value.datasets[0]
+  const memoryDataset = performanceData.value.datasets[1]
+
+  if (!cpuDataset || !memoryDataset) return
+
+  const newCpuData = [...cpuDataset.data, cpuUsage]
+  const newMemoryData = [...memoryDataset.data, memoryUsage]
+
+  // Keep only last maxPoints data points
+  if (newLabels.length > maxPoints) {
+    newLabels.splice(0, newLabels.length - maxPoints)
+    newCpuData.splice(0, newCpuData.length - maxPoints)
+    newMemoryData.splice(0, newMemoryData.length - maxPoints)
+  }
+
+  // Update the reactive data with explicit properties
+  performanceData.value = {
+    labels: newLabels,
+    datasets: [
+      {
+        label: cpuDataset.label,
+        data: newCpuData,
+        borderColor: cpuDataset.borderColor,
+        backgroundColor: cpuDataset.backgroundColor,
+        fill: cpuDataset.fill,
+        tension: cpuDataset.tension,
+        pointBackgroundColor: cpuDataset.pointBackgroundColor,
+        pointBorderColor: cpuDataset.pointBorderColor,
+        pointHoverBackgroundColor: cpuDataset.pointHoverBackgroundColor,
+        pointHoverBorderColor: cpuDataset.pointHoverBorderColor,
+        pointBorderWidth: cpuDataset.pointBorderWidth,
+        pointHoverBorderWidth: cpuDataset.pointHoverBorderWidth,
+        pointRadius: cpuDataset.pointRadius,
+        pointHoverRadius: cpuDataset.pointHoverRadius,
+        borderWidth: cpuDataset.borderWidth
+      },
+      {
+        label: memoryDataset.label,
+        data: newMemoryData,
+        borderColor: memoryDataset.borderColor,
+        backgroundColor: memoryDataset.backgroundColor,
+        fill: memoryDataset.fill,
+        tension: memoryDataset.tension,
+        pointBackgroundColor: memoryDataset.pointBackgroundColor,
+        pointBorderColor: memoryDataset.pointBorderColor,
+        pointHoverBackgroundColor: memoryDataset.pointHoverBackgroundColor,
+        pointHoverBorderColor: memoryDataset.pointHoverBorderColor,
+        pointBorderWidth: memoryDataset.pointBorderWidth,
+        pointHoverBorderWidth: memoryDataset.pointHoverBorderWidth,
+        pointRadius: memoryDataset.pointRadius,
+        pointHoverRadius: memoryDataset.pointHoverRadius,
+        borderWidth: memoryDataset.borderWidth
+      }
+    ]
+  }
+}
+
 // Data fetching
 const refreshData = async () => {
   if (isLoading.value) return
@@ -527,6 +860,7 @@ const refreshData = async () => {
   try {
     const response = await api.get('/dashboard/overview')
     overview.value = response.data
+    updateChartData()
     //emit('success', 'Dashboard data refreshed successfully')
   } catch (err: any) {
     emit('error', err.response?.data?.message || 'Failed to load dashboard data')
@@ -541,6 +875,7 @@ const refreshData = async () => {
 const handleWebSocketData = (data: any) => {
   if (data) {
     overview.value = data
+    updateChartData()
     //emit('success', 'Dashboard data updated via WebSocket')
   }
 }
@@ -594,6 +929,7 @@ onMounted(() => {
   // Use WebSocket data if available, otherwise fetch from API
   if (adminWebSocketService.dashboardData.overview) {
     overview.value = adminWebSocketService.dashboardData.overview
+    updateChartData()
   } else {
     refreshData()
   }
@@ -641,6 +977,13 @@ defineExpose({
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+.chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+  padding: 10px;
+}
+
 .chart-placeholder {
   min-height: 200px;
   display: flex;
@@ -654,5 +997,39 @@ defineExpose({
 
 .empty-icon {
   margin-bottom: 1rem;
+}
+
+/* Enhanced chart styling */
+.card-body .chart-container canvas {
+  border-radius: 8px;
+}
+
+/* Smooth transitions for cards */
+.card {
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Beautiful gradient backgrounds for status cards */
+.bg-blue-lt {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.bg-green-lt {
+  background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+}
+
+.bg-yellow-lt {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+}
+
+.bg-red-lt {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
 }
 </style>

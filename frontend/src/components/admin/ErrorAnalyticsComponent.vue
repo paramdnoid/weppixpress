@@ -47,7 +47,7 @@
     <!-- Error Summary Cards -->
     <div class="row mb-4">
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -75,7 +75,7 @@
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -103,7 +103,7 @@
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -131,7 +131,7 @@
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -161,9 +161,9 @@
       </div>
     </div>
 
-    <!-- Error Charts -->
+    <!-- Error Charts Row 1 - Main Timeline -->
     <div class="row mb-4">
-      <div class="col-md-8">
+      <div class="col-12">
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">
@@ -171,7 +171,7 @@
                 icon="tabler:chart-line"
                 class="me-2"
               />
-              Error Timeline
+              Error Timeline Analysis
             </h3>
           </div>
           <div class="card-body">
@@ -191,22 +191,26 @@
             <div
               v-else
               class="chart-container"
+              style="height: 400px;"
             >
               <Line
                 :data="errorTimelineData"
                 :options="timelineChartOptions"
-                :height="200"
               />
             </div>
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+    </div>
+
+    <!-- Error Charts Row 2 - Distribution and Heat Map -->
+    <div class="row mb-4">
+      <div class="col-md-6">
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">
               <Icon
-                icon="tabler:chart-pie"
+                icon="tabler:chart-donut"
                 class="me-2"
               />
               Error Distribution
@@ -234,11 +238,78 @@
             <div
               v-else
               class="chart-container"
+              style="height: 300px;"
             >
               <Doughnut
                 :data="errorDistributionData"
                 :options="distributionChartOptions"
-                :height="280"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <Icon
+                icon="tabler:chart-bar"
+                class="me-2"
+              />
+              Hourly Error Heat Map
+            </h3>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height: 300px;">
+              <Bar
+                :data="errorHeatMapData"
+                :options="heatMapChartOptions"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Charts Row 3 - Trend Analysis and Response Time Correlation -->
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <Icon
+                icon="tabler:trending-up"
+                class="me-2"
+              />
+              Error Trends (7 Days)
+            </h3>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height: 250px;">
+              <Line
+                :data="errorTrendData"
+                :options="trendChartOptions"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <Icon
+                icon="tabler:activity"
+                class="me-2"
+              />
+              Response Time vs Errors
+            </h3>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height: 250px;">
+              <Line
+                :data="responseTimeCorrelationData"
+                :options="correlationChartOptions"
               />
             </div>
           </div>
@@ -510,24 +581,28 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
   TimeScale,
-  ArcElement
+  ArcElement,
+  Filler
 } from 'chart.js'
-import { Line, Doughnut } from 'vue-chartjs'
+import { Line, Doughnut, Bar } from 'vue-chartjs'
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
   TimeScale,
-  ArcElement
+  ArcElement,
+  Filler
 )
 
 // Utility function for sanitizing text
@@ -633,26 +708,53 @@ const errorTimelineData = computed(() => {
         {
           label: 'Total Errors',
           data: sampleData.map(item => item.totalErrors),
-          borderColor: '#e74c3c',
-          backgroundColor: 'rgba(231, 76, 60, 0.1)',
+          borderColor: '#ff6b6b',
+          backgroundColor: 'rgba(255, 107, 107, 0.15)',
           fill: true,
-          tension: 0.4
+          tension: 0.4,
+          pointBackgroundColor: '#ff6b6b',
+          pointBorderColor: '#ffffff',
+          pointHoverBackgroundColor: '#ffffff',
+          pointHoverBorderColor: '#ff6b6b',
+          pointBorderWidth: 2,
+          pointHoverBorderWidth: 3,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 3
         },
         {
           label: 'Critical Errors',
           data: sampleData.map(item => item.criticalErrors),
-          borderColor: '#f39c12',
-          backgroundColor: 'rgba(243, 156, 18, 0.1)',
+          borderColor: '#ff9f43',
+          backgroundColor: 'rgba(255, 159, 67, 0.15)',
           fill: false,
-          tension: 0.4
+          tension: 0.4,
+          pointBackgroundColor: '#ff9f43',
+          pointBorderColor: '#ffffff',
+          pointHoverBackgroundColor: '#ffffff',
+          pointHoverBorderColor: '#ff9f43',
+          pointBorderWidth: 2,
+          pointHoverBorderWidth: 3,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 3
         },
         {
           label: 'Operational Errors',
           data: sampleData.map(item => item.operationalErrors),
-          borderColor: '#f1c40f',
-          backgroundColor: 'rgba(241, 196, 15, 0.1)',
+          borderColor: '#ffd93d',
+          backgroundColor: 'rgba(255, 217, 61, 0.15)',
           fill: false,
-          tension: 0.4
+          tension: 0.4,
+          pointBackgroundColor: '#ffd93d',
+          pointBorderColor: '#ffffff',
+          pointHoverBackgroundColor: '#ffffff',
+          pointHoverBorderColor: '#ffd93d',
+          pointBorderWidth: 2,
+          pointHoverBorderWidth: 3,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 3
         }
       ]
     }
@@ -665,26 +767,53 @@ const errorTimelineData = computed(() => {
       {
         label: 'Total Errors',
         data: timeline.map(item => item.totalErrors),
-        borderColor: '#e74c3c',
-        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+        borderColor: '#ff6b6b',
+        backgroundColor: 'rgba(255, 107, 107, 0.15)',
         fill: true,
-        tension: 0.4
+        tension: 0.4,
+        pointBackgroundColor: '#ff6b6b',
+        pointBorderColor: '#ffffff',
+        pointHoverBackgroundColor: '#ffffff',
+        pointHoverBorderColor: '#ff6b6b',
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 3
       },
       {
         label: 'Critical Errors',
         data: timeline.map(item => item.criticalErrors),
-        borderColor: '#f39c12',
-        backgroundColor: 'rgba(243, 156, 18, 0.1)',
+        borderColor: '#ff9f43',
+        backgroundColor: 'rgba(255, 159, 67, 0.15)',
         fill: false,
-        tension: 0.4
+        tension: 0.4,
+        pointBackgroundColor: '#ff9f43',
+        pointBorderColor: '#ffffff',
+        pointHoverBackgroundColor: '#ffffff',
+        pointHoverBorderColor: '#ff9f43',
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 3
       },
       {
         label: 'Operational Errors',
         data: timeline.map(item => item.operationalErrors),
-        borderColor: '#f1c40f',
-        backgroundColor: 'rgba(241, 196, 15, 0.1)',
+        borderColor: '#ffd93d',
+        backgroundColor: 'rgba(255, 217, 61, 0.15)',
         fill: false,
-        tension: 0.4
+        tension: 0.4,
+        pointBackgroundColor: '#ffd93d',
+        pointBorderColor: '#ffffff',
+        pointHoverBackgroundColor: '#ffffff',
+        pointHoverBorderColor: '#ffd93d',
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 3
       }
     ]
   }
@@ -693,63 +822,84 @@ const errorTimelineData = computed(() => {
 const timelineChartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  animation: {
+    duration: 1000,
+    easing: 'easeInOutQuart' as const
+  },
   plugins: {
     legend: {
       position: 'top' as const,
       labels: {
         usePointStyle: true,
+        pointStyle: 'circle',
+        padding: 20,
         font: {
-          size: 12
-        }
+          size: 12,
+          weight: 'normal' as const
+        },
+        color: '#6c757d'
       }
     },
     tooltip: {
-      mode: 'index' as const,
-      intersect: false,
       backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: '#fff',
-      bodyColor: '#fff',
-      borderColor: '#ddd',
-      borderWidth: 1
+      titleColor: '#ffffff',
+      bodyColor: '#ffffff',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+      borderWidth: 1,
+      cornerRadius: 8,
+      displayColors: true,
+      callbacks: {
+        label: function(context: any) {
+          return ` ${context.dataset.label}: ${context.parsed.y} errors`
+        }
+      }
     }
   },
   scales: {
     x: {
-      display: true,
-      title: {
-        display: true,
-        text: 'Time',
-        font: {
-          size: 12,
-          weight: 'bold' as const
-        }
-      },
       grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)'
+        color: 'rgba(0, 0, 0, 0.05)',
+        drawBorder: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        },
+        maxTicksLimit: 12,
+        padding: 10
       }
     },
     y: {
-      display: true,
-      title: {
-        display: true,
-        text: 'Error Count',
-        font: {
-          size: 12,
-          weight: 'bold' as const
-        }
-      },
       beginAtZero: true,
       grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)'
+        color: 'rgba(0, 0, 0, 0.05)',
+        drawBorder: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        },
+        padding: 10
       }
     }
   },
   interaction: {
-    mode: 'nearest' as const,
-    axis: 'x' as const,
-    intersect: false
+    intersect: false,
+    mode: 'index' as const
+  },
+  elements: {
+    point: {
+      radius: 4,
+      hoverRadius: 6,
+      borderWidth: 2,
+      hoverBorderWidth: 3
+    },
+    line: {
+      borderWidth: 3,
+      tension: 0.4
+    }
   }
 }))
 
@@ -810,15 +960,24 @@ const errorDistributionData = computed(() => {
 const distributionChartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  animation: {
+    animateRotate: true,
+    animateScale: true,
+    duration: 1200,
+    easing: 'easeInOutQuart' as const
+  },
   plugins: {
     legend: {
       position: 'bottom' as const,
       labels: {
         usePointStyle: true,
-        padding: 20,
+        pointStyle: 'circle',
+        padding: 15,
         font: {
-          size: 11
+          size: 12,
+          weight: 'normal' as const
         },
+        color: '#6c757d',
         generateLabels: (chart: any) => {
           const data = chart.data
           if (data.labels.length && data.datasets.length) {
@@ -844,29 +1003,393 @@ const distributionChartOptions = computed(() => ({
     },
     tooltip: {
       backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: '#fff',
-      bodyColor: '#fff',
-      borderColor: '#ddd',
+      titleColor: '#ffffff',
+      bodyColor: '#ffffff',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
       borderWidth: 1,
+      cornerRadius: 8,
       callbacks: {
         label: (context: any) => {
           const label = context.label || ''
           const value = context.parsed
           const total = context.dataset.data.reduce((sum: number, val: number) => sum + val, 0)
           const percentage = ((value / total) * 100).toFixed(1)
-          return `${label}: ${value} errors (${percentage}%)`
+          return ` ${label}: ${value} errors (${percentage}%)`
         }
       }
     }
   },
   elements: {
     arc: {
-      borderWidth: 2
+      borderJoinStyle: 'round' as const,
+      borderWidth: 3,
+      hoverBorderWidth: 4
     }
   },
-  cutout: '50%', // Makes it a doughnut chart
+  cutout: '65%',
   interaction: {
     intersect: false
+  }
+}))
+
+// Heat Map Chart Data and Options
+const errorHeatMapData = computed(() => {
+  // Generate sample hourly data for the last 24 hours
+  const hours: string[] = []
+  const errorCounts: number[] = []
+  const now = new Date()
+
+  for (let i = 23; i >= 0; i--) {
+    const hour = new Date(now.getTime() - (i * 60 * 60 * 1000))
+    hours.push(hour.getHours().toString().padStart(2, '0') + ':00')
+
+    // Simulate higher error rates during peak hours (9-17)
+    const hourNum = hour.getHours()
+    const baseErrors = Math.floor(Math.random() * 10)
+    const peakMultiplier = (hourNum >= 9 && hourNum <= 17) ? 2 : 1
+    errorCounts.push(baseErrors * peakMultiplier)
+  }
+
+  return {
+    labels: hours,
+    datasets: [
+      {
+        label: 'Error Count',
+        data: errorCounts,
+        backgroundColor: errorCounts.map(count => {
+          const intensity = count / Math.max(...errorCounts)
+          const alpha = 0.3 + (intensity * 0.7)
+          return `rgba(255, 107, 107, ${alpha})`
+        }),
+        borderColor: '#ff6b6b',
+        borderWidth: 2,
+        borderRadius: 4,
+        borderSkipped: false,
+      }
+    ]
+  }
+})
+
+const heatMapChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: {
+    duration: 1000,
+    easing: 'easeInOutQuart' as const
+  },
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: '#ffffff',
+      bodyColor: '#ffffff',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+      borderWidth: 1,
+      cornerRadius: 8,
+      callbacks: {
+        label: function(context: any) {
+          return ` ${context.parsed.y} errors at ${context.label}`
+        }
+      }
+    }
+  },
+  scales: {
+    x: {
+      grid: {
+        display: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        }
+      }
+    },
+    y: {
+      beginAtZero: true,
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)',
+        drawBorder: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        }
+      }
+    }
+  },
+  interaction: {
+    intersect: false,
+    mode: 'index' as const
+  }
+}))
+
+// Error Trend Data (7 Days)
+const errorTrendData = computed(() => {
+  const days: string[] = []
+  const dailyErrors: number[] = []
+  const now = new Date()
+
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date(now.getTime() - (i * 24 * 60 * 60 * 1000))
+    days.push(day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))
+
+    // Simulate realistic error trends with some variation
+    const baseErrors = 50 + Math.floor(Math.random() * 30)
+    const trendFactor = 1 + (i * 0.1) // Slight increasing trend
+    dailyErrors.push(Math.floor(baseErrors * trendFactor))
+  }
+
+  return {
+    labels: days,
+    datasets: [
+      {
+        label: 'Daily Errors',
+        data: dailyErrors,
+        borderColor: '#ff6b6b',
+        backgroundColor: 'rgba(255, 107, 107, 0.15)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#ff6b6b',
+        pointBorderColor: '#ffffff',
+        pointHoverBackgroundColor: '#ffffff',
+        pointHoverBorderColor: '#ff6b6b',
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 3,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        borderWidth: 3
+      }
+    ]
+  }
+})
+
+const trendChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: {
+    duration: 1000,
+    easing: 'easeInOutQuart' as const
+  },
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: '#ffffff',
+      bodyColor: '#ffffff',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+      borderWidth: 1,
+      cornerRadius: 8,
+      callbacks: {
+        label: function(context: any) {
+          return ` ${context.parsed.y} errors on ${context.label}`
+        }
+      }
+    }
+  },
+  scales: {
+    x: {
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)',
+        drawBorder: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        }
+      }
+    },
+    y: {
+      beginAtZero: true,
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)',
+        drawBorder: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        }
+      }
+    }
+  },
+  elements: {
+    point: {
+      radius: 5,
+      hoverRadius: 7,
+      borderWidth: 2,
+      hoverBorderWidth: 3
+    },
+    line: {
+      borderWidth: 3,
+      tension: 0.4
+    }
+  }
+}))
+
+// Response Time vs Errors Correlation
+const responseTimeCorrelationData = computed(() => {
+  const hours: string[] = []
+  const responseTime: number[] = []
+  const errors: number[] = []
+  const now = new Date()
+
+  for (let i = 11; i >= 0; i--) {
+    const hour = new Date(now.getTime() - (i * 60 * 60 * 1000))
+    hours.push(hour.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))
+
+    // Simulate correlation between response time and errors
+    const baseResponseTime = 200 + Math.floor(Math.random() * 100)
+    const errorCount = Math.floor(Math.random() * 15)
+
+    // When response time is high, errors tend to be higher too
+    const correlatedErrors = errorCount + Math.floor(baseResponseTime / 50)
+
+    responseTime.push(baseResponseTime)
+    errors.push(correlatedErrors)
+  }
+
+  return {
+    labels: hours,
+    datasets: [
+      {
+        label: 'Response Time (ms)',
+        data: responseTime,
+        borderColor: '#4ecdc4',
+        backgroundColor: 'rgba(78, 205, 196, 0.15)',
+        fill: false,
+        tension: 0.4,
+        pointBackgroundColor: '#4ecdc4',
+        pointBorderColor: '#ffffff',
+        pointHoverBackgroundColor: '#ffffff',
+        pointHoverBorderColor: '#4ecdc4',
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 3,
+        yAxisID: 'y'
+      },
+      {
+        label: 'Error Count',
+        data: errors,
+        borderColor: '#ff9f43',
+        backgroundColor: 'rgba(255, 159, 67, 0.15)',
+        fill: false,
+        tension: 0.4,
+        pointBackgroundColor: '#ff9f43',
+        pointBorderColor: '#ffffff',
+        pointHoverBackgroundColor: '#ffffff',
+        pointHoverBorderColor: '#ff9f43',
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 3,
+        yAxisID: 'y1'
+      }
+    ]
+  }
+})
+
+const correlationChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: {
+    duration: 1000,
+    easing: 'easeInOutQuart' as const
+  },
+  plugins: {
+    legend: {
+      position: 'top' as const,
+      labels: {
+        usePointStyle: true,
+        pointStyle: 'circle',
+        padding: 15,
+        font: {
+          size: 11,
+          weight: 'normal' as const
+        },
+        color: '#6c757d'
+      }
+    },
+    tooltip: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: '#ffffff',
+      bodyColor: '#ffffff',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+      borderWidth: 1,
+      cornerRadius: 8,
+      callbacks: {
+        label: function(context: any) {
+          const unit = context.dataset.label.includes('Response') ? 'ms' : 'errors'
+          return ` ${context.dataset.label}: ${context.parsed.y}${unit}`
+        }
+      }
+    }
+  },
+  scales: {
+    x: {
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)',
+        drawBorder: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        }
+      }
+    },
+    y: {
+      type: 'linear' as const,
+      display: true,
+      position: 'left' as const,
+      beginAtZero: true,
+      grid: {
+        color: 'rgba(0, 0, 0, 0.05)',
+        drawBorder: false
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        }
+      }
+    },
+    y1: {
+      type: 'linear' as const,
+      display: true,
+      position: 'right' as const,
+      beginAtZero: true,
+      grid: {
+        drawOnChartArea: false,
+      },
+      ticks: {
+        color: '#6c757d',
+        font: {
+          size: 11
+        }
+      }
+    }
+  },
+  elements: {
+    point: {
+      radius: 4,
+      hoverRadius: 6,
+      borderWidth: 2,
+      hoverBorderWidth: 3
+    },
+    line: {
+      borderWidth: 3,
+      tension: 0.4
+    }
   }
 }))
 
@@ -1075,8 +1598,43 @@ defineExpose({
 }
 
 .chart-container {
-  min-height: 200px;
   position: relative;
+  width: 100%;
+  padding: 10px;
+}
+
+/* Enhanced chart styling */
+.card-body .chart-container canvas {
+  border-radius: 8px;
+}
+
+/* Smooth transitions for cards */
+.card {
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Beautiful gradient backgrounds for status cards */
+.bg-blue-lt {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.bg-green-lt {
+  background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+}
+
+.bg-yellow-lt {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+}
+
+.bg-red-lt {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
 }
 
 .progress-sm {

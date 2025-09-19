@@ -55,15 +55,15 @@ api.interceptors.response.use(
     
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
-      
+
       try {
         // Use injected auth handlers
         if (!authHandlers) {
           throw new Error('Auth handlers not initialized')
         }
-        
+
         await authHandlers.refresh()
-        
+
         // Retry original request with new token
         const token = authHandlers.getAccessToken()
         if (token) {
@@ -78,16 +78,16 @@ api.interceptors.response.use(
           ? (refreshError.response?.data?.message || refreshError.message)
           : String(refreshError)
         console.warn('Token refresh failed:', message)
-        
+
         if (authHandlers) {
           await authHandlers.logout()
         }
-        
+
         // If we're not already on login page, redirect
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login'
         }
-        
+
         return Promise.reject(refreshError)
       }
     }

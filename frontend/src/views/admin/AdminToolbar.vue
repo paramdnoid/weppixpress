@@ -39,18 +39,19 @@
         </span>
       </div>
 
-      <!-- Refresh Button -->
+      <!-- Refresh Button (hidden when Live Update is active) -->
       <button
+        v-if="!props.autoRefresh"
         type="button"
         class="btn btn-primary btn-sm"
-        :disabled="isLoading"
+        :disabled="props.isLoading"
         @click="emit('refresh')"
       >
         <Icon
-          :icon="isLoading ? 'tabler:loader-2' : 'tabler:refresh'"
-          :class="isLoading ? 'spinner-border spinner-border-sm me-1' : 'me-1'"
+          :icon="props.isLoading ? 'tabler:loader-2' : 'tabler:refresh'"
+          :class="props.isLoading ? 'spinner-border spinner-border-sm me-1' : 'me-1'"
         />
-        {{ isLoading ? 'Loading...' : 'Refresh' }}
+        {{ props.isLoading ? 'Loading...' : 'Refresh' }}
       </button>
     </nav>
   </div>
@@ -80,7 +81,7 @@ interface Props {
   notifications: Notification[]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   toggleSidebar: []
@@ -95,7 +96,6 @@ const emit = defineEmits<{
 
 // WebSocket connection status
 const connectionStatus = computed(() => adminWebSocketService.connectionStatus.value)
-const isConnected = computed(() => adminWebSocketService.isConnected.value)
 
 const connectionStatusClass = computed(() => {
   switch (connectionStatus.value) {

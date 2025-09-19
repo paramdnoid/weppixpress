@@ -14,7 +14,11 @@ import {
   verify2FA,
   refreshToken,
   logout,
-  getProfile
+  getProfile,
+  generateBackupCodes,
+  getBackupCodes,
+  verifyBackupCode,
+  get2FAStatus
 } from '../controllers/authController.js';
 
 import {
@@ -44,6 +48,12 @@ router.post('/logout', logout);
 router.post('/setup-2fa', authenticateToken, setup2FA);
 router.post('/enable-2fa', authenticateToken, validateRequest(enable2FASchema), enable2FAController);
 router.post('/disable-2fa', authenticateToken, disable2FAController);
+router.get('/2fa-status', authenticateToken, get2FAStatus);
+
+// Backup codes routes
+router.post('/generate-backup-codes', authenticateToken, generateBackupCodes);
+router.get('/backup-codes', authenticateToken, getBackupCodes);
+router.post('/verify-backup-code', validateRequest(verify2FASchema), verifyBackupCode);
 
 router.get('/me', authenticateToken, getProfile);
 

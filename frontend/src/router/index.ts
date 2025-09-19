@@ -27,7 +27,12 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   try {
     const auth = useAuthStore();
-    
+
+    // Initialize auth from storage on first route (safe from F5 logout)
+    if (!auth.user && !to.path.includes('/login')) {
+      auth.initializeFromStorage();
+    }
+
     // Check authentication first
     if (to.meta.requiresAuth && !auth.user) {
       return next('/login');

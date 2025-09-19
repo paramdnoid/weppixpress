@@ -47,8 +47,8 @@
             <span class="nav-subtitle">Error monitoring & analysis</span>
             <span
               v-if="errorCount > 0"
-              class="badge ms-auto"
-              :class="errorCount > 10 ? 'bg-red' : 'bg-yellow'"
+              class="badge bg-light ms-auto"
+              :class="errorCount > 10 ? 'bg-danger' : 'bg-warning'"
             >
               {{ formatNumber(errorCount) }}
             </span>
@@ -69,7 +69,7 @@
             <span class="nav-subtitle">Manage users & permissions</span>
             <span
               v-if="totalUsers > 0"
-              class="badge bg-blue ms-auto"
+              class="badge bg-light ms-auto"
             >
               {{ formatNumber(totalUsers) }}
             </span>
@@ -216,53 +216,47 @@
           </div>
 
           <div class="activity-list">
-            <div class="activity-item">
-              <div class="activity-icon bg-green-lt">
+            <div
+              v-for="activity in recentActivities"
+              :key="activity.id"
+              class="activity-item"
+            >
+              <div
+                class="activity-icon"
+                :class="activity.iconClass"
+              >
                 <Icon
-                  icon="tabler:user-plus"
+                  :icon="activity.icon"
                   size="14"
                 />
               </div>
               <div class="activity-content">
                 <div class="activity-text">
-                  New user registered
+                  {{ activity.message }}
                 </div>
                 <div class="activity-time">
-                  2 minutes ago
+                  {{ formatTimeAgo(activity.timestamp) }}
                 </div>
               </div>
             </div>
 
-            <div class="activity-item">
-              <div class="activity-icon bg-blue-lt">
+            <!-- Fallback when no activities -->
+            <div
+              v-if="recentActivities.length === 0"
+              class="activity-item"
+            >
+              <div class="activity-icon bg-gray-lt">
                 <Icon
-                  icon="tabler:database-export"
+                  icon="tabler:clock"
                   size="14"
                 />
               </div>
               <div class="activity-content">
-                <div class="activity-text">
-                  System backup completed
+                <div class="activity-text text-muted">
+                  No recent activity
                 </div>
                 <div class="activity-time">
-                  1 hour ago
-                </div>
-              </div>
-            </div>
-
-            <div class="activity-item">
-              <div class="activity-icon bg-yellow-lt">
-                <Icon
-                  icon="tabler:alert-triangle"
-                  size="14"
-                />
-              </div>
-              <div class="activity-content">
-                <div class="activity-text">
-                  High memory usage detected
-                </div>
-                <div class="activity-time">
-                  3 hours ago
+                  Waiting for events...
                 </div>
               </div>
             </div>
@@ -274,7 +268,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import adminWebSocketService from '@/services/adminWebSocketService'
 
@@ -382,11 +376,125 @@ const formatNumber = (num: number) => {
   return num.toString()
 }
 
-// Setup WebSocket connection
+// Recent Activity Management
+interface ActivityItem {
+  id: string
+  type: 'user_registered' | 'user_login' | 'system_alert' | 'backup_completed' | 'error_occurred' | 'admin_action'
+  message: string
+  timestamp: Date
+  icon: string
+  iconClass: string
+}
+
+const recentActivities = ref<ActivityItem[]>([])
+const maxActivities = 5
+
+const addActivity = (activity: Omit<ActivityItem, 'id' | 'timestamp'>) => {
+  const newActivity: ActivityItem = {
+    ...activity,
+    id: `activity_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+    timestamp: new Date()
+  }
+
+  recentActivities.value.unshift(newActivity)
+
+  // Keep only the latest activities
+  if (recentActivities.value.length > maxActivities) {
+    recentActivities.value = recentActivities.value.slice(0, maxActivities)
+  }
+}
+
+const getActivityConfig = (type: ActivityItem['type']) => {
+  switch (type) {
+    case 'user_registered':
+      return { icon: 'tabler:user-plus', iconClass: 'bg-green-lt' }
+    case 'user_login':
+      return { icon: 'tabler:login', iconClass: 'bg-blue-lt' }
+    case 'system_alert':
+      return { icon: 'tabler:alert-triangle', iconClass: 'bg-yellow-lt' }
+    case 'backup_completed':
+      return { icon: 'tabler:database-export', iconClass: 'bg-blue-lt' }
+    case 'error_occurred':
+      return { icon: 'tabler:alert-circle', iconClass: 'bg-red-lt' }
+    case 'admin_action':
+      return { icon: 'tabler:settings', iconClass: 'bg-purple-lt' }
+    default:
+      return { icon: 'tabler:info-circle', iconClass: 'bg-gray-lt' }
+  }
+}
+
+const formatTimeAgo = (timestamp: Date) => {
+  const now = new Date()
+  const diffMs = now.getTime() - timestamp.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+}
+
+// WebSocket event handlers for activities
+const handleUserOnline = (data: any) => {
+  if (data?.userId) {
+    addActivity({
+      type: 'user_login',
+      message: 'User logged in',
+      ...getActivityConfig('user_login')
+    })
+  }
+}
+
+const handleSystemAlert = (data: any) => {
+  addActivity({
+    type: 'system_alert',
+    message: data?.message || 'System alert triggered',
+    ...getActivityConfig('system_alert')
+  })
+}
+
+const handleUserAction = (data: any) => {
+  if (data?.action === 'register') {
+    addActivity({
+      type: 'user_registered',
+      message: 'New user registered',
+      ...getActivityConfig('user_registered')
+    })
+  } else {
+    addActivity({
+      type: 'admin_action',
+      message: data?.message || 'Admin action performed',
+      ...getActivityConfig('admin_action')
+    })
+  }
+}
+
+// Setup WebSocket connection and event listeners
 onMounted(() => {
   if (!adminWebSocketService.isConnected.value) {
     adminWebSocketService.connect().catch(console.warn)
   }
+
+  // Set up activity event listeners
+  adminWebSocketService.on('user_online', handleUserOnline)
+  adminWebSocketService.on('system_alert', handleSystemAlert)
+  adminWebSocketService.on('user_action', handleUserAction)
+
+  // Add some initial activities
+  // addActivity({
+  //   type: 'backup_completed',
+  //   message: 'System backup completed',
+  //   ...getActivityConfig('backup_completed')
+  // })
+})
+
+onUnmounted(() => {
+  // Clean up event listeners
+  adminWebSocketService.off('user_online', handleUserOnline)
+  adminWebSocketService.off('system_alert', handleSystemAlert)
+  adminWebSocketService.off('user_action', handleUserAction)
 })
 </script>
 

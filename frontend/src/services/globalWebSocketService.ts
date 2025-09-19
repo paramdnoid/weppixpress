@@ -1,4 +1,5 @@
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 
 export interface WebSocketMessage {
   type: string
@@ -9,12 +10,12 @@ export interface WebSocketMessage {
   userId?: string
 }
 
-class AdminWebSocketService {
+class GlobalWebSocketService {
   private ws: WebSocket | null = null
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
   private reconnectInterval = 5000
-  private heartbeatInterval: NodeJS.Timeout | null = null
+  private heartbeatInterval: number | null = null
   private isConnecting = false
 
   // Reactive state
@@ -22,33 +23,11 @@ class AdminWebSocketService {
   public connectionStatus = ref<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected')
   public lastError = ref<string | null>(null)
 
-  // Data stores
-  public dashboardData = reactive({
-    overview: null as any,
-    lastUpdated: null as Date | null
-  })
-
-  public systemMetrics = reactive({
-    data: null as any,
-    lastUpdated: null as Date | null
-  })
-
-  public errorMetrics = reactive({
-    data: null as any,
-    lastUpdated: null as Date | null
-  })
-
-  public userStatistics = reactive({
-    data: null as any,
-    lastUpdated: null as Date | null
-  })
-
   // Event listeners
   private eventListeners: Map<string, Function[]> = new Map()
 
   constructor() {
-    // Don't auto-connect in constructor to avoid circular dependencies
-    // Connection will be initiated when needed
+    // Will be initialized when needed
   }
 
   connect(): Promise<void> {
@@ -77,12 +56,14 @@ class AdminWebSocketService {
           this.reconnectAttempts = 0
           this.lastError.value = null
 
-          // Subscribe to admin channels
-          this.subscribeToAdminChannels()
+          // Subscribe to general channels
+          this.subscribeToChannels()
 
           // Start heartbeat
           this.startHeartbeat()
 
+          // Auto-authenticate with current user
+          this.authenticateCurrentUser()
 
           resolve()
         }
@@ -96,12 +77,12 @@ class AdminWebSocketService {
           }
         }
 
-        this.ws.onclose = () => {
+        this.ws.onclose = (event) => {
           this.handleDisconnection()
         }
 
         this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error)
+          console.error('Global WebSocket error:', error)
           this.connectionStatus.value = 'error'
           this.lastError.value = 'Connection error'
           this.isConnecting = false
@@ -118,15 +99,13 @@ class AdminWebSocketService {
     })
   }
 
-  private subscribeToAdminChannels() {
+  private subscribeToChannels() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
 
+    // Subscribe to user-relevant channels
     const channels = [
-      '/admin/dashboard',
-      '/admin/system',
-      '/admin/errors',
-      '/admin/users',
-      '/admin/alerts'
+      '/admin/users', // For online status updates
+      '/general/notifications'
     ]
 
     channels.forEach(channel => {
@@ -137,53 +116,48 @@ class AdminWebSocketService {
     })
   }
 
-  private handleMessage(message: WebSocketMessage) {
+  private authenticateCurrentUser() {
+    try {
+      const authStore = useAuthStore()
+      if (authStore.user?.id) {
+        this.send({
+          type: 'authenticate',
+          userId: authStore.user.id
+        })
+      }
+    } catch (error) {
+      console.warn('Failed to auto-authenticate with WebSocket:', error)
+    }
+  }
 
+  private handleMessage(message: WebSocketMessage) {
     switch (message.type) {
       case 'welcome':
         break
 
-      case 'dashboard_overview':
-        this.dashboardData.overview = message.data
-        this.dashboardData.lastUpdated = new Date()
-        this.emit('dashboard_updated', message.data)
-        break
-
-      case 'system_metrics':
-        this.systemMetrics.data = message.data
-        this.systemMetrics.lastUpdated = new Date()
-        this.emit('system_metrics_updated', message.data)
-        break
-
-      case 'error_metrics':
-        this.errorMetrics.data = message.data
-        this.errorMetrics.lastUpdated = new Date()
-        this.emit('error_metrics_updated', message.data)
-        break
-
-      case 'user_statistics':
-        this.userStatistics.data = message.data
-        this.userStatistics.lastUpdated = new Date()
-        this.emit('user_statistics_updated', message.data)
-        break
-
-      case 'user_action':
-        this.emit('user_action', message.data)
-        break
-
-
       case 'authenticated':
         break
 
-      case 'system_alert':
-        this.emit('system_alert', message.data)
+      case 'logout_confirmed':
+        break
+
+      case 'user_online':
+        this.emit('user_online', message.data)
+        break
+
+      case 'user_offline':
+        this.emit('user_offline', message.data)
+        break
+
+      case 'online_users_list':
+        this.emit('online_users_list', message.data)
         break
 
       case 'subscribed':
         break
 
       case 'error':
-        console.error('WebSocket error message:', message)
+        console.error('Global WebSocket error message:', message)
         this.lastError.value = message.data?.message || 'Unknown error'
         break
 
@@ -192,6 +166,7 @@ class AdminWebSocketService {
         break
 
       default:
+        console.warn('Unknown global WebSocket message type:', message.type)
     }
   }
 
@@ -213,11 +188,11 @@ class AdminWebSocketService {
 
       setTimeout(() => {
         this.connect().catch(error => {
-          console.error('Reconnection failed:', error)
+          console.error('Global WebSocket reconnection failed:', error)
         })
       }, this.reconnectInterval)
     } else {
-      console.error('Max reconnection attempts reached')
+      console.error('Max global WebSocket reconnection attempts reached')
       this.lastError.value = 'Connection lost'
     }
   }
@@ -235,9 +210,10 @@ class AdminWebSocketService {
       try {
         this.ws.send(JSON.stringify(message))
       } catch (error) {
-        console.error('Error sending WebSocket message:', error)
+        console.error('Error sending global WebSocket message:', error)
       }
     } else {
+      console.warn('Global WebSocket not connected, cannot send message:', message)
     }
   }
 
@@ -282,39 +258,22 @@ class AdminWebSocketService {
         try {
           callback(data)
         } catch (error) {
-          console.error(`Error in WebSocket event listener for ${event}:`, error)
+          console.error(`Error in global WebSocket event listener for ${event}:`, error)
         }
       })
     }
   }
 
-  // Request immediate data refresh
-  requestRefresh(dataType?: string) {
+  // Authenticate with user ID
+  authenticate(userId: string) {
     this.send({
-      type: 'request_refresh',
-      data: { dataType }
+      type: 'authenticate',
+      userId
     })
-  }
-
-
-  // Get connection info
-  getConnectionInfo() {
-    return {
-      isConnected: this.isConnected.value,
-      connectionStatus: this.connectionStatus.value,
-      lastError: this.lastError.value,
-      reconnectAttempts: this.reconnectAttempts,
-      hasData: {
-        dashboard: !!this.dashboardData.overview,
-        system: !!this.systemMetrics.data,
-        errors: !!this.errorMetrics.data,
-        users: !!this.userStatistics.data
-      }
-    }
   }
 }
 
 // Create singleton instance
-const adminWebSocketService = new AdminWebSocketService()
+const globalWebSocketService = new GlobalWebSocketService()
 
-export default adminWebSocketService
+export default globalWebSocketService

@@ -57,13 +57,6 @@ class SecureTokenStorage {
     }
   }
 
-  /**
-   * Check if we're in a secure context
-   */
-  private static isSecureContext(): boolean {
-    return window.location.protocol === 'https:' ||
-           window.location.hostname === 'localhost'
-  }
 
   /**
    * Store access token securely
@@ -77,15 +70,11 @@ class SecureTokenStorage {
     try {
       const encrypted = this.encrypt(token)
 
-      if (this.isSecureContext() && 'sessionStorage' in window) {
-        // Use sessionStorage in secure contexts for better security
-        sessionStorage.setItem(this.ACCESS_TOKEN_KEY, encrypted)
-        // Remove from localStorage if it exists
-        localStorage.removeItem(this.ACCESS_TOKEN_KEY)
-      } else {
-        // Fallback to localStorage with encryption
-        localStorage.setItem(this.ACCESS_TOKEN_KEY, encrypted)
-      }
+      // Always use localStorage to persist across page reloads
+      // sessionStorage causes logout on page reload
+      localStorage.setItem(this.ACCESS_TOKEN_KEY, encrypted)
+      // Clean up any sessionStorage entries
+      sessionStorage.removeItem(this.ACCESS_TOKEN_KEY)
     } catch (error) {
       console.error('Failed to store access token:', error)
     }
@@ -96,16 +85,19 @@ class SecureTokenStorage {
    */
   static getAccessToken(): string | null {
     try {
-      // Try sessionStorage first (more secure)
-      const sessionToken = sessionStorage.getItem(this.ACCESS_TOKEN_KEY)
-      if (sessionToken) {
-        return this.decrypt(sessionToken)
-      }
-
-      // Fallback to localStorage
+      // Check localStorage first (persistent across reloads)
       const localToken = localStorage.getItem(this.ACCESS_TOKEN_KEY)
       if (localToken) {
         return this.decrypt(localToken)
+      }
+
+      // Legacy: check sessionStorage and migrate if found
+      const sessionToken = sessionStorage.getItem(this.ACCESS_TOKEN_KEY)
+      if (sessionToken) {
+        const decrypted = this.decrypt(sessionToken)
+        // Migrate to localStorage
+        this.setAccessToken(decrypted)
+        return decrypted
       }
 
       // Legacy support - check for unencrypted token

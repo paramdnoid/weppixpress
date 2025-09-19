@@ -4,7 +4,6 @@ import { useLocalStorage } from '@vueuse/core'
 import api, { setAuthHandlers } from '@/api/axios'
 import SecureTokenStorage from '@/utils/tokenStorage'
 import { authLogger } from '@/utils/logger'
-import { useAsyncState } from '@/composables/useAsyncState'
 import type { User, LoginCredentials } from '@/types'
 
 interface AuthSession {
@@ -19,13 +18,32 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const accessToken = ref<string | null>(null)
   const pending2FA = ref<string | null>(null)
-  const verifiedEmail = ref(false)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const lastActivity = ref(Date.now())
 
-  // Persistent session storage
-  const persistedSession = useLocalStorage<AuthSession | null>('auth:session', null)
+  // Persistent session storage with custom serialization
+  const persistedSession = useLocalStorage<AuthSession | null>('auth:session', null, {
+    serializer: {
+      read: (value: string): AuthSession | null => {
+        try {
+          if (!value || value === 'null' || value === '[object Object]') return null
+          return JSON.parse(value) as AuthSession
+        } catch {
+          console.warn('Failed to parse session from localStorage, clearing')
+          return null
+        }
+      },
+      write: (value: AuthSession | null): string => {
+        try {
+          return JSON.stringify(value)
+        } catch {
+          console.warn('Failed to serialize session to localStorage')
+          return 'null'
+        }
+      }
+    }
+  })
 
   // Computed properties
   const isAuthenticated = computed(() => !!user.value && !!accessToken.value)
@@ -51,8 +69,9 @@ export const useAuthStore = defineStore('auth', () => {
       // Set auth header
       api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
 
-      // Validate token
-      validateSession()
+      // Authenticate with WebSocket for online status tracking
+      authenticateWithWebSocket(persistedSession.value.user.id)
+
     } else {
       clearSession()
     }
@@ -89,22 +108,31 @@ export const useAuthStore = defineStore('auth', () => {
     delete api.defaults.headers.common['Authorization']
   }
 
-  // Session validation
-  const {
-    state: validationState,
-    isLoading: isValidating,
-    execute: validateSession
-  } = useAsyncState(
-    async () => {
-      const response = await api.get('/auth/me')
-      if (response.data.user) {
-        user.value = response.data.user
-        updateSession({ user: response.data.user })
+  // Disconnect from WebSocket
+  const disconnectFromWebSocket = () => {
+    // Import the global WebSocket service dynamically to avoid circular dependencies
+    import('@/services/globalWebSocketService').then((module) => {
+      const globalWebSocketService = module.default
+
+      // Send logout message before disconnecting if user is authenticated
+      if (user.value?.id && globalWebSocketService.isConnected.value) {
+        globalWebSocketService.send({
+          type: 'logout',
+          userId: user.value.id
+        })
+
+        // Wait a bit for message to be sent, then disconnect
+        setTimeout(() => {
+          globalWebSocketService.disconnect()
+        }, 100)
+      } else {
+        globalWebSocketService.disconnect()
       }
-      return response.data
-    },
-    { immediate: false }
-  )
+    }).catch(error => {
+      console.warn('Failed to import global WebSocket service for disconnect:', error)
+    })
+  }
+
 
   // Actions
   const login = async (credentials: LoginCredentials): Promise<void> => {
@@ -136,6 +164,10 @@ export const useAuthStore = defineStore('auth', () => {
           user: data.user,
           accessToken: data.accessToken
         })
+
+        // Authenticate with WebSocket for online status tracking
+        authenticateWithWebSocket(data.user.id)
+
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Login failed'
@@ -152,6 +184,8 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (err) {
       authLogger.error('Logout failed', err)
     } finally {
+      // Disconnect from WebSocket before clearing session
+      disconnectFromWebSocket()
       clearSession()
     }
   }
@@ -192,6 +226,10 @@ export const useAuthStore = defineStore('auth', () => {
         user: data.user,
         accessToken: data.accessToken
       })
+
+      // Authenticate with WebSocket for online status tracking
+      authenticateWithWebSocket(data.user.id)
+
     } catch (err) {
       authLogger.error('2FA verification failed', err)
       throw err
@@ -217,8 +255,10 @@ export const useAuthStore = defineStore('auth', () => {
         accessToken: data.accessToken,
         ...(data.user && { user: data.user })
       })
+
     } catch (err) {
       authLogger.error('Token refresh failed', err)
+      disconnectFromWebSocket()
       clearSession()
       throw err
     }
@@ -277,6 +317,30 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // WebSocket authentication helper
+  const authenticateWithWebSocket = (userId: string) => {
+    // Import the global WebSocket service dynamically to avoid circular dependencies
+    import('@/services/globalWebSocketService').then((module) => {
+      const globalWebSocketService = module.default
+
+      // Connect if not already connected
+      if (!globalWebSocketService.isConnected.value) {
+        globalWebSocketService.connect().then(() => {
+          // Send authentication after connection
+          globalWebSocketService.authenticate(userId)
+        }).catch(error => {
+          console.warn('Failed to connect to global WebSocket for online status:', error)
+        })
+      } else {
+        // Send authentication immediately if already connected
+        globalWebSocketService.authenticate(userId)
+      }
+    }).catch(error => {
+      console.warn('Failed to import global WebSocket service:', error)
+    })
+  }
+
+
   // Auto-refresh token before expiration
   const autoRefresh = ref<ReturnType<typeof setTimeout> | null>(null)
 
@@ -310,15 +374,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   })
 
-  // Initialize store
-  initializeFromStorage()
+  // Initialize store - delay to avoid immediate validation on page load
 
   return {
     // State
     user: computed(() => user.value),
     accessToken: computed(() => accessToken.value),
     pending2FA: computed(() => pending2FA.value),
-    verifiedEmail: computed(() => verifiedEmail.value),
     isLoading: computed(() => isLoading.value),
     error: computed(() => error.value),
 
@@ -327,7 +389,6 @@ export const useAuthStore = defineStore('auth', () => {
     isPending2FA,
     hasError,
     isSessionExpired,
-    isValidating,
 
     // Actions
     login,
@@ -342,7 +403,8 @@ export const useAuthStore = defineStore('auth', () => {
     enable2FA,
     disable2FA,
     updateActivity,
-    clearSession
+    clearSession,
+    initializeFromStorage
   }
 })
 

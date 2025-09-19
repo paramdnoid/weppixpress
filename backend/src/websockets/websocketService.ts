@@ -16,6 +16,7 @@ class WebSocketManager {
   public clients: Map<string, WSClient>;
   public pathSubscriptions: Map<string, Set<ExtendedWebSocket>>;
   public pingInterval?: NodeJS.Timeout;
+  public onlineUsers: Map<string, Set<string>>; // userId -> Set of clientIds
 
   constructor(server: HTTPServer) {
     this.wss = new WebSocketServer({
@@ -26,6 +27,7 @@ class WebSocketManager {
 
     this.clients = new Map<string, WSClient>();
     this.pathSubscriptions = new Map<string, Set<WebSocket>>();
+    this.onlineUsers = new Map<string, Set<string>>();
     
     this.setupWebSocketServer();
     logger.info('WebSocket server initialized on /ws');
@@ -172,10 +174,6 @@ class WebSocketManager {
         throw new Error('Message type too long');
       }
 
-      logger.debug(`Message from client ${clientInfo.id}:`, {
-        type: message.type,
-        hasPath: !!message.path
-      });
 
       switch (message.type) {
         case 'subscribe':
@@ -201,7 +199,25 @@ class WebSocketManager {
         case 'ping':
           this.sendToClient(ws, { type: 'pong', timestamp: Date.now() });
           break;
-          
+
+        case 'authenticate':
+          if (typeof message.userId !== 'string') {
+            throw new Error('User ID must be a string');
+          }
+          this.authenticateUser(ws, message.userId);
+          break;
+
+        case 'request_online_users':
+          this.sendOnlineUsersToClient(ws);
+          break;
+
+        case 'logout':
+          if (typeof message.userId !== 'string') {
+            throw new Error('User ID must be a string');
+          }
+          this.handleUserLogout(ws, message.userId);
+          break;
+
         default:
           logger.warn(`Unknown message type: ${message.type}`, { clientId: clientInfo.id });
           this.sendToClient(ws, {
@@ -300,8 +316,14 @@ class WebSocketManager {
     logger.info(`Client ${clientInfo.id} disconnected`, {
       code,
       reason: reason.toString(),
-      duration: Date.now() - clientInfo.connectedAt
+      duration: Date.now() - clientInfo.connectedAt,
+      userId: clientInfo.userId
     });
+
+    // Handle user offline status
+    if (clientInfo.userId) {
+      this.setUserOffline(clientInfo.userId, clientInfo.id);
+    }
 
     // Clean up subscriptions
     clientInfo.subscriptions.forEach(path => {
@@ -316,6 +338,116 @@ class WebSocketManager {
 
     // Remove client from the Map
     this.clients.delete(clientInfo.id);
+  }
+
+  // User authentication and online status tracking
+  authenticateUser(ws: any, userId: string) {
+    // Find client by WebSocket instance
+    let clientInfo: WSClient | undefined;
+    for (const client of this.clients.values()) {
+      if (client.ws === ws) {
+        clientInfo = client;
+        break;
+      }
+    }
+    if (!clientInfo) return;
+
+    // Set user ID for this client
+    clientInfo.userId = userId;
+
+    // Add user to online users
+    this.setUserOnline(userId, clientInfo.id);
+
+    // Send authentication confirmation
+    this.sendToClient(ws, {
+      type: 'authenticated',
+      userId,
+      timestamp: Date.now()
+    });
+
+  }
+
+  setUserOnline(userId: string, clientId: string) {
+    if (!this.onlineUsers.has(userId)) {
+      this.onlineUsers.set(userId, new Set());
+    }
+
+    const wasOffline = this.onlineUsers.get(userId)!.size === 0;
+    this.onlineUsers.get(userId)!.add(clientId);
+
+    if (wasOffline) {
+      // User came online, broadcast to admin clients
+      this.broadcastToPath('/admin/users', {
+        type: 'user_online',
+        data: { userId }
+      });
+
+    }
+  }
+
+  setUserOffline(userId: string, clientId: string) {
+    if (!this.onlineUsers.has(userId)) return;
+
+    this.onlineUsers.get(userId)!.delete(clientId);
+
+    if (this.onlineUsers.get(userId)!.size === 0) {
+      // User went offline (no more active connections)
+      this.onlineUsers.delete(userId);
+
+      // Broadcast to admin clients
+      this.broadcastToPath('/admin/users', {
+        type: 'user_offline',
+        data: { userId }
+      });
+
+    }
+  }
+
+  getOnlineUserIds(): string[] {
+    return Array.from(this.onlineUsers.keys());
+  }
+
+  isUserOnline(userId: string): boolean {
+    return this.onlineUsers.has(userId) && this.onlineUsers.get(userId)!.size > 0;
+  }
+
+  broadcastOnlineUsersList() {
+    const onlineUserIds = this.getOnlineUserIds();
+    this.broadcastToPath('/admin/users', {
+      type: 'online_users_list',
+      data: { userIds: onlineUserIds }
+    });
+  }
+
+  sendOnlineUsersToClient(ws: any) {
+    const onlineUserIds = this.getOnlineUserIds();
+    this.sendToClient(ws, {
+      type: 'online_users_list',
+      data: { userIds: onlineUserIds }
+    });
+  }
+
+  handleUserLogout(ws: any, userId: string) {
+    // Find client by WebSocket instance
+    let clientInfo: WSClient | undefined;
+    for (const client of this.clients.values()) {
+      if (client.ws === ws) {
+        clientInfo = client;
+        break;
+      }
+    }
+    if (!clientInfo) return;
+
+
+    // Set user offline
+    this.setUserOffline(userId, clientInfo.id);
+
+    // Confirm logout
+    this.sendToClient(ws, {
+      type: 'logout_confirmed',
+      userId,
+      timestamp: Date.now()
+    });
   }
 
   sendToClient(ws: any, message: any) {
@@ -357,10 +489,6 @@ class WebSocketManager {
       return;
     }
 
-    logger.info(`Broadcasting to ${activeSubscribers.length} active clients on path: ${normalizedPath}`, {
-      messageType: message.type,
-      batchId: broadcastMessage.batchId
-    });
 
     // Batch sending for better performance
     const batchSize = 50;
@@ -445,7 +573,6 @@ class WebSocketManager {
   broadcastBatchFileOperations(operations: any) {
     const batchId = crypto.randomUUID().substring(0, 8);
     
-    logger.info(`Broadcasting batch operation with ${operations.length} items`, { batchId });
     
     operations.forEach(op => {
       switch (op.type) {

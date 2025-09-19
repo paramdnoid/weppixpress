@@ -3,7 +3,7 @@
     <!-- Statistics Cards -->
     <div class="row mb-4">
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -24,7 +24,7 @@
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -45,7 +45,7 @@
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -66,7 +66,7 @@
         </div>
       </div>
       <div class="col-sm-6 col-lg-3">
-        <div class="card card-sm">
+        <div class="card bg-body rounded-2 border-1 card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
@@ -88,11 +88,63 @@
       </div>
     </div>
 
-    <!-- Search and Filter Bar -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <div class="row">
-          <div class="col-md-6">
+    <!-- Users Table -->
+    <div class="card">
+      <div class="card-header border-0 pb-0 bg-body">
+        <div class="row w-100 align-items-center justify-content-between">
+          <div class="col">
+            <h3 class="card-title mb-0">
+              <Icon
+                icon="tabler:table"
+                class="me-2"
+              />
+              Users Directory
+            </h3>
+          </div>
+          <div class="col-auto p-0">
+            <div class="dropdown">
+              <a
+                href="#"
+                class="btn-action dropdown-toggle"
+                data-bs-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                <Icon icon="tabler:dots-vertical" />
+              </a>
+              <div class="dropdown-menu dropdown-menu-end">
+                <a
+                  href="#"
+                  class="dropdown-item"
+                  @click="exportUsers"
+                >
+                  <Icon
+                    icon="tabler:download"
+                    class="me-2"
+                  />
+                  Export Users
+                </a>
+                <div class="dropdown-divider" />
+                <a
+                  href="#"
+                  class="dropdown-item"
+                  @click="refreshUsers"
+                >
+                  <Icon
+                    icon="tabler:refresh"
+                    class="me-2"
+                  />
+                  Refresh Data
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-header bg-body">
+        <!-- Search and Filter Bar -->
+        <div class="row w-100 g-0">
+          <div class="col-md-6 pe-2">
             <div class="form-group mb-3 mb-md-0">
               <div class="input-icon">
                 <span class="input-icon-addon">
@@ -108,7 +160,7 @@
             </div>
           </div>
           <div class="col-md-6">
-            <div class="row">
+            <div class="row g-1">
               <div class="col-6">
                 <select
                   v-model="sortBy"
@@ -141,57 +193,6 @@
                   </option>
                 </select>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Users Table -->
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">
-          <Icon
-            icon="tabler:table"
-            class="me-2"
-          />
-          Users Directory
-        </h3>
-        <div class="card-actions">
-          <div class="dropdown">
-            <a
-              href="#"
-              class="btn-action dropdown-toggle"
-              data-bs-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false"
-            >
-              <Icon icon="tabler:dots-vertical" />
-            </a>
-            <div class="dropdown-menu dropdown-menu-end">
-              <a
-                href="#"
-                class="dropdown-item"
-                @click="exportUsers"
-              >
-                <Icon
-                  icon="tabler:download"
-                  class="me-2"
-                />
-                Export Users
-              </a>
-              <div class="dropdown-divider" />
-              <a
-                href="#"
-                class="dropdown-item"
-                @click="refreshUsers"
-              >
-                <Icon
-                  icon="tabler:refresh"
-                  class="me-2"
-                />
-                Refresh Data
-              </a>
             </div>
           </div>
         </div>
@@ -247,7 +248,6 @@
                   >Select all users</label>
                 </th>
                 <th>User</th>
-                <th>Contact</th>
                 <th>Status</th>
                 <th>Role</th>
                 <th>Joined</th>
@@ -294,33 +294,18 @@
                   </div>
                 </td>
                 <td>
-                  <div>
-                    <div class="text-muted">
-                      <Icon
-                        icon="tabler:mail"
-                        class="me-1"
-                        size="14"
-                      />
-                      <span v-text="sanitizeText(user.email)" />
-                    </div>
-                    <div
-                      v-if="user.phone"
-                      class="text-muted"
-                    >
-                      <Icon
-                        icon="tabler:phone"
-                        class="me-1"
-                        size="14"
-                      />
-                      <span v-text="sanitizeText(user.phone)" />
-                    </div>
-                  </div>
-                </td>
-                <td>
                   <div class="d-flex align-items-center">
+                    <!-- Online Status Indicator -->
+                    <span
+                      class="status-dot me-2"
+                      :class="getUserOnlineStatus(user.id)"
+                      :title="isUserOnline(user.id) ? 'Online' : 'Offline'"
+                    />
+                    <!-- Verification Status -->
                     <span
                       class="status-dot"
                       :class="user.isVerified ? 'status-dot-animated bg-green' : 'bg-yellow'"
+                      :title="user.isVerified ? 'Verified' : 'Unverified'"
                     />
                     <span class="ms-2">{{ user.isVerified ? 'Verified' : 'Pending' }}</span>
                   </div>
@@ -508,6 +493,7 @@ import { Icon } from '@iconify/vue'
 import api from '@/api/axios'
 import { useAuthStore } from '@/stores/auth'
 import adminWebSocketService from '@/services/adminWebSocketService'
+import globalWebSocketService from '@/services/globalWebSocketService'
 
 // Utility function for sanitizing text
 const sanitizeText = (text: string | undefined | null): string => {
@@ -571,6 +557,9 @@ const isUpdating = ref(false)
 const sortBy = ref('name')
 const sortOrder = ref('asc')
 const isConnectedToWebSocket = computed(() => adminWebSocketService.isConnected.value)
+
+// Online status tracking
+const onlineUsers = ref<Set<string>>(new Set())
 
 // Pagination
 const currentPage = ref(1)
@@ -736,6 +725,16 @@ const getActivityStatusText = (status?: string, lastLoginAt?: string) => {
   return status
 }
 
+// Online status functions
+const isUserOnline = (userId: string): boolean => {
+  return onlineUsers.value.has(userId)
+}
+
+const getUserOnlineStatus = (userId: string): string => {
+  const isOnline = isUserOnline(userId)
+  return isOnline ? 'bg-green status-dot-animated' : 'bg-gray'
+}
+
 // Actions
 const refreshUsers = async () => {
   emit('loading', true)
@@ -859,11 +858,29 @@ const handleUserAction = (data: any) => {
   //emit('success', `User action: ${data.action}`)
 }
 
+// Online status WebSocket handlers
+const handleUserOnline = (data: { userId: string }) => {
+  onlineUsers.value.add(data.userId)
+}
+
+const handleUserOffline = (data: { userId: string }) => {
+  onlineUsers.value.delete(data.userId)
+}
+
+const handleOnlineUsersList = (data: { userIds: string[] }) => {
+  onlineUsers.value = new Set(data.userIds)
+}
+
 // Lifecycle
 onMounted(() => {
-  // Set up WebSocket listeners
+  // Set up WebSocket listeners for admin data
   adminWebSocketService.on('user_statistics_updated', handleUserStatistics)
   adminWebSocketService.on('user_action', handleUserAction)
+
+  // Listen to global WebSocket for online status updates (all users use this)
+  globalWebSocketService.on('user_online', handleUserOnline)
+  globalWebSocketService.on('user_offline', handleUserOffline)
+  globalWebSocketService.on('online_users_list', handleOnlineUsersList)
 
   refreshUsers()
 
@@ -873,12 +890,30 @@ onMounted(() => {
       console.warn('Failed to connect to WebSocket for user management:', error)
     })
   }
+
+  // Set up WebSocket authentication when connection is established
+  const authStore = useAuthStore()
+
+  // Watch for WebSocket connection changes and authenticate
+  watch(isConnectedToWebSocket, (isConnected) => {
+    if (isConnected && authStore.user?.id) {
+      adminWebSocketService.send({
+        type: 'authenticate',
+        userId: authStore.user.id
+      })
+    }
+  }, { immediate: true })
 })
 
 onUnmounted(() => {
   // Remove WebSocket listeners
   adminWebSocketService.off('user_statistics_updated', handleUserStatistics)
   adminWebSocketService.off('user_action', handleUserAction)
+
+  // Remove global WebSocket listeners
+  globalWebSocketService.off('user_online', handleUserOnline)
+  globalWebSocketService.off('user_offline', handleUserOffline)
+  globalWebSocketService.off('online_users_list', handleOnlineUsersList)
 })
 
 // Expose utilities for template use
@@ -967,5 +1002,26 @@ defineExpose({
 
 .card-sm:hover {
   transform: translateY(-2px);
+}
+
+/* Fix dropdown positioning and visibility */
+.dropdown-menu {
+  z-index: 1050 !important;
+}
+
+/* Ensure table allows dropdowns to overflow */
+.table-responsive {
+  overflow: visible !important;
+}
+
+/* For dropdowns in table rows that might be cut off */
+.dropdown {
+  position: relative;
+}
+
+/* Fix for dropdowns near bottom of container */
+.dropdown-menu.show {
+  max-height: 300px;
+  overflow-y: auto;
 }
 </style>

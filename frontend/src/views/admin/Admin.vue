@@ -272,8 +272,8 @@ onUnmounted(() => {
 })
 
 // Watch for view changes
-watch(currentView, (newView) => {
-  console.log(`Switched to admin view: ${newView}`)
+watch(currentView, () => {
+  // View change handler - can be used for cleanup or analytics
 })
 </script>
 
