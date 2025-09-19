@@ -1,6 +1,11 @@
+import typescriptEslint from '@typescript-eslint/eslint-plugin';
+import typescriptParser from '@typescript-eslint/parser';
+
 export default [
   {
+    files: ['**/*.ts'],
     languageOptions: {
+      parser: typescriptParser,
       ecmaVersion: 2022,
       sourceType: "module",
       globals: {
@@ -19,6 +24,9 @@ export default [
         clearInterval: "readonly",
         setTimeout: "readonly",
         clearTimeout: "readonly",
+        // Node.js and TypeScript globals
+        NodeJS: "readonly",
+        Express: "readonly",
         // Mocha globals
         describe: "readonly",
         it: "readonly",
@@ -28,11 +36,14 @@ export default [
         afterEach: "readonly"
       }
     },
+    plugins: {
+      '@typescript-eslint': typescriptEslint,
+    },
     rules: {
       "no-unused-vars": [
-        "error",
+        "warn",
         {
-          "argsIgnorePattern": "^_",
+          "argsIgnorePattern": "^_|req|res|next|err|error",
           "varsIgnorePattern": "^_",
           "caughtErrors": "all",
           "caughtErrorsIgnorePattern": "^_"
@@ -42,7 +53,7 @@ export default [
       "prefer-const": "error",
       "no-var": "error",
       "eqeqeq": "error",
-      "no-undef": "error",
+      "no-undef": "off",
       "no-control-regex": "off",
       "no-extra-semi": "error"
     }

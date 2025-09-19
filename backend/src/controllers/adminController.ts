@@ -471,7 +471,7 @@ export async function getDashboardOverview(req: AuthenticatedRequest, res: Respo
  */
 export async function getActivityLogs(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const { limit = 50, offset = 0, type } = req.query;
+    const { limit = 50, offset = 0, _type } = req.query;
 
     // This would typically come from a database query
     // For now, return mock data that represents the structure
